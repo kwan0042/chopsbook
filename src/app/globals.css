@@ -1,26 +1,23 @@
+/* src/app/globals.css */
+
+/* Tailwind CSS v4 的最新導入方式 */
+
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* 你可以在這裡添加任何自定義的全局 CSS 樣式 */
+@theme {
+  --color-jp-primary: var(--jp-primary);
+  --color-jp-accent: var(--jp-accent);
+  --color-jp-bg-light: var(--jp-bg-light);
+  --color-jp-text-dark: var(--jp-text-dark);
+  --color-jp-warning: var(--jp-warning);
+  --color-jp-neutral-light: var(--jp-neutral-light);
+
+  /* 擴展字體，確保 Inter 字體可用 */
+  --font-inter: 'Inter', sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* 例如，為整個應用程式設定默認字體 */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', sans-serif;
 }
