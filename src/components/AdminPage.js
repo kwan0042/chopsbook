@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useContext } from "react";
+import { useRouter } from "next/navigation"; // 導入 useRouter
 import { AuthContext } from "../lib/auth-context"; // Path from components to lib
 import Modal from "./Modal"; // Path from components to components
 import LoadingSpinner from "./LoadingSpinner"; // Path from components to components
@@ -17,6 +18,21 @@ import {
 } from "firebase/firestore";
 
 /**
+ * 輔助函數：將 Date 物件格式化為 "YYYY-MM-DD HH:MM:SS" 字串。
+ * @param {Date} date - 要格式化的 Date 物件。
+ * @returns {string} 格式化後的日期時間字串。
+ */
+const formatDateTime = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+/**
  * AdminPage: 提供管理員功能，包括用戶、餐廳和餐廳申請的 CRUD 操作。
  * @param {object} props - 組件屬性。
  * @param {function} props.onBackToHome - 返回主頁的回調函數。
@@ -25,18 +41,22 @@ const AdminPage = ({ onBackToHome }) => {
   const {
     db,
     appId,
+    currentUser,
     setModalMessage: setGlobalModalMessage,
   } = useContext(AuthContext);
-  const [activeTab, setActiveTab] = useState("applications"); // 'applications', 'restaurants', 'users'
-  const [applications, setApplications] = useState([]);
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("applications"); // 'applications', 'update_applications', 'restaurants', 'users'
+  const [applications, setApplications] = useState([]); // 新餐廳申請
+  const [updateApplications, setUpdateApplications] = useState([]); // 餐廳更新申請
   const [restaurants, setRestaurants] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalMessage, setModalMessage] = useState(""); // 本地模態框訊息
+  const [isGridView, setIsGridView] = useState(false); // 控制餐廳列表是否為網格視圖
 
   const closeModal = () => setModalMessage("");
 
-  // Fetch Restaurant Applications
+  // Fetch Restaurant Applications (新餐廳申請)
   useEffect(() => {
     if (!db) return;
     setLoading(true);
@@ -54,8 +74,37 @@ const AdminPage = ({ onBackToHome }) => {
         setLoading(false);
       },
       (error) => {
-        console.error("Error fetching applications:", error);
-        setModalMessage(`獲取申請失敗: ${error.message}`);
+        console.error("Error fetching new applications:", error);
+        setModalMessage(`獲取新餐廳申請失敗: ${error.message}`);
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, [db, appId]);
+
+  // Fetch Restaurant Update Applications (餐廳更新申請)
+  useEffect(() => {
+    if (!db) return;
+    setLoading(true);
+    const q = query(
+      collection(
+        db,
+        `artifacts/${appId}/public/data/restaurant_update_applications`
+      )
+    );
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setUpdateApplications(data);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching update applications:", error);
+        setModalMessage(`獲取餐廳更新申請失敗: ${error.message}`);
         setLoading(false);
       }
     );
@@ -89,11 +138,10 @@ const AdminPage = ({ onBackToHome }) => {
   }, [db, appId]);
 
   // Fetch Users (User Profiles stored in Firestore)
-  // Assuming a 'users' collection where doc.id is the user's UID
   useEffect(() => {
     if (!db) return;
     setLoading(true);
-    const q = query(collection(db, `artifacts/${appId}/public/data/users`));
+    const q = query(collection(db, `artifacts/${appId}/users`));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -113,11 +161,11 @@ const AdminPage = ({ onBackToHome }) => {
     return () => unsubscribe();
   }, [db, appId]);
 
-  // --- Restaurant Applications Actions ---
+  // --- New Restaurant Applications Actions ---
 
   const handleApproveApplication = async (application) => {
-    if (!db) {
-      setModalMessage("Firebase DB 未初始化。");
+    if (!db || !currentUser) {
+      setModalMessage("Firebase DB 未初始化或未登入。");
       return;
     }
     setLoading(true);
@@ -127,27 +175,39 @@ const AdminPage = ({ onBackToHome }) => {
         `artifacts/${appId}/public/data/restaurants`,
         application.id
       );
-      // Copy relevant data from application to the main restaurants collection
-      // You might want to pick specific fields from application to store in restaurants
+
+      const now = new Date();
+      const formattedApprovedAt = formatDateTime(now);
+      const adminUserId = currentUser.uid;
+
       const approvedRestaurantData = {
-        name: application.restaurantNameZh || application.restaurantNameEn,
-        cuisine: application.cuisineType,
-        address: application.fullAddress,
-        phone: application.phone,
+        restaurantNameZh: application.restaurantNameZh || "",
+        restaurantNameEn: application.restaurantNameEn || "",
+        city: application.city || "",
+        province: application.province || "",
+        fullAddress: application.fullAddress || "",
+        phone: application.phone || "",
         website: application.website || "",
-        imageUrl: application.facadePhotoUrl || "",
-        seatingCapacity: application.seatingCapacity,
-        businessHours: application.businessHours,
-        reservationModes: application.reservationModes,
-        paymentMethods: application.paymentMethods,
-        facilitiesServices: application.facilitiesServices,
-        avgSpending: application.avgSpending,
-        // Add default or initial values for fields like rating, reviewCount if not present
-        rating: 0, // Initial rating
-        reviewCount: 0, // Initial review count
-        // You might want to store who approved it and when
-        approvedAt: new Date(),
-        approvedBy: "admin_user_id_placeholder", // Replace with actual admin user ID
+        cuisineType: application.cuisineType || "",
+        restaurantType: application.restaurantType || "",
+        avgSpending: application.avgSpending || 0,
+        facadePhotoUrls: application.facadePhotoUrls || [], // 確保處理多個圖片URL
+        seatingCapacity: application.seatingCapacity || "",
+        businessHours: application.businessHours || "",
+        reservationModes: application.reservationModes || [],
+        paymentMethods: application.paymentMethods || [],
+        facilitiesServices: application.facilitiesServices || [],
+        otherInfo: application.otherInfo || "",
+        isManager: application.isManager || false,
+        contactName: application.contactName || "",
+        contactPhone: application.contactPhone || "",
+        contactEmail: application.contactEmail || "",
+        rating: application.rating || 0,
+        reviewCount: application.reviewCount || 0,
+        approvedAt: formattedApprovedAt,
+        approvedBy: adminUserId,
+        isTemporarilyClosed: application.isTemporarilyClosed || false,
+        isPermanentlyClosed: application.isPermanentlyClosed || false,
       };
       await setDoc(restaurantRef, approvedRestaurantData); // Use setDoc to set a specific ID
       await deleteDoc(
@@ -158,11 +218,14 @@ const AdminPage = ({ onBackToHome }) => {
         )
       );
       setModalMessage(
-        `餐廳 '${approvedRestaurantData.name}' 已成功批准並新增到餐廳列表。`
+        `餐廳 '${
+          approvedRestaurantData.restaurantNameZh ||
+          approvedRestaurantData.restaurantNameEn
+        }' 已成功批准並新增到餐廳列表。`
       );
     } catch (error) {
       console.error("Error approving application:", error);
-      setModalMessage(`批准申請失敗: ${error.message}`);
+      setModalMessage(`批准新餐廳申請失敗: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -182,16 +245,85 @@ const AdminPage = ({ onBackToHome }) => {
           applicationId
         )
       );
-      setModalMessage("餐廳申請已成功拒絕。");
+      setModalMessage("新餐廳申請已成功拒絕。");
     } catch (error) {
       console.error("Error rejecting application:", error);
-      setModalMessage(`拒絕申請失敗: ${error.message}`);
+      setModalMessage(`拒絕新餐廳申請失敗: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- Restaurant Management Actions ---
+  // --- Restaurant Update Applications Actions ---
+
+  const handleApproveUpdateApplication = async (updateApp) => {
+    if (!db || !currentUser) {
+      setModalMessage("Firebase DB 未初始化或未登入。");
+      return;
+    }
+    setLoading(true);
+    try {
+      const restaurantRef = doc(
+        db,
+        `artifacts/${appId}/public/data/restaurants`,
+        updateApp.restaurantId
+      );
+
+      const now = new Date();
+      const formattedApprovedAt = formatDateTime(now);
+      const adminUserId = currentUser.uid;
+
+      // 使用 updateApp.updatedData 來更新餐廳
+      await updateDoc(restaurantRef, {
+        ...updateApp.updatedData, // 應用所有提交的更新資料
+        updatedAt: formattedApprovedAt, // 記錄批准更新的時間
+        updatedBy: adminUserId, // 記錄批准更新的管理員
+      });
+      await deleteDoc(
+        doc(
+          db,
+          `artifacts/${appId}/public/data/restaurant_update_applications`,
+          updateApp.id
+        )
+      );
+      setModalMessage(
+        `餐廳 '${
+          updateApp.updatedData.restaurantNameZh ||
+          updateApp.updatedData.restaurantNameEn
+        }' 的更新已成功批准。`
+      );
+    } catch (error) {
+      console.error("Error approving update application:", error);
+      setModalMessage(`批准更新申請失敗: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectUpdateApplication = async (updateApplicationId) => {
+    if (!db) {
+      setModalMessage("Firebase DB 未初始化。");
+      return;
+    }
+    setLoading(true);
+    try {
+      await deleteDoc(
+        doc(
+          db,
+          `artifacts/${appId}/public/data/restaurant_update_applications`,
+          updateApplicationId
+        )
+      );
+      setModalMessage("餐廳更新申請已成功拒絕。");
+    } catch (error) {
+      console.error("Error rejecting update application:", error);
+      setModalMessage(`拒絕更新申請失敗: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Restaurant Management Actions (保持不變) ---
 
   const handleDeleteRestaurant = async (restaurantId) => {
     if (!db) {
@@ -217,17 +349,14 @@ const AdminPage = ({ onBackToHome }) => {
       setModalMessage("Firebase DB 未初始化。");
       return;
     }
-    // In a real app, you'd show a form to edit the restaurant data.
-    // For this example, we'll just show a placeholder.
-    setModalMessage(`更新餐廳 '${restaurant.name}' 功能尚待開發。`);
-    // Example: await updateDoc(doc(db, `artifacts/${appId}/public/data/restaurants`, restaurant.id), { someField: 'newValue' });
+    setModalMessage(
+      `更新餐廳 '${
+        restaurant.restaurantNameZh || restaurant.restaurantNameEn
+      }' 功能尚待開發。(直接更新)`
+    );
   };
 
-  // --- User Management Actions ---
-  // Note: Managing actual Firebase Auth users (creating/deleting them) should be done via Firebase Admin SDK
-  // on a secure backend server, not directly from client-side code for security reasons.
-  // Here, we're managing 'user profiles' stored in Firestore.
-
+  // --- User Management Actions (保持不變) ---
   const handleDeleteUser = async (userId) => {
     if (!db) {
       setModalMessage("Firebase DB 未初始化。");
@@ -235,7 +364,6 @@ const AdminPage = ({ onBackToHome }) => {
     }
     setLoading(true);
     try {
-      // Deleting user profile from Firestore
       await deleteDoc(doc(db, `artifacts/${appId}/public/data/users`, userId));
       setModalMessage("用戶檔案已成功刪除。");
     } catch (error) {
@@ -251,14 +379,8 @@ const AdminPage = ({ onBackToHome }) => {
       setModalMessage("Firebase DB 未初始化。");
       return;
     }
-    // In a real app, you'd show a form to edit the user data.
     setModalMessage(`更新用戶 '${user.email || user.id}' 功能尚待開發。`);
   };
-
-  // Assuming `currentUser` from AuthContext would be used to check admin roles
-  // For simplicity, let's assume if currentUser exists, they can access this page.
-  // In a real app, implement role-based access control.
-  // const isAdmin = currentUser && currentUser.email === 'admin@example.com';
 
   if (loading) {
     return <LoadingSpinner />;
@@ -278,7 +400,7 @@ const AdminPage = ({ onBackToHome }) => {
           管理員面板
         </h2>
         <p className="text-lg text-gray-700 mb-8 leading-relaxed text-center">
-          在這裡管理餐廳申請、現有餐廳和用戶資料。
+          在這裡管理餐廳申請、更新申請、現有餐廳和用戶資料。
         </p>
 
         {/* Tab Navigation */}
@@ -291,7 +413,17 @@ const AdminPage = ({ onBackToHome }) => {
                 : "text-gray-600 hover:text-blue-500"
             }`}
           >
-            餐廳申請 ({applications.length})
+            新餐廳申請 ({applications.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("update_applications")}
+            className={`py-3 px-6 text-lg font-semibold transition-colors duration-200 ${
+              activeTab === "update_applications"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-gray-600 hover:text-blue-500"
+            }`}
+          >
+            更新申請 ({updateApplications.length})
           </button>
           <button
             onClick={() => setActiveTab("restaurants")}
@@ -319,11 +451,11 @@ const AdminPage = ({ onBackToHome }) => {
         {activeTab === "applications" && (
           <div>
             <h3 className="text-2xl font-bold text-gray-800 mb-4">
-              待批餐廳申請
+              待批新餐廳申請
             </h3>
             {applications.length === 0 ? (
               <p className="text-center text-gray-600">
-                目前沒有待處理的餐廳申請。
+                目前沒有待處理的新餐廳申請。
               </p>
             ) : (
               <div className="space-y-4">
@@ -365,31 +497,121 @@ const AdminPage = ({ onBackToHome }) => {
           </div>
         )}
 
+        {activeTab === "update_applications" && (
+          <div>
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">
+              待批餐廳更新申請
+            </h3>
+            {updateApplications.length === 0 ? (
+              <p className="text-center text-gray-600">
+                目前沒有待處理的餐廳更新申請。
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {updateApplications.map((app) => (
+                  <div
+                    key={app.id}
+                    className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200"
+                  >
+                    <p className="font-semibold text-lg">
+                      更新餐廳 ID: {app.restaurantId}
+                      <br />
+                      餐廳名稱:{" "}
+                      {app.updatedData?.restaurantNameZh ||
+                        app.updatedData?.restaurantNameEn ||
+                        "N/A"}
+                    </p>
+                    <p className="text-gray-700 text-sm">
+                      提交者: {app.submittedBy}
+                    </p>
+                    <p className="text-gray-700 text-sm">
+                      提交時間: {app.submittedAt}
+                    </p>
+                    <p className="text-gray-700 text-sm font-bold mt-2">
+                      修改內容預覽:
+                    </p>
+                    <ul className="list-disc list-inside text-gray-700 text-sm ml-4">
+                      {Object.keys(app.updatedData).map((key) => {
+                        // 比較原始數據和更新數據，只顯示有變更的項目
+                        if (
+                          JSON.stringify(app.originalData?.[key]) !==
+                          JSON.stringify(app.updatedData[key])
+                        ) {
+                          return (
+                            <li key={key}>
+                              **{key}**: 原值:{" "}
+                              {JSON.stringify(app.originalData?.[key] || "無")}{" "}
+                              {">"} {/* 已修正 JSX 語法 */}
+                              新值: {JSON.stringify(app.updatedData[key])}
+                            </li>
+                          );
+                        }
+                        return null; // 如果沒有變更則不顯示
+                      })}
+                    </ul>
+                    <div className="mt-3 flex space-x-2">
+                      <button
+                        onClick={() => handleApproveUpdateApplication(app)}
+                        className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md text-sm transition duration-200"
+                      >
+                        批准更新
+                      </button>
+                      <button
+                        onClick={() => handleRejectUpdateApplication(app.id)}
+                        className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md text-sm transition duration-200"
+                      >
+                        拒絕更新
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === "restaurants" && (
           <div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">現有餐廳</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-2xl font-bold text-gray-800">現有餐廳</h3>
+              <button
+                onClick={() => setIsGridView(!isGridView)}
+                className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md text-sm transition duration-200"
+              >
+                {isGridView ? "切換到列表模式" : "切換到網格模式"}
+              </button>
+            </div>
             {restaurants.length === 0 ? (
               <p className="text-center text-gray-600">目前沒有餐廳資料。</p>
             ) : (
-              <div className="space-y-4">
+              <div
+                className={
+                  isGridView
+                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                    : "space-y-4"
+                }
+              >
                 {restaurants.map((rest) => (
                   <div
                     key={rest.id}
                     className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200"
                   >
-                    <p className="font-semibold text-lg">{rest.name}</p>
-                    <p className="text-gray-700 text-sm">
-                      菜系: {rest.cuisine}
+                    <p className="font-semibold text-lg">
+                      {rest.restaurantNameZh || rest.restaurantNameEn}
                     </p>
                     <p className="text-gray-700 text-sm">
-                      地址: {rest.address}
+                      菜系: {rest.cuisineType}
+                    </p>
+                    <p className="text-gray-700 text-sm">
+                      地址: {rest.fullAddress}
                     </p>
                     <div className="mt-3 flex space-x-2">
+                      {/* 直接更新按鈕在 AdminPage 中，但實際更新會透過 updateDoc */}
                       <button
                         onClick={() => handleUpdateRestaurant(rest)}
                         className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md text-sm transition duration-200"
                       >
-                        更新
+                        更新 (直接)
                       </button>
                       <button
                         onClick={() => handleDeleteRestaurant(rest.id)}

@@ -1,46 +1,115 @@
 // src/components/Navbar.js
 "use client";
 
-import React, { useContext, useState } from "react";
-import { AuthContext } from "../lib/auth-context"; // 確保路徑正確
+import React, { useContext, useState, useCallback } from "react";
+import { AuthContext } from "../lib/auth-context";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faUser } from "@fortawesome/free-solid-svg-icons";
+import { useRouter } from "next/navigation";
 
-// Navbar 現在接收 onShowLoginModal, onShowFilterModal, onShowMerchantPage 和 onShowAdminPage props
 const Navbar = ({
   onShowLoginModal,
   onShowFilterModal,
   onShowMerchantPage,
   onShowAdminPage,
+  onSearch,
 }) => {
-  const { currentUser, logout } = useContext(AuthContext);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // 控制手機版菜單開關
+  const { currentUser, logout, setModalMessage } = useContext(AuthContext);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const router = useRouter();
 
-  // 簡化 Admin 權限檢查：如果用戶已登入且 email 是 admin@example.com (僅限範例)
-  // 在實際應用中，會基於 Firestore 中的用戶角色來判斷
-  const isAdmin = currentUser && currentUser.email === "kwan6d16@gmail.com"; // 替換為你的 admin email
+  // 檢查 currentUser 是否存在且其 isAdmin 屬性為 true
+  const isAdmin = currentUser && currentUser.isAdmin;
+
+  const handleSearchSubmit = useCallback(
+    (e) => {
+      e.preventDefault();
+      if (onSearch) {
+        onSearch(searchText);
+      }
+    },
+    [onSearch, searchText]
+  );
+
+  const handleGoHome = useCallback(() => {
+    router.push("/");
+  }, [router]);
+
+  const handleGoToPersonalPage = useCallback(() => {
+    if (currentUser) {
+      router.push("/personal");
+    } else {
+      setModalMessage("請先登入才能訪問個人主頁。");
+    }
+  }, [currentUser, router, setModalMessage]);
 
   return (
     <nav className="bg-gray-900 text-white sticky top-0 z-50 shadow-md">
-      {/* 頂部導航列：Logo、搜尋、帳戶/連結 - 優化響應式布局 */}
-      <div className="flex items-center w-full p-3 px-4 sm:px-6 lg:px-8 lg:justify-between">
-        {/* Logo */}
-        <div className="flex items-center flex-shrink-0 mr-2 sm:mr-4 lg:flex-1">
-          <h1 className="text-xl font-bold text-yellow-500 hover:text-yellow-400 cursor-pointer transition duration-200">
-            ChopsBook
-          </h1>
-          <span className="ml-1 text-xs text-gray-300 hidden sm:block">
-            .ca
-          </span>
+      <div className="flex flex-col lg:flex-row items-center w-full p-3 px-4 sm:px-6 lg:px-8 lg:justify-between">
+        <div className="flex items-center justify-between w-full lg:w-[30%] mb-2 lg:mb-0 lg:justify-start">
+          <button
+            onClick={handleGoHome}
+            className="flex items-center bg-transparent border-none p-0 cursor-pointer"
+            aria-label="回首頁"
+          >
+            <h1 className="text-base font-bold text-yellow-500 hover:text-yellow-400 transition duration-200">
+              ChopsBook
+            </h1>
+            <span className="ml-1 text-sm text-gray-300 hidden sm:block">
+              .ca
+            </span>
+          </button>
+
+          <div className="ml-3 border-l border-white pl-3">
+            {currentUser ? (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleGoToPersonalPage}
+                  className="text-white hover:text-yellow-500 transition duration-200 p-1 rounded-full"
+                  aria-label="個人主頁"
+                >
+                  <FontAwesomeIcon icon={faUser} className="h-5 w-5" />
+                </button>
+                <span className="text-gray-200 text-sm hidden sm:block">
+                  {currentUser.email ? currentUser.email.split("@")[0] : "用戶"}
+                </span>
+                <button
+                  onClick={logout}
+                  className="text-red-400 hover:text-red-500 transition duration-200 text-sm"
+                >
+                  登出
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onShowLoginModal}
+                className="flex flex-col items-start group relative text-white hover:text-yellow-500 transition duration-200 focus:outline-none text-sm"
+              >
+                <span className="text-gray-200 font-bold group-hover:text-yellow-500 transition duration-200">
+                  登入
+                </span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* 搜尋欄 */}
-        <div className="flex-grow flex items-center min-w-0 lg:flex-1 lg:order-2">
+        <form
+          onSubmit={handleSearchSubmit}
+          className="flex-grow w-full lg:w-[40%] flex items-center justify-center my-2 lg:my-0"
+        >
           <div className="max-w-xl w-full flex">
             <input
               type="text"
               placeholder="搜尋餐廳、菜系、地點..."
-              className="h-10 px-3 py-2 rounded-l-md w-full bg-white text-gray-900 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-500 border border-transparent"
+              className="h-10 px-3 py-2 rounded-l-md w-full bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 border border-transparent"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
             />
-            <button className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 h-10 p-2.5 rounded-r-md transition duration-200">
+            <button
+              type="submit"
+              className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 h-10 p-2.5 rounded-r-md transition duration-200"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5 w-5"
@@ -54,8 +123,8 @@ const Navbar = ({
                 />
               </svg>
             </button>
-            {/* 篩選按鈕 */}
             <button
+              type="button"
               onClick={onShowFilterModal}
               className="bg-gray-700 hover:bg-gray-600 text-white h-10 p-2.5 rounded-md ml-2 transition duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500"
               aria-label="打開篩選器"
@@ -76,59 +145,35 @@ const Navbar = ({
               </svg>
             </button>
           </div>
-        </div>
+        </form>
 
-        {/* 帳戶及其他連結 */}
-        <div className="flex items-center space-x-2 ml-auto flex-shrink-0 sm:ml-4 lg:flex-1 lg:justify-end lg:order-3">
-          {currentUser ? (
-            <div className="flex flex-col items-start group relative">
-              <button
-                onClick={logout}
-                className="font-bold text-white text-xs group-hover:text-yellow-500 transition duration-200 focus:outline-none focus:underline"
-              >
-                {currentUser.email ? currentUser.email.split("@")[0] : "用戶"}{" "}
-              </button>
-            </div>
-          ) : (
-            <>
-              <button
-                onClick={onShowLoginModal}
-                className="flex flex-col items-start group relative text-white hover:text-yellow-500 transition duration-200 focus:outline-none text-xs"
-              >
-                <span className="text-gray-200 font-bold group-hover:text-yellow-500 transition duration-200">
-                  登入
-                </span>
-              </button>
-            </>
-          )}
-          {/* 新增「餐廳專區」按鈕 */}
+        <div className="flex items-center w-full lg:w-[30%] justify-end space-x-2 mt-2 lg:mt-0">
           <button
             onClick={onShowMerchantPage}
-            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer p-0 m-0 text-xs"
+            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer p-0 m-0 text-sm"
           >
             餐廳專區
           </button>
           <a
             href="#"
-            className="hover:text-yellow-500 transition duration-200 hidden lg:block text-xs"
+            className="hover:text-yellow-500 transition duration-200 hidden lg:block text-sm"
           >
             寫食評
           </a>
-          {/* 僅當用戶是管理員時顯示「管理員頁面」按鈕 */}
+          {/* 根據 currentUser.isAdmin 狀態顯示管理員頁面按鈕 */}
           {isAdmin && (
             <button
               onClick={onShowAdminPage}
-              className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer p-0 m-0 text-xs"
+              className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer p-0 m-0 text-sm"
             >
               管理員頁面
             </button>
           )}
-          <select className="bg-gray-800 border border-gray-600 rounded-md py-0.5 px-1 text-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-yellow-500">
+          <select className="bg-gray-800 border border-gray-600 rounded-md py-0.5 px-1 text-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-500">
             <option>繁體中文</option>
             <option>English</option>
           </select>
 
-          {/* 手機版菜單圖標 (在 lg 螢幕以上隱藏) */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="ml-2 lg:hidden p-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-500"
@@ -152,25 +197,32 @@ const Navbar = ({
         </div>
       </div>
 
-      {/* 手機版下拉菜單 (在 lg 螢幕以上隱藏) - 根據 isMobileMenuOpen 狀態顯示 */}
       {isMobileMenuOpen && (
         <div className="lg:hidden w-full bg-gray-800 border-t border-gray-700 py-2 px-4 flex flex-col items-center space-y-2">
+          {currentUser && (
+            <button
+              onClick={handleGoToPersonalPage}
+              className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
+            >
+              個人主頁
+            </button>
+          )}
           <button
             onClick={onShowMerchantPage}
-            className="hover:text-yellow-500 transition duration-200 text-xs w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
+            className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
           >
             餐廳專區
           </button>
           <a
             href="#"
-            className="hover:text-yellow-500 transition duration-200 text-xs w-full text-center py-1"
+            className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1"
           >
             寫食評
           </a>
           {isAdmin && (
             <button
               onClick={onShowAdminPage}
-              className="hover:text-yellow-500 transition duration-200 text-xs w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
+              className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
             >
               管理員頁面
             </button>
@@ -178,15 +230,23 @@ const Navbar = ({
         </div>
       )}
 
-      {/* 次級導航列 (類別/連結) - 所有文字設為 text-xs */}
-      <div className="bg-gray-800 text-white text-xs py-2 px-6 w-full flex flex-wrap justify-center gap-4 sm:gap-6 border-t border-gray-700">
-        <a href="#" className="hover:text-yellow-500 transition duration-200">
+      <div className="bg-gray-800 text-white text-sm py-2 px-6 w-full flex flex-wrap justify-center sm:justify-start gap-4 sm:gap-6 border-t border-gray-700">
+        <a
+          href="#"
+          className="hover:text-yellow-500 transition duration-200 text-sm"
+        >
           所有類別
         </a>
-        <a href="#" className="hover:text-yellow-500 transition duration-200">
+        <a
+          href="#"
+          className="hover:text-yellow-500 transition duration-200 text-sm"
+        >
           特價優惠
         </a>
-        <a href="#" className="hover:text-yellow-500 transition duration-200">
+        <a
+          href="#"
+          className="hover:text-yellow-500 transition duration-200 text-sm"
+        >
           最新上架
         </a>
       </div>

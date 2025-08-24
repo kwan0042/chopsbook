@@ -10,13 +10,14 @@ import Modal from "./Modal"; // 確保 Modal 組件已導入
  * @param {object} props - 組件屬性。
  * @param {function} props.onBackToHome - 回到主頁的回調函數。
  * @param {function} props.onShowAddRestaurantPage - 導航到新增餐廳頁面的回調。
+ * @param {function} props.onShowUpdateRestaurantPage - 導航到更新餐廳頁面的回調 (新增)。
  */
-const MerchantPage = ({ onBackToHome, onShowAddRestaurantPage }) => {
+const MerchantPage = ({
+  onBackToHome,
+  onShowAddRestaurantPage,
+  onShowUpdateRestaurantPage,
+}) => {
   const [modalMessage, setModalMessage] = useState("");
-
-  const handleUpdateRestaurantClick = () => {
-    setModalMessage("更新餐廳功能尚待開發。請稍後再試。");
-  };
 
   const handleAddPromotionClick = () => {
     setModalMessage("新增推廣優惠活動功能尚待開發。請稍後再試。");
@@ -69,7 +70,7 @@ const MerchantPage = ({ onBackToHome, onShowAddRestaurantPage }) => {
 
           {/* 更新餐廳按鈕 */}
           <button
-            onClick={handleUpdateRestaurantClick}
+            onClick={onShowUpdateRestaurantPage} // 現在導航到更新頁面
             className="flex flex-col items-center justify-center p-6 bg-purple-600 text-white rounded-xl shadow-lg hover:bg-purple-700 transform hover:scale-105 transition duration-300 ease-in-out text-center min-h-[150px]"
           >
             <svg

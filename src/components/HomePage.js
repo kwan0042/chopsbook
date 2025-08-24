@@ -1,7 +1,7 @@
 // src/components/HomePage.js
 "use client";
 
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useCallback } from "react";
 import { AuthContext } from "../lib/auth-context"; // 確保路徑正確：從 components 目錄往上一層到 src，再進入 lib
 
 // 導入所有現在獨立的組件
@@ -23,6 +23,7 @@ import RestaurantListPage from "./RestaurantListPage";
  * @param {function} props.onShowUpdateRestaurantPage - 導航到更新餐廳頁面的回調。
  * @param {function} props.onShowMerchantPage - 導航到商戶專區頁面的回調。
  * @param {function} props.onShowAdminPage - 導航到管理員頁面的回調 (新增)。
+ * @param {function} props.onShowPersonalPage - 導航到個人主頁的回調 (新增)。
  */
 const HomePage = ({
   onShowLoginPage,
@@ -30,6 +31,7 @@ const HomePage = ({
   onShowUpdateRestaurantPage,
   onShowMerchantPage,
   onShowAdminPage,
+  onShowPersonalPage,
 }) => {
   const { currentUser, logout } = useContext(AuthContext);
 
@@ -43,35 +45,51 @@ const HomePage = ({
   const [appliedFilters, setAppliedFilters] = useState({});
   // 控制是否顯示篩選後的餐廳列表頁面
   const [showFilteredResultsPage, setShowFilteredResultsPage] = useState(false);
+  // 搜尋關鍵字狀態
+  const [searchQuery, setSearchQuery] = useState("");
+  // 列表視圖模式
+  const [isGridView, setIsGridView] = useState(true);
 
-  const handleShowLoginModal = () => {
+  const handleShowLoginModal = useCallback(() => {
     setAuthModalMode("login");
     setShowAuthModal(true);
-  };
+  }, []);
 
-  const handleCloseAuthModal = () => {
+  const handleCloseAuthModal = useCallback(() => {
     setShowAuthModal(false);
-  };
+  }, []);
 
-  const handleShowFilterModal = () => {
+  const handleShowFilterModal = useCallback(() => {
     setShowFilterModal(true);
-  };
+  }, []);
 
-  const handleCloseFilterModal = () => {
+  const handleCloseFilterModal = useCallback(() => {
     setShowFilterModal(false);
-  };
+  }, []);
 
-  const handleApplyFilters = (filters) => {
+  const handleApplyFilters = useCallback((filters) => {
     setAppliedFilters(filters);
     console.log("應用篩選條件:", filters);
+    setSearchQuery(""); // 應用篩選時清除搜尋關鍵字
     setShowFilteredResultsPage(true); // 應用篩選後切換到篩選結果頁面
     setShowFilterModal(false); // 關閉篩選 Modal
-  };
+  }, []);
 
-  const handleClearFilters = () => {
+  const handleClearFiltersOrSearch = useCallback(() => {
     setAppliedFilters({}); // 清除所有篩選條件
-    setShowFilteredResultsPage(false); // 返回主頁面內容（即不再顯示篩選結果）
-  };
+    setSearchQuery(""); // 清除搜尋關鍵字
+    setShowFilteredResultsPage(false); // 返回主頁面內容
+  }, []);
+
+  const handleSearch = useCallback((query) => {
+    setSearchQuery(query);
+    setAppliedFilters({}); // 搜尋時清除篩選條件
+    setShowFilteredResultsPage(true); // 顯示搜尋結果頁面
+  }, []);
+
+  const toggleView = useCallback(() => {
+    setIsGridView((prev) => !prev);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100 font-inter">
@@ -80,24 +98,32 @@ const HomePage = ({
         onShowLoginModal={handleShowLoginModal}
         onShowFilterModal={handleShowFilterModal}
         onShowMerchantPage={onShowMerchantPage}
-        // 將 onShowAdminPage prop 傳遞給 Navbar
         onShowAdminPage={onShowAdminPage}
+        // onShowPersonalPage={onShowPersonalPage} /* 此行已移除，因為 Navbar 不再直接接收此 prop */
+        onSearch={handleSearch}
       />
       <main className="flex-grow">
         {showFilteredResultsPage ? (
           // 如果 showFilteredResultsPage 為 true，則顯示篩選後的餐廳列表頁面
           <RestaurantListPage
             filters={appliedFilters}
-            onClearFilters={handleClearFilters}
+            onClearFilters={handleClearFiltersOrSearch}
+            searchQuery={searchQuery}
+            isGridView={isGridView}
+            toggleView={toggleView}
           />
         ) : (
-          // 否則顯示主頁面內容（包括 HeroSection, PromotionsSection, FoodCategoriesSection, TestDBForm）
+          // 否則顯示主頁面內容（包括 HeroSection, PromotionsSection, FoodCategoriesSection）
           <>
             <HeroSection />
             <div className="max-w-screen-xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
               <PromotionsSection />
               {/* 在主頁面時，FoodCategoriesSection 依然顯示 RestaurantListPage，但沒有應用任何篩選 */}
-              <FoodCategoriesSection />
+              <FoodCategoriesSection
+                isGridView={isGridView}
+                toggleView={toggleView}
+              />
+              
             </div>
           </>
         )}

@@ -175,7 +175,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
         cuisineType: "",
         restaurantType: "",
         avgSpending: "",
-        facadePhotoUrl: "",
+        facadePhotoUrls: [],
         seatingCapacity: "",
         businessHours: "",
         reservationModes: [],
