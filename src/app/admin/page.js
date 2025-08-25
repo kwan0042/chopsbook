@@ -12,26 +12,27 @@ import LoadingSpinner from "../../components/LoadingSpinner"; // 導入 LoadingS
  * 它會檢查用戶是否登入以及是否為管理員，如果條件不符則導航到其他頁面。
  */
 export default function AdminPageWrapper() {
-  const { currentUser, loading, setModalMessage } = useContext(AuthContext);
+  const { currentUser, loadingUser, isAdmin, setModalMessage } =
+    useContext(AuthContext);
   const router = useRouter();
 
-  // 簡化 Admin 權限檢查：將 'kwan6d16@gmail.com' 替換為您的管理員電子郵件地址
-  const isAdminUser = currentUser && currentUser.email === "kwan6d16@gmail.com";
+  // 使用 AuthContext 中的 isAdmin 字段，而不是硬編碼檢查
+  // const isAdminUser = currentUser && currentUser.email === "kwan6d16@gmail.com";
 
   useEffect(() => {
-    // 如果未登入且 AuthContext.loading 為 false，則導航到登入頁面
-    if (!currentUser && !loading) {
+    // 如果未登入且 AuthContext.loadingUser 為 false，則導航到登入頁面
+    if (!currentUser && !loadingUser) {
       router.push("/login");
     }
     // 如果已登入但不是管理員，則顯示訊息並導航到首頁
-    else if (currentUser && !isAdminUser && !loading) {
+    else if (currentUser && !isAdmin && !loadingUser) {
       setModalMessage("您沒有權限訪問管理員頁面。請使用管理員帳戶登入。");
       router.push("/");
     }
-  }, [currentUser, loading, isAdminUser, router, setModalMessage]);
+  }, [currentUser, loadingUser, isAdmin, router, setModalMessage]);
 
   // 如果 AuthContext 仍在初始化，顯示全域載入狀態
-  if (loading) {
+  if (loadingUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <LoadingSpinner />
@@ -39,8 +40,8 @@ export default function AdminPageWrapper() {
     );
   }
 
-  // 如果未登入或不是管理員（且 loading 為 false），則不渲染內容（useEffect 會導航）
-  if (!currentUser || !isAdminUser) {
+  // 如果未登入或不是管理員（且 loadingUser 為 false），則不渲染內容（useEffect 會導航）
+  if (!currentUser || !isAdmin) {
     return null;
   }
 

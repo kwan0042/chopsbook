@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation"; // 導入 useRouter
 // 導入所有獨立的組件
 // 請確保這些檔案存在於 src/components/ 目錄中，且檔案名稱與這裡完全匹配（包括大小寫）
 import LoadingSpinner from "../components/LoadingSpinner";
-import LoginPage from "../components/LoginPage";
 import HomePage from "../components/HomePage";
 import AddRestaurantPage from "../components/AddRestaurantPage";
 import MerchantPage from "../components/MerchantPage";
@@ -31,49 +30,19 @@ const App = () => {
   const router = useRouter(); // 初始化 useRouter
 
   // currentPage 狀態將控制當前顯示哪個內部頁面 (不包括獨立路由的頁面，如 /personal)：
-  // 'home' (主頁), 'login' (登入/註冊頁), 'addRestaurant' (新增餐廳表單),
+  // 'home' (主頁), 'addRestaurant' (新增餐廳表單),
   // 'merchantZone' (商戶專區頁), 'adminPage' (管理員頁面)
   const [currentPage, setCurrentPage] = useState("home");
-
-  // 輔助函數：處理登入操作 (用於 LoginPage)
-  // 將 useCallback 定義移至條件渲染之前
-  const handleLogin = useCallback(
-    async (email, password) => {
-      try {
-        await login(email, password);
-      } catch (error) {
-        // 錯誤已由 AuthProvider 的全域 Modal 處理。
-      }
-    },
-    [login]
-  ); // 依賴 login 函數
-
-  // 輔助函數：處理註冊操作 (用於 LoginPage)
-  // 將 useCallback 定義移至條件渲染之前
-  const handleSignup = useCallback(
-    async (email, password) => {
-      try {
-        await signup(email, password);
-      } catch (error) {
-        // 錯誤已由 AuthProvider 的全域 Modal 處理。
-      }
-    },
-    [signup]
-  ); // 依賴 signup 函數
-
-  // 判斷是否為管理員用戶
-  // 將 'kwan6d16@gmail.com' 替換為你的管理員電子郵件地址
-  const isAdminUser = currentUser && currentUser.email === "kwan6d16@gmail.com";
 
   // 導航到管理員頁面
   // 將 useCallback 定義移至條件渲染之前
   const handleShowAdminPage = useCallback(() => {
-    if (isAdminUser) {
+    if (isAdmin) {
       setCurrentPage("adminPage");
     } else {
       setModalMessage("您沒有權限訪問管理員頁面。請使用管理員帳戶登入。");
     }
-  }, [isAdminUser, setModalMessage]);
+  }, [isAdmin, setModalMessage]);
 
   // 導航到個人主頁 - 現在透過 router.push 處理
   // 將 useCallback 定義移至條件渲染之前
@@ -84,6 +53,11 @@ const App = () => {
       setModalMessage("請先登入才能訪問個人主頁。");
     }
   }, [currentUser, router, setModalMessage]);
+
+  // 導航到登入頁面 - 現在透過 router.push 處理
+  const handleShowLoginPage = useCallback(() => {
+    router.push("/login"); // 導航到獨立的登入頁面
+  }, [router]);
 
   // 如果 AuthProvider 仍在載入 Firebase 認證狀態，則顯示全域載入指示器。
   if (loadingUser) {
@@ -98,19 +72,10 @@ const App = () => {
   const renderPage = () => {
     // 未登入用戶的導航處理：
     if (!currentUser) {
-      if (currentPage === "login") {
-        return (
-          <LoginPage
-            onBackToHome={() => setCurrentPage("home")}
-            onLogin={handleLogin}
-            onSignup={handleSignup}
-          />
-        );
-      }
       return (
         <HomePage
-          onShowLoginPage={() => setCurrentPage("login")}
-          onShowMerchantPage={() => setCurrentPage("login")} // 未登入不能進商戶專區
+          onShowLoginPage={handleShowLoginPage}
+          onShowMerchantPage={handleShowLoginPage} // 未登入不能進商戶專區，導向登入頁
           onShowAdminPage={handleShowAdminPage} // 未登入時嘗試訪問管理員頁面
           onShowPersonalPage={handleShowPersonalPage} // 未登入時嘗試訪問個人主頁
         />
@@ -119,15 +84,6 @@ const App = () => {
 
     // 已登入用戶的導航處理：
     switch (currentPage) {
-      case "login": // 已登入用戶不應該看到登入頁面，導回首頁
-        return (
-          <HomePage
-            onShowLoginPage={() => setCurrentPage("login")}
-            onShowMerchantPage={() => setCurrentPage("merchantZone")}
-            onShowAdminPage={handleShowAdminPage}
-            onShowPersonalPage={handleShowPersonalPage}
-          />
-        );
       case "addRestaurant":
         return (
           <AddRestaurantPage
@@ -142,13 +98,13 @@ const App = () => {
           />
         );
       case "adminPage":
-        if (!isAdminUser) {
+        if (!isAdmin) {
           // 再次檢查權限
           setModalMessage("您沒有權限訪問管理員頁面。請使用管理員帳戶登入。");
           setCurrentPage("home");
           return (
             <HomePage
-              onShowLoginPage={() => setCurrentPage("login")}
+              onShowLoginPage={handleShowLoginPage}
               onShowMerchantPage={() => setCurrentPage("merchantZone")}
               onShowAdminPage={handleShowAdminPage}
               onShowPersonalPage={handleShowPersonalPage}
@@ -161,7 +117,7 @@ const App = () => {
       default:
         return (
           <HomePage
-            onShowLoginPage={() => setCurrentPage("login")}
+            onShowLoginPage={handleShowLoginPage}
             onShowMerchantPage={() => setCurrentPage("merchantZone")}
             onShowAdminPage={handleShowAdminPage}
             onShowPersonalPage={handleShowPersonalPage}
@@ -177,12 +133,8 @@ const App = () => {
 
 /**
  * Page：Next.js App Router 的根組件。
- * 它負責向整個應用程式提供 AuthContext。
+ * 它不再需要 AuthProvider，因為 layout.js 中已經提供了。
  */
 export default function Page() {
-  return (
-    <AuthProvider>
-      <App /> {/* App 組件現在是 AuthProvider 的子組件 */}
-    </AuthProvider>
-  );
+  return <App />; // App 組件直接返回，不需要 AuthProvider 包裹
 }

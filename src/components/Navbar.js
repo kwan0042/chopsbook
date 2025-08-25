@@ -8,7 +8,6 @@ import { faUser } from "@fortawesome/free-solid-svg-icons";
 import { useRouter } from "next/navigation";
 
 const Navbar = ({
-  onShowLoginModal,
   onShowFilterModal,
   onShowMerchantPage,
   onShowAdminPage,
@@ -43,6 +42,10 @@ const Navbar = ({
       setModalMessage("請先登入才能訪問個人主頁。");
     }
   }, [currentUser, router, setModalMessage]);
+
+  const handleGoToLoginPage = useCallback(() => {
+    router.push("/login");
+  }, [router]);
 
   return (
     <nav className="bg-gray-900 text-white sticky top-0 z-50 shadow-md">
@@ -83,7 +86,7 @@ const Navbar = ({
               </div>
             ) : (
               <button
-                onClick={onShowLoginModal}
+                onClick={handleGoToLoginPage}
                 className="flex flex-col items-start group relative text-white hover:text-yellow-500 transition duration-200 focus:outline-none text-sm"
               >
                 <span className="text-gray-200 font-bold group-hover:text-yellow-500 transition duration-200">

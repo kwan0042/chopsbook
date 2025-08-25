@@ -7,7 +7,6 @@ import { AuthContext } from "../lib/auth-context"; // 確保路徑正確：從 c
 // 導入所有現在獨立的組件
 // 請再次確認以下所有檔案都存在於 `src/components/` 目錄中，並且檔名與大小寫都完全正確！
 import Navbar from "./Navbar";
-import AuthModal from "./AuthModal"; // 仍然需要這個，因為它用於登入彈窗
 import FilterModal from "./FilterModal";
 import HeroSection from "./HeroSection";
 import PromotionsSection from "./PromotionsSection";
@@ -35,10 +34,6 @@ const HomePage = ({
 }) => {
   const { currentUser, logout } = useContext(AuthContext);
 
-  // 管理 AuthModal 的顯示狀態和模式
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState("login"); // 'login' 或 'register'
-
   // 管理 FilterModal 的顯示狀態
   const [showFilterModal, setShowFilterModal] = useState(false);
   // 用於儲存已應用的篩選條件，並在篩選結果頁面顯示
@@ -49,15 +44,6 @@ const HomePage = ({
   const [searchQuery, setSearchQuery] = useState("");
   // 列表視圖模式
   const [isGridView, setIsGridView] = useState(true);
-
-  const handleShowLoginModal = useCallback(() => {
-    setAuthModalMode("login");
-    setShowAuthModal(true);
-  }, []);
-
-  const handleCloseAuthModal = useCallback(() => {
-    setShowAuthModal(false);
-  }, []);
 
   const handleShowFilterModal = useCallback(() => {
     setShowFilterModal(true);
@@ -95,7 +81,6 @@ const HomePage = ({
     <div className="min-h-screen flex flex-col bg-gray-100 font-inter">
       {/* Navbar 現在接收用於顯示 Modal 的函數，以及新的頁面導航函數 */}
       <Navbar
-        onShowLoginModal={handleShowLoginModal}
         onShowFilterModal={handleShowFilterModal}
         onShowMerchantPage={onShowMerchantPage}
         onShowAdminPage={onShowAdminPage}
@@ -123,7 +108,6 @@ const HomePage = ({
                 isGridView={isGridView}
                 toggleView={toggleView}
               />
-              
             </div>
           </>
         )}
@@ -132,12 +116,6 @@ const HomePage = ({
         &copy; 2025 ChopsBook. 版權所有.
       </footer>
 
-      {/* AuthModal 根據 showAuthModal 狀態顯示 */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={handleCloseAuthModal}
-        initialMode={authModalMode}
-      />
       {/* FilterModal 根據 showFilterModal 狀態顯示 */}
       <FilterModal
         isOpen={showFilterModal}

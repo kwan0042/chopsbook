@@ -1,8 +1,7 @@
 // src/lib/auth-context.js
 "use client";
 
-import React, { useState, useEffect, createContext } from "react";
-// 請務必確認 './firebase' 的路徑和檔名 (firebase.js) 完全正確
+import React, { useState, useEffect, createContext, useRef } from "react";
 import {
   initializeFirebaseApp,
   getFirebaseDb,
@@ -17,10 +16,10 @@ import {
   signInWithCustomToken,
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-// 請務必確認 '../components/Modal' 的路徑和檔名 (Modal.js) 完全正確
-import Modal from "../components/Modal"; // 確保 Modal 組件的路徑正確
+import Modal from "../components/Modal";
 
-const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+const projectAppId =
+  typeof __app_id !== "undefined" ? __app_id : "default-app-id";
 
 const localFirebaseConfig = {
   apiKey: "AIzaSyBtXmTdeY4bTn558wLhZ-9GkVejWxe_3lk",
@@ -35,17 +34,17 @@ const localFirebaseConfig = {
 const initialAuthToken =
   typeof __initial_auth_token !== "undefined" ? __initial_auth_token : null;
 
-let appInstance;
-let dbInstance;
-let authInstance;
-let analyticsInstance;
-
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true); // 將 loading 改為 loadingUser
+  const [loadingUser, setLoadingUser] = useState(true);
   const [modalMessage, setModalMessage] = useState("");
+
+  const appInstanceRef = useRef(null);
+  const dbInstanceRef = useRef(null);
+  const authInstanceRef = useRef(null);
+  const analyticsInstanceRef = useRef(null);
 
   useEffect(() => {
     const currentFirebaseConfig =
@@ -54,135 +53,187 @@ export const AuthProvider = ({ children }) => {
         : localFirebaseConfig;
 
     try {
-      appInstance = initializeFirebaseApp(currentFirebaseConfig);
-      dbInstance = getFirebaseDb(appInstance);
-      authInstance = getFirebaseAuth(appInstance);
-      analyticsInstance = getFirebaseAnalytics(appInstance);
-      console.log("Firebase initialized successfully.");
-    } catch (error) {
-      console.error("Firebase 初始化失敗:", error);
-      setModalMessage(`Firebase 初始化失敗: ${error.message}`);
-      setLoadingUser(false); // 在初始化失敗時也要停止載入
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(authInstance, async (user) => {
-      console.log(
-        "onAuthStateChanged triggered. User:",
-        user ? user.email || user.uid : "None"
+      appInstanceRef.current = initializeFirebaseApp(currentFirebaseConfig);
+      dbInstanceRef.current = getFirebaseDb(appInstanceRef.current);
+      authInstanceRef.current = getFirebaseAuth(appInstanceRef.current);
+      analyticsInstanceRef.current = getFirebaseAnalytics(
+        appInstanceRef.current
       );
-      let userWithRole = null;
-      if (user) {
-        try {
-          const userDocRef = doc(
-            dbInstance,
-            `artifacts/${appId}/users/${user.uid}/profile`,
-            "main"
-          );
-          const userDocSnap = await getDoc(userDocRef);
 
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
-            userWithRole = { ...user, ...userData };
-            console.log(
-              "Existing user profile fetched from private path:",
-              userWithRole
-            );
-          } else {
-            const newUserProfile = {
-              email: user.email,
-              createdAt: new Date().toISOString(),
-              isAdmin: user.email === "kwan6d16@gmail.com", // 根據電子郵件判斷是否為管理員
-            };
-            await setDoc(userDocRef, newUserProfile);
-            userWithRole = { ...user, ...newUserProfile };
-            console.log(
-              "New user profile created in private path:",
-              userWithRole
-            );
+      if (authInstanceRef.current) {
+        const unsubscribe = onAuthStateChanged(
+          authInstanceRef.current,
+          async (user) => {
+            let userWithRole = null;
+            if (user) {
+              try {
+                // 顯式創建用戶根文檔
+                const userRootDocRef = doc(
+                  dbInstanceRef.current,
+                  `artifacts/${projectAppId}/users/${user.uid}`
+                );
+                const userRootDocSnap = await getDoc(userRootDocRef);
+
+                if (!userRootDocSnap.exists()) {
+                  await setDoc(
+                    userRootDocRef,
+                    { uid: user.uid, lastLogin: new Date().toISOString() },
+                    { merge: true }
+                  );
+                }
+
+                const userProfileDocRef = doc(
+                  dbInstanceRef.current,
+                  `artifacts/${projectAppId}/users/${user.uid}/profile`,
+                  "main"
+                );
+
+                const userProfileDocSnap = await getDoc(userProfileDocRef);
+
+                if (userProfileDocSnap.exists()) {
+                  const userData = userProfileDocSnap.data();
+                  if (userData.isAdmin === undefined) {
+                    userData.isAdmin = user.email === "kwan6d16@gmail.com";
+                    await setDoc(
+                      userProfileDocRef,
+                      { ...userData },
+                      { merge: true }
+                    );
+                  }
+                  userWithRole = { ...user, ...userData };
+                } else {
+                  const newUserProfile = {
+                    email: user.email,
+                    createdAt: new Date().toISOString(),
+                    isAdmin: user.email === "kwan6d16@gmail.com",
+                  };
+                  await setDoc(userProfileDocRef, newUserProfile);
+                  userWithRole = { ...user, ...newUserProfile };
+                }
+              } catch (dbError) {
+                setModalMessage(`用戶資料處理失敗: ${dbError.message}`);
+                userWithRole = user;
+              }
+            } else {
+              if (initialAuthToken) {
+                try {
+                  await signInWithCustomToken(
+                    authInstanceRef.current,
+                    initialAuthToken
+                  );
+                } catch (tokenError) {
+                  setModalMessage(`自動認證失敗: ${tokenError.message}`);
+                }
+              }
+              userWithRole = null;
+            }
+            setCurrentUser(userWithRole);
+            setLoadingUser(false);
           }
-        } catch (dbError) {
-          console.error("從 Firestore 獲取或創建用戶資料失敗:", dbError);
-          setModalMessage(`用戶資料處理失敗: ${dbError.message}`);
-          userWithRole = user;
-        }
+        );
+
+        return () => unsubscribe();
       } else {
-        userWithRole = null;
-        try {
-          if (initialAuthToken) {
-            await signInWithCustomToken(authInstance, initialAuthToken);
-            console.log("Signed in with custom token.");
-          }
-        } catch (tokenError) {
-          console.error("Firebase Custom Token 認證失敗:", tokenError);
-          setModalMessage(`自動認證失敗: ${tokenError.message}`);
-        }
+        setModalMessage("Firebase 認證服務初始化失敗");
+        setLoadingUser(false);
       }
-      setCurrentUser(userWithRole);
-      setLoadingUser(false); // 停止載入
-      console.log("Current user set to:", userWithRole);
-    });
-
-    return () => unsubscribe();
+    } catch (error) {
+      setModalMessage(`Firebase 初始化失敗: ${error.message}`);
+      setLoadingUser(false);
+    }
   }, []);
 
   const login = async (email, password) => {
     try {
-      console.log("Attempting login for:", email);
-      await signInWithEmailAndPassword(authInstance, email, password);
-      console.log("Login successful, auth state change will update user.");
-      setModalMessage("登入成功！");
+      if (!authInstanceRef.current) {
+        throw new Error("Firebase 認證服務未初始化");
+      }
+      await signInWithEmailAndPassword(
+        authInstanceRef.current,
+        email,
+        password
+      );
     } catch (error) {
-      console.error("登入失敗:", error);
-      setModalMessage(`登入失敗: ${error.message}`);
       throw error;
     }
   };
 
   const signup = async (email, password) => {
     try {
-      console.log("Attempting signup for:", email);
-      await createUserWithEmailAndPassword(authInstance, email, password);
-      console.log("Signup successful, auth state change will update user.");
-      setModalMessage("註冊成功！");
+      if (!authInstanceRef.current) {
+        throw new Error("Firebase 認證服務未初始化");
+      }
+      await createUserWithEmailAndPassword(
+        authInstanceRef.current,
+        email,
+        password
+      );
     } catch (error) {
-      console.error("註冊失敗:", error);
-      setModalMessage(`註冊失敗: ${error.message}`);
       throw error;
     }
   };
 
   const logout = async () => {
     try {
-      console.log("Logging out user:", currentUser?.uid);
-      await signOut(authInstance);
-      console.log("Sign out successful.");
+      if (!authInstanceRef.current) {
+        throw new Error("Firebase 認證服務未初始化");
+      }
+      await signOut(authInstanceRef.current);
       setModalMessage("登出成功！");
     } catch (error) {
-      console.error("登出失敗:", error);
-      setModalMessage(`登出失敗: ${error.message}`);
+      const errorMessage = error.message || "登出失敗，請稍後再試";
+      setModalMessage(`登出失敗: ${errorMessage}`);
     }
   };
 
-  const closeModal = () => setModalMessage("");
+  const updateUserAdminStatus = async (userId, isAdmin) => {
+    try {
+      if (!dbInstanceRef.current) {
+        throw new Error("Firebase 資料庫服務未初始化");
+      }
 
-  // 判斷是否為管理員
-  const isAdmin = currentUser && currentUser.isAdmin;
+      const userProfileDocRef = doc(
+        dbInstanceRef.current,
+        `artifacts/${projectAppId}/users/${userId}/profile`,
+        "main"
+      );
+
+      await setDoc(userProfileDocRef, { isAdmin }, { merge: true });
+
+      if (currentUser && currentUser.uid === userId) {
+        const userDocSnap = await getDoc(userProfileDocRef);
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          setCurrentUser({ ...currentUser, ...userData });
+        }
+      }
+      return true;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const closeModal = () => {
+    setModalMessage("");
+  };
+
+  const currentIsAdmin = currentUser && currentUser.isAdmin;
 
   return (
     <AuthContext.Provider
       value={{
         currentUser,
         loadingUser,
-        db: dbInstance,
-        auth: authInstance,
-        analytics: analyticsInstance,
-        appId,
+        db: dbInstanceRef.current,
+        auth: authInstanceRef.current,
+        analytics: analyticsInstanceRef.current,
+        appId: projectAppId,
         setModalMessage,
         login,
         signup,
         logout,
-        isAdmin,
+        isAdmin: currentIsAdmin,
+        updateUserAdminStatus,
       }}
     >
       {children}
