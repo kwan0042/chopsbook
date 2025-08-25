@@ -16,8 +16,6 @@ export default function AdminPageWrapper() {
     useContext(AuthContext);
   const router = useRouter();
 
-  // 使用 AuthContext 中的 isAdmin 字段，而不是硬編碼檢查
-  // const isAdminUser = currentUser && currentUser.email === "kwan6d16@gmail.com";
 
   useEffect(() => {
     // 如果未登入且 AuthContext.loadingUser 為 false，則導航到登入頁面

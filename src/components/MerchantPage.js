@@ -3,21 +3,25 @@
 
 import React, { useState } from "react";
 import Modal from "./Modal"; // 確保 Modal 組件已導入
+import { useRouter } from "next/navigation"; // 導入 useRouter
+
+// 導入 FontAwesome 相關組件和圖示
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faPlus,
+  faPenToSquare,
+  faGift,
+} from "@fortawesome/free-solid-svg-icons";
 
 /**
  * MerchantPage: 商戶專區頁面組件。
  * 提供關於為餐廳商家服務的資訊，並包含功能按鈕。
  * @param {object} props - 組件屬性。
  * @param {function} props.onBackToHome - 回到主頁的回調函數。
- * @param {function} props.onShowAddRestaurantPage - 導航到新增餐廳頁面的回調。
- * @param {function} props.onShowUpdateRestaurantPage - 導航到更新餐廳頁面的回調 (新增)。
  */
-const MerchantPage = ({
-  onBackToHome,
-  onShowAddRestaurantPage,
-  onShowUpdateRestaurantPage,
-}) => {
+const MerchantPage = ({ onBackToHome }) => {
   const [modalMessage, setModalMessage] = useState("");
+  const router = useRouter(); // 初始化 useRouter
 
   const handleAddPromotionClick = () => {
     setModalMessage("新增推廣優惠活動功能尚待開發。請稍後再試。");
@@ -27,8 +31,18 @@ const MerchantPage = ({
     setModalMessage("");
   };
 
+  const handleShowAddRestaurantPage = () => {
+    router.push("/merchant/add");
+  };
+
+  const handleShowUpdateRestaurantPage = () => {
+    router.push("/merchant/update");
+  };
+
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 min-h-screen bg-gray-100 flex flex-col items-center justify-center">
+    // 最外層 div：背景全寬，提供外邊距和居中 flex 佈局
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center font-inter">
+      {/* 內容 div：設定最大寬度，居中，帶白色背景和陰影 */}
       <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-4xl relative">
         <button
           onClick={onBackToHome}
@@ -47,47 +61,29 @@ const MerchantPage = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
           {/* 新增餐廳按鈕 */}
           <button
-            onClick={onShowAddRestaurantPage}
+            onClick={handleShowAddRestaurantPage}
             className="flex flex-col items-center justify-center p-6 bg-blue-600 text-white rounded-xl shadow-lg hover:bg-blue-700 transform hover:scale-105 transition duration-300 ease-in-out text-center min-h-[150px]"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
+            <FontAwesomeIcon
+              icon={faPlus}
               className="h-16 w-16 mb-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span className="text-xl font-bold">新增餐廳</span>
+              size="3x"
+            />
+            <span className="text-xl ">新增餐廳</span>
             <span className="text-sm opacity-90">提供您的餐廳詳細資訊</span>
           </button>
 
           {/* 更新餐廳按鈕 */}
           <button
-            onClick={onShowUpdateRestaurantPage} // 現在導航到更新頁面
+            onClick={handleShowUpdateRestaurantPage}
             className="flex flex-col items-center justify-center p-6 bg-purple-600 text-white rounded-xl shadow-lg hover:bg-purple-700 transform hover:scale-105 transition duration-300 ease-in-out text-center min-h-[150px]"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
+            <FontAwesomeIcon
+              icon={faPenToSquare}
               className="h-16 w-16 mb-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-            <span className="text-xl font-bold">更新餐廳</span>
+              size="3x"
+            />
+            <span className="text-xl ">更新餐廳</span>
             <span className="text-sm opacity-90">修改現有餐廳資料</span>
           </button>
 
@@ -96,21 +92,12 @@ const MerchantPage = ({
             onClick={handleAddPromotionClick}
             className="flex flex-col items-center justify-center p-6 bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 ease-in-out text-center min-h-[150px]"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
+            <FontAwesomeIcon
+              icon={faGift}
               className="h-16 w-16 mb-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M13 7l-6 6-4-4m-2 8h16a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-            <span className="text-xl font-bold">新增推廣優惠</span>
+              size="3x"
+            />
+            <span className="text-xl ">新增推廣優惠</span>
             <span className="text-sm opacity-90">建立您的最新優惠活動</span>
           </button>
         </div>
