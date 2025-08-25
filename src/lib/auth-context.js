@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect, createContext, useRef } from "react";
-// 請務必確認 './firebase' 的路徑和檔名 (firebase.js) 完全正確
 import {
   initializeFirebaseApp,
   getFirebaseDb,
@@ -16,11 +15,10 @@ import {
   signOut,
   signInWithCustomToken,
   sendEmailVerification,
-  sendPasswordResetEmail, // 導入 sendPasswordResetEmail
+  sendPasswordResetEmail,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-// 請務必確認 '../components/Modal' 的路徑和檔名 (Modal.js) 完全正確
-import Modal from "../components/Modal"; // 確保 Modal 組件的路徑正確
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import Modal from "../components/Modal"; // 引入 Modal 組件
 
 const projectAppId =
   typeof __app_id !== "undefined" ? __app_id : "default-app-id";
@@ -36,14 +34,35 @@ const localFirebaseConfig = {
 };
 
 const initialAuthToken =
-  typeof __initial_auth_token !== "undefined" ? __initial_auth_token : null;
-
-// 已移除 adminUid 常數，管理員狀態現在直接從 Firestore 獲取
+  typeof __initial_auth_token !== "undefined" ? __initialAuthToken : null;
 
 export const AuthContext = createContext(null);
 
 const isValidEmail = (email) => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+// 輔助函數：將日期轉換為多倫多時區的 ISO 字符串
+const convertToTorontoISOString = (date) => {
+  const options = {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZone: "America/Toronto",
+  };
+  const parts = new Intl.DateTimeFormat("en-CA", options).formatToParts(date);
+  const year = parts.find((p) => p.type === "year").value;
+  const month = parts.find((p) => p.type === "month").value;
+  const day = parts.find((p) => p.type === "day").value;
+  const hour = parts.find((p) => p.type === "hour").value;
+  const minute = parts.find((p) => p.type === "minute").value;
+  const second = parts.find((p) => p.type === "second").value;
+
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}.000`;
 };
 
 export const AuthProvider = ({ children }) => {
@@ -63,43 +82,20 @@ export const AuthProvider = ({ children }) => {
         : localFirebaseConfig;
 
     try {
-      console.log("AuthContext: Starting Firebase initialization...");
       appInstanceRef.current = initializeFirebaseApp(currentFirebaseConfig);
-      console.log("AuthContext: App instance created:", appInstanceRef.current);
-
       dbInstanceRef.current = getFirebaseDb(appInstanceRef.current);
-      console.log("AuthContext: DB instance created:", dbInstanceRef.current);
-
       authInstanceRef.current = getFirebaseAuth(appInstanceRef.current);
-      console.log(
-        "AuthContext: Auth instance created:",
-        authInstanceRef.current
-      );
-
       analyticsInstanceRef.current = getFirebaseAnalytics(
         appInstanceRef.current
       );
-      console.log(
-        "AuthContext: Analytics instance created:",
-        analyticsInstanceRef.current
-      );
 
-      console.log("Firebase initialized successfully.");
-
-      // 確保 authInstance 已經初始化後再設置 onAuthStateChanged
       if (authInstanceRef.current) {
-        console.log("AuthContext: Setting up onAuthStateChanged listener...");
         const unsubscribe = onAuthStateChanged(
           authInstanceRef.current,
           async (user) => {
-            console.log(
-              "AuthContext: onAuthStateChanged triggered. User:",
-              user ? user.email || user.uid : "None"
-            );
             let userWithRole = null;
             if (user) {
               try {
-                // 首先在用戶根級創建文檔，如果不存在
                 const userRootDocRef = doc(
                   dbInstanceRef.current,
                   `artifacts/${projectAppId}/users/${user.uid}`
@@ -109,12 +105,14 @@ export const AuthProvider = ({ children }) => {
                 if (!userRootDocSnap.exists()) {
                   await setDoc(
                     userRootDocRef,
-                    { uid: user.uid, lastLogin: new Date().toISOString() },
+                    {
+                      uid: user.uid,
+                      lastLogin: convertToTorontoISOString(new Date()),
+                    },
                     { merge: true }
                   );
                 }
 
-                // 然後獲取或創建 profile/main 文檔
                 const userProfileDocRef = doc(
                   dbInstanceRef.current,
                   `artifacts/${projectAppId}/users/${user.uid}/profile`,
@@ -123,92 +121,86 @@ export const AuthProvider = ({ children }) => {
 
                 const userProfileDocSnap = await getDoc(userProfileDocRef);
 
-                let isAdmin = false; // 預設不是管理員
+                let isAdmin = false;
+                let username = user.email ? user.email.split("@")[0] : "用戶";
+                let rank = 7; // 預設為數字 7
+                let lastLogin = convertToTorontoISOString(new Date());
+                let favoriteRestaurants = [];
 
                 if (userProfileDocSnap.exists()) {
                   const userData = userProfileDocSnap.data();
-                  // 從 Firestore 讀取 isAdmin 字段，如果不存在則為 false
                   isAdmin = userData.isAdmin === true;
+                  username = userData.username || username;
+                  rank = userData.rank !== undefined ? userData.rank : rank; // 確保 rank 為數字
+                  lastLogin = userData.lastLogin || lastLogin;
+                  favoriteRestaurants = userData.favoriteRestaurants || [];
 
-                  // 如果用戶資料中沒有 username 字段，則設置默認值
-                  if (userData.username === undefined && user.email) {
-                    userData.username = user.email.split("@")[0];
-                  }
-                  // 如果用戶資料中沒有 rank 字段，則設置默認值
-                  if (userData.rank === undefined) {
-                    userData.rank = "銅"; // 默認等級
-                  }
-                  // 更新用戶資料，確保 isAdmin 存在
                   await setDoc(
                     userProfileDocRef,
-                    { ...userData, isAdmin: isAdmin },
+                    {
+                      ...userData,
+                      email: user.email,
+                      isAdmin: isAdmin,
+                      username: username,
+                      rank: rank,
+                      lastLogin: lastLogin,
+                      favoriteRestaurants: favoriteRestaurants,
+                    },
                     { merge: true }
                   );
-                  userWithRole = { ...user, ...userData, isAdmin: isAdmin }; // 更新 currentUser 的 isAdmin 屬性
-                  console.log(
-                    "AuthContext: Existing user profile fetched and possibly updated from private path:",
-                    userWithRole
-                  );
+                  userWithRole = {
+                    ...user,
+                    ...userData,
+                    isAdmin: isAdmin,
+                    username: username,
+                    rank: rank,
+                    lastLogin: lastLogin,
+                    favoriteRestaurants: favoriteRestaurants,
+                  };
                 } else {
-                  // 如果 profile/main 文檔不存在，則創建新文檔
+                  // 新用戶預設資料
                   const newUserProfile = {
                     email: user.email,
-                    createdAt: new Date().toISOString(),
-                    isAdmin: isAdmin, // 新用戶預設不是管理員
-                    username: user.email ? user.email.split("@")[0] : "用戶", // 新用戶的默認用戶名稱
-                    rank: "銅", // 新用戶的默認等級
+                    createdAt: convertToTorontoISOString(new Date()),
+                    isAdmin: false, // 新用戶預設不是管理員
+                    username: username,
+                    rank: 7, // 新用戶預設等級為 7
+                    lastLogin: lastLogin,
+                    favoriteRestaurants: favoriteRestaurants,
                   };
                   await setDoc(userProfileDocRef, newUserProfile);
                   userWithRole = { ...user, ...newUserProfile };
-                  console.log(
-                    "AuthContext: New user profile created in private path:",
-                    userWithRole
-                  );
                 }
               } catch (dbError) {
-                console.error(
-                  "AuthContext: 從 Firestore 獲取或創建用戶資料失敗:",
-                  dbError
-                );
                 setModalMessage(`用戶資料處理失敗: ${dbError.message}`);
                 userWithRole = user;
               }
             } else {
-              userWithRole = null;
-              try {
-                if (initialAuthToken) {
+              if (initialAuthToken) {
+                try {
                   await signInWithCustomToken(
                     authInstanceRef.current,
                     initialAuthToken
                   );
-                  console.log("AuthContext: Signed in with custom token.");
+                } catch (tokenError) {
+                  setModalMessage(`自動認證失敗: ${tokenError.message}`);
                 }
-              } catch (tokenError) {
-                console.error(
-                  "AuthContext: Firebase Custom Token 認證失敗:",
-                  tokenError
-                );
-                setModalMessage(`自動認證失敗: ${tokenError.message}`);
               }
+              userWithRole = null;
             }
-            console.log("AuthContext: Setting currentUser to:", userWithRole);
             setCurrentUser(userWithRole);
-            setLoadingUser(false); // 停止載入
-            console.log("AuthContext: Current user set to:", userWithRole);
+            setLoadingUser(false);
           }
         );
 
         return () => unsubscribe();
       } else {
-        console.error("AuthContext: authInstance failed to initialize");
         setModalMessage("Firebase 認證服務初始化失敗");
         setLoadingUser(false);
       }
     } catch (error) {
-      console.error("Firebase 初始化失敗:", error);
       setModalMessage(`Firebase 初始化失敗: ${error.message}`);
-      setLoadingUser(false); // 在初始化失敗時也要停止載入
-      return;
+      setLoadingUser(false);
     }
   }, []);
 
@@ -219,23 +211,37 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (isValidEmail(identifier)) {
-        console.log("AuthContext: Attempting login for:", identifier);
-        return await signInWithEmailAndPassword(
+        const userCredential = await signInWithEmailAndPassword(
           authInstanceRef.current,
           identifier,
           password
         );
+
+        if (userCredential.user) {
+          const userProfileDocRef = doc(
+            dbInstanceRef.current,
+            `artifacts/${projectAppId}/users/${userCredential.user.uid}/profile`,
+            "main"
+          );
+          await updateDoc(userProfileDocRef, {
+            lastLogin: convertToTorontoISOString(new Date()),
+          });
+        }
+        return userCredential;
       } else {
         throw new Error("無效的登入識別符格式 (應為電子郵件)。");
       }
     } catch (error) {
-      console.error("AuthContext: 登入失敗:", error);
       throw error;
     }
   };
 
-  const signup = async (email, password) => {
-    // 移除了 phoneNumber 和 username 參數
+  const signup = async (
+    email,
+    password,
+    phoneNumber = null,
+    username = null
+  ) => {
     try {
       if (!authInstanceRef.current) {
         throw new Error("Firebase 認證服務未初始化");
@@ -244,39 +250,43 @@ export const AuthProvider = ({ children }) => {
         throw new Error("無效的電子郵件格式。");
       }
 
-      console.log("Attempting signup for:", email);
       const userCredential = await createUserWithEmailAndPassword(
         authInstanceRef.current,
         email,
         password
       );
+      if (userCredential.user) {
+        await sendEmailVerification(userCredential.user);
+        const userProfileDocRef = doc(
+          dbInstanceRef.current,
+          `artifacts/${projectAppId}/users/${userCredential.user.uid}/profile`,
+          "main"
+        );
+        const defaultUsername = username || email.split("@")[0];
+        const defaultRank = 7; // 註冊時預設等級為數字 7
+        const currentTorontoTimestamp = convertToTorontoISOString(new Date());
 
-      await sendEmailVerification(userCredential.user);
+        const additionalProfileData = {
+          email: email,
+          createdAt: currentTorontoTimestamp,
+          isAdmin: false, // 註冊時預設不是管理員
+          username: defaultUsername,
+          rank: defaultRank,
+          lastLogin: currentTorontoTimestamp,
+          phoneNumber: phoneNumber,
+          photoURL: null,
+          favoriteRestaurants: [],
+          publishedReviews: [],
+        };
 
-      const userProfileDocRef = doc(
-        dbInstanceRef.current,
-        `artifacts/${projectAppId}/users/${userCredential.user.uid}/profile`,
-        "main"
-      );
+        await setDoc(userProfileDocRef, additionalProfileData, { merge: true });
 
-      const defaultUsername = email.split("@")[0]; // 自動生成用戶名稱
-      // 新註冊用戶預設isAdmin為false，不再根據adminUid判斷
-      const isAdmin = false;
-
-      const additionalProfileData = {
-        email: email,
-        createdAt: new Date().toISOString(),
-        isAdmin: isAdmin, // 設置管理員狀態為 false
-        username: defaultUsername, // 設置預設用戶名稱
-        rank: "銅", // 設置預設等級
-      };
-
-      await setDoc(userProfileDocRef, additionalProfileData, { merge: true });
-
-      setModalMessage("註冊成功！請檢查您的電子郵件以完成驗證，然後再次登入。");
+        setModalMessage(
+          "註冊成功！請檢查您的電子郵件以完成驗證，然後再次登入。"
+        );
+      }
       return userCredential;
     } catch (error) {
-      console.error("註冊失敗:", error);
       throw error;
     }
   };
@@ -286,23 +296,14 @@ export const AuthProvider = ({ children }) => {
       if (!authInstanceRef.current) {
         throw new Error("Firebase 認證服務未初始化");
       }
-
-      console.log("Logging out user:", currentUser?.uid);
       await signOut(authInstanceRef.current);
-      console.log("Sign out successful.");
       setModalMessage("登出成功！");
     } catch (error) {
-      console.error("登出失敗:", error);
       const errorMessage = error.message || "登出失敗，請稍後再試";
       setModalMessage(`登出失敗: ${errorMessage}`);
     }
   };
 
-  /**
-   * 發送密碼重設電郵
-   * @param {string} email - 用戶的電子郵件地址
-   * @returns {Promise<void>}
-   */
   const sendPasswordReset = async (email) => {
     try {
       if (!authInstanceRef.current) {
@@ -317,10 +318,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const updateUserAdminStatus = async (userId, isAdmin) => {
+  const updateUserAdminStatus = async (userId, newIsAdmin) => {
     try {
       if (!dbInstanceRef.current) {
         throw new Error("Firebase 資料庫服務未初始化");
+      }
+      if (!currentUser?.isAdmin) {
+        throw new Error("您沒有權限執行此操作。");
       }
 
       const userProfileDocRef = doc(
@@ -329,18 +333,20 @@ export const AuthProvider = ({ children }) => {
         "main"
       );
 
-      await setDoc(userProfileDocRef, { isAdmin }, { merge: true });
-      console.log(`User ${userId} admin status updated to: ${isAdmin}`);
-
-      // 如果更新的是當前用戶，則重新獲取用戶資料
-      if (currentUser && currentUser.uid === userId) {
-        const userDocSnap = await getDoc(userProfileDocRef);
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          setCurrentUser({ ...currentUser, ...userData });
-        }
+      // 更新 isAdmin 狀態，並根據其設置 rank
+      const updates = { isAdmin: newIsAdmin };
+      if (newIsAdmin) {
+        updates.rank = 0; // 設為管理員時，等級設為 0
+      } else {
+        // 如果取消管理員權限，可以設為某個預設等級，例如 7
+        updates.rank = 7;
       }
 
+      await updateDoc(userProfileDocRef, updates);
+
+      if (currentUser && currentUser.uid === userId) {
+        setCurrentUser((prevUser) => ({ ...prevUser, ...updates }));
+      }
       return true;
     } catch (error) {
       console.error("更新用戶管理員權限失敗:", error);
@@ -348,7 +354,104 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const closeModal = () => setModalMessage("");
+  const updateUserProfile = async (userId, updates) => {
+    try {
+      if (!dbInstanceRef.current) {
+        throw new Error("Firebase 資料庫服務未初始化");
+      }
+      if (!currentUser?.isAdmin && currentUser?.uid !== userId) {
+        throw new Error("您沒有權限更新此用戶資料。");
+      }
+
+      const userProfileDocRef = doc(
+        dbInstanceRef.current,
+        `artifacts/${projectAppId}/users/${userId}/profile`,
+        "main"
+      );
+      await updateDoc(userProfileDocRef, updates);
+
+      if (currentUser && currentUser.uid === userId) {
+        setCurrentUser((prevUser) => ({ ...prevUser, ...updates }));
+      }
+      return true;
+    } catch (error) {
+      console.error("更新用戶資料失敗:", error);
+      throw error;
+    }
+  };
+
+  const sendPasswordResetLink = async (email) => {
+    try {
+      if (!authInstanceRef.current) {
+        throw new Error("Firebase 認證服務未初始化");
+      }
+      if (!isValidEmail(email)) {
+        throw new Error("無效的電子郵件格式。");
+      }
+      if (!currentUser?.isAdmin) {
+        throw new Error("您沒有權限執行此操作。");
+      }
+      await sendPasswordResetEmail(authInstanceRef.current, email);
+      return true;
+    } catch (error) {
+      console.error("管理員發送密碼重設電郵失敗:", error);
+      throw error;
+    }
+  };
+
+  /**
+   * 切換餐廳在用戶收藏列表中的狀態（新增或移除）。
+   * @param {string} restaurantId - 要收藏或取消收藏的餐廳 ID。
+   * @returns {Promise<boolean>} - 如果操作成功則返回 true。
+   */
+  const toggleFavoriteRestaurant = async (restaurantId) => {
+    if (!dbInstanceRef.current || !currentUser) {
+      setModalMessage("請先登入才能收藏或取消收藏餐廳。");
+      return false;
+    }
+
+    const userId = currentUser.uid;
+    const userProfileDocRef = doc(
+      dbInstanceRef.current,
+      `artifacts/${projectAppId}/users/${userId}/profile`,
+      "main"
+    );
+
+    try {
+      const docSnap = await getDoc(userProfileDocRef);
+      let currentFavorites = [];
+
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        currentFavorites = userData.favoriteRestaurants || [];
+      }
+
+      let newFavorites;
+      if (currentFavorites.includes(restaurantId)) {
+        newFavorites = currentFavorites.filter((id) => id !== restaurantId);
+        setModalMessage("已從收藏移除。");
+      } else {
+        newFavorites = [...currentFavorites, restaurantId];
+        setModalMessage("已添加到收藏。");
+      }
+
+      await updateDoc(userProfileDocRef, { favoriteRestaurants: newFavorites });
+
+      setCurrentUser((prevUser) => ({
+        ...prevUser,
+        favoriteRestaurants: newFavorites,
+      }));
+      return true;
+    } catch (error) {
+      console.error("切換收藏餐廳狀態失敗:", error);
+      setModalMessage("收藏操作失敗: " + error.message);
+      throw error;
+    }
+  };
+
+  const closeModal = () => {
+    setModalMessage("");
+  };
 
   const currentIsAdmin = currentUser && currentUser.isAdmin;
 
@@ -367,7 +470,10 @@ export const AuthProvider = ({ children }) => {
         logout,
         isAdmin: currentIsAdmin,
         updateUserAdminStatus,
-        sendPasswordReset, // 將 sendPasswordReset 函數暴露給上下文
+        sendPasswordReset,
+        updateUserProfile,
+        sendPasswordResetLink,
+        toggleFavoriteRestaurant,
       }}
     >
       {children}
