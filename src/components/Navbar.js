@@ -157,12 +157,16 @@ const Navbar = ({
           >
             餐廳專區
           </button>
-          <a
-            href="#"
-            className="hover:text-yellow-500 transition duration-200 hidden lg:block text-sm"
+          {/* 新增「寫食評」連結 */}
+          <button
+            onClick={() => {
+              router.push("/personal/reviews"); // 導航到新的食評頁面
+              setShowDropdown(false);
+            }}
+            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer p-0 m-0 text-sm"
           >
             寫食評
-          </a>
+          </button>
           {/* 根據 currentUser.isAdmin 狀態顯示管理員頁面按鈕 */}
           {isAdmin && (
             <button

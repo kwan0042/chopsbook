@@ -4,7 +4,7 @@
 import { useCallback } from "react";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { isValidEmail } from "./useUtils"; // 從 useUtils 導入 isValidEmail
+import { isValidEmail } from "./useUtils";
 
 /**
  * useUserProfile Hook:
@@ -25,6 +25,12 @@ export const useUserProfile = (
   setCurrentUser,
   setModalMessage
 ) => {
+  // DEBUG LOG: 檢查 setCurrentUser 在 Hook 初始化時的值
+  console.log(
+    "useUserProfile: setCurrentUser received:",
+    typeof setCurrentUser
+  );
+
   const updateUserAdminStatus = useCallback(
     async (userId, isAdmin) => {
       try {
@@ -44,16 +50,27 @@ export const useUserProfile = (
           const userDocSnap = await getDoc(userProfileDocRef);
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
+            // DEBUG LOG: 在呼叫前檢查 setCurrentUser
+            console.log(
+              "updateUserAdminStatus: Attempting to call setCurrentUser, type:",
+              typeof setCurrentUser
+            );
             setCurrentUser({ ...currentUser, ...userData });
           }
         }
+        setModalMessage(
+          `用戶 ${userId} 的管理員權限已更新為: ${
+            isAdmin ? "管理員" : "普通用戶"
+          }`
+        );
         return true;
       } catch (error) {
         console.error("useUserProfile: 更新用戶管理員權限失敗:", error);
+        setModalMessage(`更新用戶管理員權限失敗: ${error.message}`);
         throw error;
       }
     },
-    [db, appId, currentUser, setCurrentUser]
+    [db, appId, currentUser, setCurrentUser, setModalMessage]
   );
 
   const updateUserProfile = useCallback(
@@ -62,6 +79,7 @@ export const useUserProfile = (
         if (!db) {
           throw new Error("Firebase 資料庫服務未初始化");
         }
+        // 確保只有管理員或用戶本人可以更新資料
         if (!currentUser?.isAdmin && currentUser?.uid !== userId) {
           throw new Error("您沒有權限更新此用戶資料。");
         }
@@ -74,15 +92,23 @@ export const useUserProfile = (
         await updateDoc(userProfileDocRef, updates);
 
         if (currentUser && currentUser.uid === userId) {
+          // DEBUG LOG: 在呼叫前檢查 setCurrentUser
+          console.log(
+            "updateUserProfile: Attempting to call setCurrentUser, type:",
+            typeof setCurrentUser
+          );
+          // 使用傳入的 setCurrentUser 函數來更新全局狀態
           setCurrentUser((prevUser) => ({ ...prevUser, ...updates }));
         }
+        setModalMessage("用戶資料更新成功！");
         return true;
       } catch (error) {
         console.error("useUserProfile: 更新用戶資料失敗:", error);
+        setModalMessage(`更新用戶資料失敗: ${error.message}`);
         throw error;
       }
     },
-    [db, appId, currentUser, setCurrentUser]
+    [db, appId, currentUser, setCurrentUser, setModalMessage]
   );
 
   const sendPasswordResetLink = useCallback(
@@ -94,13 +120,17 @@ export const useUserProfile = (
         if (!isValidEmail(email)) {
           throw new Error("無效的電子郵件格式。");
         }
+        // 通常只有管理員才能為其他用戶發送重設鏈接，或者用戶自己通過 /login 頁面發送
+        // 這裡假設是管理員操作
         if (!currentUser?.isAdmin) {
           throw new Error("您沒有權限執行此操作。");
         }
         await sendPasswordResetEmail(auth, email);
+        setModalMessage(`已向 ${email} 發送密碼重設電郵。`);
         return true;
       } catch (error) {
         console.error("useUserProfile: 管理員發送密碼重設電郵失敗:", error);
+        setModalMessage(`管理員發送密碼重設電郵失敗: ${error.message}`);
         throw error;
       }
     },

@@ -3,7 +3,8 @@
 
 import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../lib/auth-context"; // 確保路徑正確
-import { doc, collection, getDocs, getDoc } from "firebase/firestore"; // 確保導入了 getDoc
+import { doc, collection, getDocs, getDoc, query } from "firebase/firestore"; // 確保導入了 getDoc 和 query, onSnapshot
+import { onSnapshot } from "firebase/firestore"; // 單獨導入 onSnapshot
 import LoadingSpinner from "../LoadingSpinner"; // 確保路徑正確
 import { useRouter } from "next/navigation";
 
@@ -21,56 +22,43 @@ const UserManagement = ({ setParentModalMessage }) => {
   const router = useRouter();
 
   const [users, setUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(true); // 更改為 loadingUsers，避免與父組件衝突
-  const [updatingUserStatus, setUpdatingUserStatus] = useState(false); // 更改為 updatingUserStatus，避免衝突
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [updatingUserStatus, setUpdatingUserStatus] = useState(false);
 
-  // 獲取所有用戶資料
+  // 實時獲取所有用戶資料
   useEffect(() => {
-    const fetchUsers = async () => {
-      if (!db || !appId) {
-        // 不再需要檢查 currentUser.isAdmin，因為 AdminPage 會先檢查
-        setLoadingUsers(false);
-        setParentModalMessage(
-          "Firebase 資料庫服務未初始化或應用程式ID不可用。"
-        );
-        return;
-      }
+    if (!db || !appId) {
+      setLoadingUsers(false);
+      setParentModalMessage("Firebase 資料庫服務未初始化或應用程式ID不可用。");
+      return;
+    }
 
-      // AdminPage 已經確認 currentUser?.isAdmin，這裡不再重複檢查。
-      // 但如果用戶在沒有權限的情況下直接訪問此組件，仍需要處理。
-      // 由於父組件已經處理了權限檢查，這裡可以假設有權限。
-      // 如果需要更嚴格的組件級別保護，可以在這裡再次檢查 isAdmin。
+    setLoadingUsers(true); // 開始監聽時設置載入狀態
 
-      setLoadingUsers(true);
-      setUsers([]);
+    const usersUidCollectionRef = collection(db, `artifacts/${appId}/users`);
+    const q = query(usersUidCollectionRef); // 建立一個對整個 users 集合的查詢
 
-      try {
-        const usersUidCollectionRef = collection(
-          db,
-          `artifacts/${appId}/users`
-        );
-        const usersUidSnapshot = await getDocs(usersUidCollectionRef);
-
+    // 設置實時監聽
+    const unsubscribe = onSnapshot(
+      q,
+      async (querySnapshot) => {
         const fetchedUsersData = [];
-        if (usersUidSnapshot.empty) {
+        if (querySnapshot.empty) {
           setParentModalMessage("沒有找到任何用戶資料。");
         }
 
-        for (const userDoc of usersUidSnapshot.docs) {
+        for (const userDoc of querySnapshot.docs) {
           const uid = userDoc.id;
-
           const profileDocRef = doc(
             db,
             `artifacts/${appId}/users/${uid}/profile/main`
           );
 
           try {
-            // 已修正：直接使用 Firestore 的 getDoc 函數
             const profileDocSnap = await getDoc(profileDocRef);
 
             if (profileDocSnap.exists()) {
               const profileData = profileDocSnap.data();
-              // 確保 publishedReviews 和 favoriteRestaurants 是陣列
               const publishedReviews = Array.isArray(
                 profileData.publishedReviews
               )
@@ -90,7 +78,7 @@ const UserManagement = ({ setParentModalMessage }) => {
                 username:
                   profileData.username ||
                   (profileData.email ? profileData.email.split("@")[0] : "N/A"),
-                rank: profileData.rank || "7",
+                rank: profileData.rank ?? "7", // 已修正：使用 ?? 確保 0 能被正確顯示
                 lastLogin: profileData.lastLogin || "N/A",
                 publishedReviews,
                 favoriteRestaurants,
@@ -118,7 +106,7 @@ const UserManagement = ({ setParentModalMessage }) => {
                   (userDataFromRootDoc.email
                     ? userDataFromRootDoc.email.split("@")[0]
                     : "N/A"),
-                rank: userDataFromRootDoc.rank || "7",
+                rank: userDataFromRootDoc.rank ?? "7", // 已修正：使用 ?? 確保 0 能被正確顯示
                 lastLogin: userDataFromRootDoc.lastLogin || "N/A",
                 publishedReviews,
                 favoriteRestaurants,
@@ -141,14 +129,17 @@ const UserManagement = ({ setParentModalMessage }) => {
           }
         }
         setUsers(fetchedUsersData);
-      } catch (error) {
-        setParentModalMessage(`獲取用戶資料失敗: ${error.message}`);
-      } finally {
+        setLoadingUsers(false); // 數據更新後關閉載入狀態
+      },
+      (error) => {
+        console.error("實時監聽用戶資料失敗:", error);
+        setParentModalMessage(`實時監聽用戶資料失敗: ${error.message}`);
         setLoadingUsers(false);
       }
-    };
+    );
 
-    fetchUsers();
+    // 清理函數：組件卸載時取消訂閱
+    return () => unsubscribe();
   }, [db, appId, setParentModalMessage]); // 確保所有依賴項都包含在內
 
   // 更新用戶管理員權限
@@ -157,12 +148,8 @@ const UserManagement = ({ setParentModalMessage }) => {
       setUpdatingUserStatus(true);
       await updateUserAdminStatus(userId, newIsAdmin);
 
-      setUsers((prevUsers) =>
-        prevUsers.map((user) =>
-          user.uid === userId ? { ...user, isAdmin: newIsAdmin } : user
-        )
-      );
-
+      // 因為有 onSnapshot 實時監聽，這裡不需要手動更新 users 狀態
+      // onSnapshot 會自動觸發 setUsers 重新渲染
       setParentModalMessage(
         `用戶權限已更新為: ${newIsAdmin ? "管理員" : "普通用戶"}`
       );
@@ -252,7 +239,6 @@ const UserManagement = ({ setParentModalMessage }) => {
                       </div>
                     </div>
                   </td>
-
                   <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700">
                     {user.rank}
                   </td>
@@ -274,7 +260,7 @@ const UserManagement = ({ setParentModalMessage }) => {
                     {user.uid === currentUser?.uid ? (
                       <span className="text-gray-400">當前用戶</span>
                     ) : (
-                      <div className="flex flex-col space-y-2">
+                      <div className="flex flex-col items-center space-y-2">
                         <button
                           onClick={() =>
                             handleUpdateAdminStatus(user.uid, true)

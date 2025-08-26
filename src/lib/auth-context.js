@@ -27,6 +27,10 @@ export const AuthProvider = ({ children }) => {
     appId,
     setCurrentUser,
   } = useAuthCore(setModalMessage);
+  console.log(
+    "AuthContext: setCurrentUser from useAuthCore:",
+    typeof setCurrentUser
+  ); // DEBUG LOG
 
   // 認證操作 (登入、註冊、登出、重設密碼)
   const { login, signup, logout, sendPasswordReset } = useAuthOperations(
@@ -39,6 +43,7 @@ export const AuthProvider = ({ children }) => {
   );
 
   // 用戶個人資料管理 (更新資料、管理員權限、管理員發送重設密碼鏈接)
+  // 將 setCurrentUser 傳遞給 useUserProfile
   const { updateUserAdminStatus, updateUserProfile, sendPasswordResetLink } =
     useUserProfile(
       db,
@@ -82,7 +87,7 @@ export const AuthProvider = ({ children }) => {
         auth,
         analytics,
         appId,
-        setModalMessage,
+        setModalMessage, // AuthProvider 自己的 setModalMessage
         login,
         signup,
         logout,
@@ -95,7 +100,8 @@ export const AuthProvider = ({ children }) => {
         submitReview,
         saveReviewDraft,
         checkModeration,
-        formatDateTime, // 確保格式化函數仍然暴露
+        formatDateTime,
+        setCurrentUser, // <-- 已確保 setCurrentUser 被暴露在 Context Value 中
       }}
     >
       {children}

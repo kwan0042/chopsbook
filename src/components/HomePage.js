@@ -10,12 +10,14 @@ import Navbar from "./Navbar";
 import FilterModal from "./FilterModal";
 import HeroSection from "./HeroSection";
 import PromotionsSection from "./PromotionsSection";
-import FoodCategoriesSection from "./FoodCategoriesSection";
+// import FoodCategoriesSection from "./FoodCategoriesSection"; // 已從主佈局中移除
 import RestaurantListPage from "./RestaurantListPage";
+import Modal from "./Modal"; // 引入 Modal 組件
+// import LoadingSpinner from "./LoadingSpinner"; // HomePage 本身不再需要 LoadingSpinner，因為 App.js 處理了最初的用戶載入狀態
 
 /**
  * HomePage: ChopsBook 的主登陸頁面。
- * 它現在負責組合各個區塊，並管理模態框的顯示以及頁面的核心內容切換（例如篩選結果）。
+ * 它現在負責組合各個區塊，並管理模態框的顯示以及頁面的核心內容切換。
  * @param {object} props - 組件屬性。
  * @param {function} props.onShowLoginPage - 顯示登入頁面的回調。
  * @param {function} props.onShowAddRestaurantPage - 導航到新增餐廳頁面的回調。
@@ -26,20 +28,21 @@ import RestaurantListPage from "./RestaurantListPage";
  */
 const HomePage = ({
   onShowLoginPage,
-  onShowAddRestaurantPage,
-  onShowUpdateRestaurantPage,
+  // onShowAddRestaurantPage, // 這些 props 現在由 Navbar 內部處理，不再直接傳遞
+  // onShowUpdateRestaurantPage, // 這些 props 現在由 Navbar 內部處理，不再直接傳遞
   onShowMerchantPage,
   onShowAdminPage,
   onShowPersonalPage,
 }) => {
-  const { currentUser, logout } = useContext(AuthContext);
+  const { currentUser, logout, setModalMessage, modalMessage } =
+    useContext(AuthContext);
+  var currentYear = new Date().getFullYear();
 
   // 管理 FilterModal 的顯示狀態
   const [showFilterModal, setShowFilterModal] = useState(false);
   // 用於儲存已應用的篩選條件，並在篩選結果頁面顯示
   const [appliedFilters, setAppliedFilters] = useState({});
-  // 控制是否顯示篩選後的餐廳列表頁面
-  const [showFilteredResultsPage, setShowFilteredResultsPage] = useState(false);
+  // Removed showFilteredResultsPage as RestaurantListPage will always render now.
   // 搜尋關鍵字狀態
   const [searchQuery, setSearchQuery] = useState("");
   // 列表視圖模式
@@ -57,25 +60,27 @@ const HomePage = ({
     setAppliedFilters(filters);
     console.log("應用篩選條件:", filters);
     setSearchQuery(""); // 應用篩選時清除搜尋關鍵字
-    setShowFilteredResultsPage(true); // 應用篩選後切換到篩選結果頁面
+    // 不再需要切換 showFilteredResultsPage 狀態
     setShowFilterModal(false); // 關閉篩選 Modal
   }, []);
 
   const handleClearFiltersOrSearch = useCallback(() => {
     setAppliedFilters({}); // 清除所有篩選條件
     setSearchQuery(""); // 清除搜尋關鍵字
-    setShowFilteredResultsPage(false); // 返回主頁面內容
+    // 不再需要切換 showFilteredResultsPage 狀態
   }, []);
 
   const handleSearch = useCallback((query) => {
     setSearchQuery(query);
     setAppliedFilters({}); // 搜尋時清除篩選條件
-    setShowFilteredResultsPage(true); // 顯示搜尋結果頁面
+    // 不再需要切換 showFilteredResultsPage 狀態
   }, []);
 
   const toggleView = useCallback(() => {
     setIsGridView((prev) => !prev);
   }, []);
+
+  const closeModal = () => setModalMessage("");
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100 font-inter">
@@ -88,8 +93,10 @@ const HomePage = ({
         onSearch={handleSearch}
       />
       <main className="flex-grow">
-        {showFilteredResultsPage ? (
-          // 如果 showFilteredResultsPage 為 true，則顯示篩選後的餐廳列表頁面
+        <HeroSection />
+        <div className="max-w-screen-xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+          <PromotionsSection />
+          {/* 始終渲染 RestaurantListPage */}
           <RestaurantListPage
             filters={appliedFilters}
             onClearFilters={handleClearFiltersOrSearch}
@@ -97,23 +104,11 @@ const HomePage = ({
             isGridView={isGridView}
             toggleView={toggleView}
           />
-        ) : (
-          // 否則顯示主頁面內容（包括 HeroSection, PromotionsSection, FoodCategoriesSection）
-          <>
-            <HeroSection />
-            <div className="max-w-screen-xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-              <PromotionsSection />
-              {/* 在主頁面時，FoodCategoriesSection 依然顯示 RestaurantListPage，但沒有應用任何篩選 */}
-              <FoodCategoriesSection
-                isGridView={isGridView}
-                toggleView={toggleView}
-              />
-            </div>
-          </>
-        )}
+          {/* FoodCategoriesSection 已從主佈局中移除 */}
+        </div>
       </main>
       <footer className="bg-gray-800 text-white text-center py-6 text-sm">
-        &copy; 2025 ChopsBook. 版權所有.
+        &copy; {currentYear} ChopsBook. 版權所有.
       </footer>
 
       {/* FilterModal 根據 showFilterModal 狀態顯示 */}
@@ -122,6 +117,13 @@ const HomePage = ({
         onClose={handleCloseFilterModal}
         onApplyFilters={handleApplyFilters}
       />
+      {modalMessage && (
+        <Modal
+          message={modalMessage}
+          onClose={closeModal}
+          isOpen={!!modalMessage}
+        />
+      )}
     </div>
   );
 };

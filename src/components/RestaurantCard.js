@@ -10,8 +10,7 @@ import { faBookmark as faSolidBookmark } from "@fortawesome/free-solid-svg-icons
 import { faBookmark as faRegularBookmark } from "@fortawesome/free-regular-svg-icons"; // 空心書籤 (未收藏)
 
 // 這裡已添加 faEdit 圖標用於「寫食評」功能
-import {  faComment } from '@fortawesome/free-solid-svg-icons';
-
+import { faComment } from "@fortawesome/free-solid-svg-icons";
 
 /**
  * 輔助函數：根據營業時間和自定義狀態判斷餐廳營業狀態。
@@ -159,16 +158,18 @@ const RestaurantCard = ({
             {restaurant.rating?.toFixed(1) || "N/A"}
           </span>
           <div className="flex items-center text-sm text-gray-700 mb-1">
-              <span className="ml-3 flex items-center">
-                <div className="relative"> {/* 使用 relative 定位以便於疊加數字 */}
-                  <FontAwesomeIcon icon={faComment} className="text-blue-500" />
-                  {/* 評論數量疊加在圖標上 */}
-                  <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
-                    {restaurant.reviewCount || 0}
-                  </span>
-                </div>
-              </span>
-            </div>
+            <span className="ml-3 flex items-center">
+              <div className="relative">
+                {" "}
+                {/* 使用 relative 定位以便於疊加數字 */}
+                <FontAwesomeIcon icon={faComment} className="text-blue-500" />
+                {/* 評論數量疊加在圖標上 */}
+                <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                  {restaurant.reviewCount || 0}
+                </span>
+              </div>
+            </span>
+          </div>
         </div>
         <h3 className="text-2xl font-bold text-gray-900 mb-2 leading-tight text-wrap">
           {restaurant.restaurantNameZh ||
