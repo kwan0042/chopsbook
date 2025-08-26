@@ -3,180 +3,101 @@
 
 import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../lib/auth-context";
-import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import {
+  doc, // 雖然這裡不再直接使用 getDoc, 但為了 Firebase Firestore 相關操作，通常仍會保留
+  getDoc, // 為了某些情況下的獲取數據，保留 getDoc
+  collection, // collection 仍被 AdminPage 的 useEffect 用於獲獲取用戶 ID
+  getDocs, // getDocs 仍被 AdminPage 的 useEffect 用於獲取用戶 ID
+} from "firebase/firestore";
 import Modal from "./Modal";
 import { useRouter } from "next/navigation";
+import LoadingSpinner from "./LoadingSpinner"; // 確保 LoadingSpinner 檔案存在
+
+// 導入新的管理組件
+import RestaurantManagement from "./admin/RestaurantManagement";
+import UserRequestManagement from "./admin/UserRequestManagement";
+import ReviewManagement from "./admin/ReviewManagement";
+import RatingsPage from "./admin/RatingsPage";
+import UserManagement from "./admin/UserManagement"; // 導入新的 UserManagement 組件
 
 const AdminPage = ({ onBackToHome }) => {
-  const { currentUser, db, updateUserAdminStatus, appId } =
-    useContext(AuthContext);
+  // 從 AuthContext 獲取所需的功能，移除了 setModalMessage 以避免衝突
+  const {
+    currentUser,
+    db,
+    updateUserAdminStatus,
+    appId,
+    formatDateTime,
+    loadingUser,
+  } = useContext(AuthContext);
   const router = useRouter();
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
+
+  // AdminPage 自己的模態框狀態
   const [modalMessage, setModalMessage] = useState("");
+  const [activeSection, setActiveSection] = useState("users"); // 控制當前顯示的管理區塊
 
-  // 輔助函數：將 ISO 日期字串格式化為更易讀的格式
-  const formatDateTime = (isoString) => {
-    if (!isoString) return "N/A";
-    try {
-      const date = new Date(isoString);
-      if (isNaN(date.getTime())) {
-        return "無效日期";
-      }
-      return date.toLocaleString("zh-TW", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      });
-    } catch (e) {
-      console.error("格式化日期失敗:", e);
-      return "格式化失敗";
-    }
-  };
-
-  // 獲取所有用戶資料
-  useEffect(() => {
-    const fetchUsers = async () => {
-      if (!db) {
-        setLoading(false);
-        setModalMessage("Firebase 資料庫服務未初始化。");
-        return;
-      }
-      if (!currentUser?.isAdmin) {
-        setLoading(false);
-        setModalMessage("您沒有權限訪問此頁面。");
-        return;
-      }
-
-      setLoading(true);
-      setUsers([]);
-
-      try {
-        const effectiveAppId = appId || "default-app-id";
-        const usersUidCollectionRef = collection(
-          db,
-          `artifacts/${effectiveAppId}/users`
-        );
-        const usersUidSnapshot = await getDocs(usersUidCollectionRef);
-
-        const fetchedUsersData = [];
-        if (usersUidSnapshot.empty) {
-          setModalMessage("沒有找到任何用戶資料。");
-        }
-
-        for (const userDoc of usersUidSnapshot.docs) {
-          const uid = userDoc.id;
-
-          const profileDocRef = doc(
-            db,
-            `artifacts/${effectiveAppId}/users/${uid}/profile/main`
-          );
-
-          try {
-            const profileDocSnap = await getDoc(profileDocRef);
-
-            if (profileDocSnap.exists()) {
-              const profileData = profileDocSnap.data();
-              fetchedUsersData.push({
-                uid: uid,
-                email: profileData.email || `未知郵箱`,
-                isAdmin: profileData.isAdmin || false,
-                createdAt: profileData.createdAt || "未知時間",
-                username:
-                  profileData.username ||
-                  (profileData.email ? profileData.email.split("@")[0] : "N/A"),
-                rank: profileData.rank || "7", // 等級已更新為預設 '7'
-                lastLogin: profileData.lastLogin || "N/A",
-              });
-            } else {
-              const userDataFromRootDoc = userDoc.data();
-              fetchedUsersData.push({
-                uid: uid,
-                email: userDataFromRootDoc.email || `未知郵箱`,
-                isAdmin: userDataFromRootDoc.isAdmin || false,
-                createdAt: userDataFromRootDoc.createdAt || "未知時間",
-                username:
-                  userDataFromRootDoc.username ||
-                  (userDataFromRootDoc.email
-                    ? userDataFromRootDoc.email.split("@")[0]
-                    : "N/A"),
-                rank: userDataFromRootDoc.rank || "7", // 等級已更新為預設 '7'
-                lastLogin: userDataFromRootDoc.lastLogin || "N/A",
-              });
-            }
-          } catch (profileError) {
-            console.error(
-              `獲取用戶 ${uid} 的 profile/main 失敗:`,
-              profileError
-            );
-            fetchedUsersData.push({
-              uid: uid,
-              email: `獲取失敗 (錯誤)`,
-              isAdmin: false,
-              createdAt: "未知時間",
-              username: "N/A",
-              rank: "N/A",
-              lastLogin: "N/A",
-            });
-          }
-        }
-        setUsers(fetchedUsersData);
-      } catch (error) {
-        setModalMessage(`獲取用戶資料失敗: ${error.message}`);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUsers();
-  }, [db, currentUser, appId]);
-
-  // 更新用戶管理員權限
-  const handleUpdateAdminStatus = async (userId, newIsAdmin) => {
-    try {
-      setUpdating(true);
-      await updateUserAdminStatus(userId, newIsAdmin);
-
-      setUsers((prevUsers) =>
-        prevUsers.map((user) =>
-          user.uid === userId ? { ...user, isAdmin: newIsAdmin } : user
-        )
-      );
-
-      setModalMessage(
-        `用戶權限已更新為: ${newIsAdmin ? "管理員" : "普通用戶"}`
-      );
-    } catch (error) {
-      setModalMessage("更新失敗: " + error.message);
-      console.error("更新管理員權限失敗:", error);
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  // 導航到用戶詳細頁面 (現在使用查詢參數)
-  const handleViewUserDetails = (uid) => {
-    router.push(`/admin/editUsers?uid=${uid}`);
-  };
+  // 移除了本地的 formatDateTime 輔助函數，現在從 AuthContext 獲取。
+  // 移除了 AdminPage 中直接獲取用戶列表的邏輯，現在由 UserManagement 組件處理。
+  // 移除了 AdminPage 中直接處理更新用戶管理員權限的邏輯，現在由 UserManagement 組件處理。
 
   const closeModal = () => setModalMessage("");
 
-  if (loading) {
+  // React Hook "useEffect" is called conditionally. (已修正)
+  // 將權限檢查和重定向的 useEffect 移至頂層。
+  useEffect(() => {
+    if (loadingUser) {
+      return; // 等待用戶載入完成
+    }
+
+    // 如果用戶未登入，導向登入頁面
+    if (!currentUser) {
+      router.push("/login");
+      setModalMessage("請先登入才能訪問管理員頁面。");
+      return;
+    }
+
+    // 如果用戶已登入但不是管理員，則導向首頁並顯示無權限訊息
+    if (!currentUser?.isAdmin) {
+      setModalMessage("您沒有權限訪問此管理員頁面。");
+      const timer = setTimeout(() => {
+        window.location.href = "/";
+      }, 3000); // 3秒後跳轉
+
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser, loadingUser, router, setModalMessage]); // 確保所有依賴都包含在內
+
+  // 由於用戶列表的載入邏輯已移至 UserManagement，
+  // AdminPage 自身的載入狀態僅在 currentUser 載入時需要。
+  // 一旦 currentUser 載入完成，我們就可以渲染 AdminPage 及其內部組件了。
+  // UserManagement 會有自己的 loadingUsers 狀態。
+  if (loadingUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">載入用戶資料中...</p>
-        </div>
+        <LoadingSpinner />
+        <p className="text-lg text-gray-700 ml-4">正在檢查您的權限...</p>
       </div>
     );
   }
 
+  // 如果已登入且不是管理員，顯示權限不足訊息 (useEffect 會處理重定向)
+  if (!currentUser?.isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <p className="text-xl text-red-600">
+          {modalMessage || "正在驗證您的權限..."}
+        </p>
+        <Modal
+          message={modalMessage}
+          onClose={closeModal}
+          isOpen={!!modalMessage}
+          type="error"
+        />
+      </div>
+    );
+  }
+
+  // 如果是管理員，渲染管理員頁面內容
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-100 p-4 font-inter">
       <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 lg:p-8">
@@ -204,7 +125,6 @@ const AdminPage = ({ onBackToHome }) => {
             <span>返回首頁</span>
           </button>
         </div>
-
         {/* 當前管理員資訊 */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-sm p-6 mb-8 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
           <div className="w-16 h-16 bg-blue-200 rounded-full flex items-center justify-center flex-shrink-0 shadow-inner">
@@ -219,140 +139,80 @@ const AdminPage = ({ onBackToHome }) => {
             <p className="text-sm text-blue-700 mt-1">您是當前登入的管理員。</p>
           </div>
         </div>
-
-        {/* 用戶管理表格 */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-2xl font-semibold text-gray-800">用戶管理</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              管理應用程式中的用戶權限和資料
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    用戶
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    等級
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    最後登入日期
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    身份組
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    操作
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    詳細資料
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {users.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan="6" // 更新 colSpan 以匹配新的欄位數量
-                      className="px-6 py-4 text-center text-gray-500"
-                    >
-                      沒有找到任何用戶資料。
-                    </td>
-                  </tr>
-                ) : (
-                  users.map((user) => (
-                    <tr
-                      key={user.uid}
-                      className="hover:bg-gray-50 transition-colors duration-150"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-gray-600 font-semibold text-sm">
-                              {user.email.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {user.username || user.email}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              ID: {user.uid.substring(0, 8)}...
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700">
-                        {user.rank}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700">
-                        {formatDateTime(user.lastLogin)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span
-                          className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                            user.isAdmin
-                              ? "bg-green-100 text-green-800"
-                              : "bg-indigo-100 text-indigo-800"
-                          }`}
-                        >
-                          {user.isAdmin ? "管理員" : "普通用戶"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        {user.uid === currentUser?.uid ? (
-                          <span className="text-gray-400">當前用戶</span>
-                        ) : (
-                          <div className="flex flex-col space-y-2">
-                            <button
-                              onClick={() =>
-                                handleUpdateAdminStatus(user.uid, true)
-                              }
-                              disabled={updating || user.isAdmin}
-                              className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                                user.isAdmin
-                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                  : "bg-green-600 text-white hover:bg-green-700"
-                              }`}
-                            >
-                              設為管理員
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleUpdateAdminStatus(user.uid, false)
-                              }
-                              disabled={updating || !user.isAdmin}
-                              className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                                !user.isAdmin
-                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                  : "bg-red-600 text-white hover:bg-red-700"
-                              }`}
-                            >
-                              取消管理員
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        <button
-                          onClick={() => handleViewUserDetails(user.uid)}
-                          className="px-4 py-2 text-xs rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200 shadow-sm"
-                        >
-                          查看詳細
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
+        {/* 導航欄 */}
+        <nav className="bg-white rounded-lg shadow-md mb-8 p-2 border border-gray-200">
+          <ul className="flex flex-wrap justify-center sm:justify-start gap-2 sm:gap-4">
+            <li>
+              <button
+                onClick={() => setActiveSection("users")}
+                className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
+                  activeSection === "users"
+                    ? "bg-indigo-600 text-white shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                用戶管理
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={() => setActiveSection("restaurants")}
+                className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
+                  activeSection === "restaurants"
+                    ? "bg-indigo-600 text-white shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                餐廳管理
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={() => setActiveSection("requests")}
+                className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
+                  activeSection === "requests"
+                    ? "bg-indigo-600 text-white shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                用家請求管理
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={() => setActiveSection("reviews")}
+                className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
+                  activeSection === "reviews"
+                    ? "bg-indigo-600 text-white shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                食評管理
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={() => setActiveSection("ratings")}
+                className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
+                  activeSection === "ratings"
+                    ? "bg-indigo-600 text-white shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                評級頁面 (未開發)
+              </button>
+            </li>
+          </ul>
+        </nav>
+        {/* 內容區塊：根據 activeSection 顯示不同內容 */}
+        {activeSection === "users" && (
+          <UserManagement setParentModalMessage={setModalMessage} />
+        )}{" "}
+        {/* 渲染 UserManagement */}
+        {activeSection === "restaurants" && <RestaurantManagement />}
+        {activeSection === "requests" && <UserRequestManagement />}
+        {activeSection === "reviews" && <ReviewManagement />}
+        {activeSection === "ratings" && <RatingsPage />}
         {/* 使用說明 */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-8 shadow-sm">
           <h3 className="text-xl font-semibold text-blue-800 mb-3">使用說明</h3>
@@ -368,6 +228,7 @@ const AdminPage = ({ onBackToHome }) => {
             <li>• 管理員權限變更會立即生效</li>
             <li>• 請謹慎操作，確保不會意外移除自己的管理員權限</li>
             <li>• 點擊「查看詳細」按鈕可以查看和編輯用戶的個人資料</li>
+            <li>• 使用上方的導航欄切換不同的管理區塊</li>
           </ul>
         </div>
       </div>

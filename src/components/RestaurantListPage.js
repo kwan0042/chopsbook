@@ -9,16 +9,16 @@ import {
   query,
   onSnapshot,
   addDoc,
-  // 移除了 where, doc, setDoc, deleteDoc 的引入，因為這些現在由 AuthContext 內部處理收藏邏輯
+  getDocs, // 引入 getDocs 用於獲取評論數量
+  where, // 引入 where 用於查詢評論
 } from "firebase/firestore"; // 確保引入所有需要的 Firestore 函數
 // 請務必確認 './LoadingSpinner' 的路徑和檔名 (LoadingSpinner.js) 完全正確，注意大小寫
 import LoadingSpinner from "./LoadingSpinner";
 // 請務必確認 './Modal' 的路徑和檔名 (Modal.js) 完全正確，注意大小寫
-import Modal from "./Modal";
+// AuthContext 已處理全局 Modal，此處不再需要直接導入並渲染 Modal
+// import Modal from "./Modal";
 
 import RestaurantCard from "./RestaurantCard"; // 導入 RestaurantCard
-
-// 移除了 FontAwesomeIcon 的直接引入，因為它現在在 RestaurantCard 內部處理
 
 /**
  * 輔助函數：正規化字串，用於不區分大小寫和空格的搜尋。
@@ -88,7 +88,7 @@ const RestaurantListPage = ({
   toggleView,
 }) => {
   const { db, currentUser, appId, toggleFavoriteRestaurant, setModalMessage } =
-    useContext(AuthContext); // 引入 toggleFavoriteRestaurant
+    useContext(AuthContext);
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const userId = currentUser?.uid || "anonymous";
@@ -104,7 +104,8 @@ const RestaurantListPage = ({
 
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
+      async (snapshot) => {
+        // Make this async to allow await inside
         let fetchedRestaurants = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -117,9 +118,8 @@ const RestaurantListPage = ({
           );
         }
         if (filters.priceRange && filters.priceRange !== "0") {
-          let maxAvgSpending = parseInt(filters.priceRange, 10); // 確保是數字
+          let maxAvgSpending = parseInt(filters.priceRange, 10);
           if (maxAvgSpending > 0 && maxAvgSpending !== 9999) {
-            // 9999 代表不限
             fetchedRestaurants = fetchedRestaurants.filter(
               (restaurant) =>
                 restaurant.avgSpending &&
@@ -173,7 +173,32 @@ const RestaurantListPage = ({
           });
         }
 
-        setRestaurants(fetchedRestaurants);
+        // Fetch review counts for all restaurants
+        const reviewCountsPromises = fetchedRestaurants.map(
+          async (restaurant) => {
+            // Use the reviewCount field directly from the restaurant document if it exists.
+            // This is more efficient as it doesn't require a separate query per restaurant.
+            // If a reviewCount field is not maintained in the restaurant document,
+            // then a sub-query like the commented-out code below would be needed.
+            // const reviewsQuery = query(
+            //   collection(db, `artifacts/${appId}/public/data/reviews`),
+            //   where("restaurantId", "==", restaurant.id)
+            // );
+            // const reviewsSnapshot = await getDocs(reviewsQuery);
+            // const reviewCount = reviewsSnapshot.size;
+
+            return {
+              ...restaurant,
+              reviewCount: restaurant.reviewCount || 0, // Assume reviewCount is already in restaurant data, default to 0
+            };
+          }
+        );
+
+        const restaurantsWithReviewCounts = await Promise.all(
+          reviewCountsPromises
+        );
+
+        setRestaurants(restaurantsWithReviewCounts);
         setLoading(false);
       },
       (error) => {
@@ -184,9 +209,7 @@ const RestaurantListPage = ({
     );
 
     return () => unsubscribe();
-  }, [db, appId, JSON.stringify(filters), searchQuery, setModalMessage]); // 添加 setModalMessage 到依賴項
-
-  // 移除了第二個 useEffect，因為收藏狀態直接從 currentUser.favoriteRestaurants 獲取
+  }, [db, appId, JSON.stringify(filters), searchQuery, setModalMessage]);
 
   /**
    * 處理收藏/取消收藏餐廳的邏輯。
@@ -195,10 +218,9 @@ const RestaurantListPage = ({
    */
   const handleToggleFavorite = async (restaurantId) => {
     try {
-      await toggleFavoriteRestaurant(restaurantId); // 調用 AuthContext 提供的函數
-      // 成功訊息已由 AuthContext 內部設定
+      await toggleFavoriteRestaurant(restaurantId);
     } catch (error) {
-      // 錯誤訊息已由 AuthContext 內部設定
+      // Error message is already handled by AuthContext's setModalMessage
     }
   };
 
@@ -237,7 +259,7 @@ const RestaurantListPage = ({
           facilitiesServices: ["室外座位", "Wi-Fi服務"], // 新增服務
           otherInfo: "提供當地特色菜餚。",
           rating: 4.5,
-          reviewCount: 25,
+          reviewCount: 0, // Initialize reviewCount
           isTemporarilyClosed: false,
           isPermanentlyClosed: false,
         },
@@ -263,7 +285,7 @@ const RestaurantListPage = ({
           facilitiesServices: ["室外座位", "酒精飲品", "無障礙設施"], // 新增服務
           otherInfo: "新鮮海產，景色優美。",
           rating: 4.8,
-          reviewCount: 40,
+          reviewCount: 0, // Initialize reviewCount
           isTemporarilyClosed: false,
           isPermanentlyClosed: false,
         },
@@ -288,7 +310,7 @@ const RestaurantListPage = ({
           facilitiesServices: ["酒精飲品"], // 新增服務
           otherInfo: "提供米其林星級體驗。",
           rating: 4.2,
-          reviewCount: 18,
+          reviewCount: 0, // Initialize reviewCount
           isTemporarilyClosed: true,
           isPermanentlyClosed: false,
         },
@@ -316,7 +338,7 @@ const RestaurantListPage = ({
           facilitiesServices: ["外賣速遞", "兒童友善"], // 新增服務
           otherInfo: "多種亞洲街頭小吃。",
           rating: 4.0,
-          reviewCount: 30,
+          reviewCount: 0, // Initialize reviewCount
           isTemporarilyClosed: false,
           isPermanentlyClosed: true,
         },
@@ -341,7 +363,7 @@ const RestaurantListPage = ({
           facilitiesServices: ["Wi-Fi服務", "停車場"], // 新增服務
           otherInfo: "傳統手工披薩。",
           rating: 3.9,
-          reviewCount: 15,
+          reviewCount: 0, // Initialize reviewCount
           isTemporarilyClosed: false,
           isPermanentlyClosed: false,
         },
@@ -358,8 +380,6 @@ const RestaurantListPage = ({
       setLoading(false);
     }
   };
-
-  const closeModal = () => setModalMessage("");
 
   const hasFiltersOrSearch =
     Object.values(filters).some(
@@ -379,6 +399,7 @@ const RestaurantListPage = ({
           {hasFiltersOrSearch ? "搜尋/篩選結果" : "所有餐廳"}
         </h2>
         <div className="flex space-x-4">
+          {/* 清除篩選/搜尋按鈕，僅在有篩選或搜尋時顯示 */}
           {hasFiltersOrSearch && onClearFilters && (
             <button
               onClick={onClearFilters}
@@ -387,6 +408,7 @@ const RestaurantListPage = ({
               清除篩選/搜尋
             </button>
           )}
+          {/* 切換視圖按鈕，總是顯示 */}
           {toggleView && (
             <button
               onClick={toggleView}
@@ -436,13 +458,11 @@ const RestaurantListPage = ({
                 currentUser?.favoriteRestaurants?.includes(restaurant.id) ||
                 false
               } // 從 currentUser 獲取收藏狀態
-              onToggleFavorite={handleToggleFavorite} // 傳遞收藏切換函數
+              onToggleFavorite={toggleFavoriteRestaurant} // 傳遞收藏切換函數
             />
           ))}
         </div>
       )}
-      <Modal message={currentUser?.modalMessage || ""} onClose={closeModal} />{" "}
-      {/* 這裡應該顯示 AuthContext 的 modalMessage */}
     </div>
   );
 };

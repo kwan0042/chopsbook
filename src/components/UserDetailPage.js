@@ -35,6 +35,7 @@ const UserDetailPage = ({ userId }) => {
     loadingUser,
     updateUserProfile,
     sendPasswordResetLink,
+    formatDateTime, // 從 AuthContext 獲取格式化函數
   } = useContext(AuthContext);
   const router = useRouter();
 
@@ -50,31 +51,7 @@ const UserDetailPage = ({ userId }) => {
   const [isSendingResetLink, setIsSendingResetLink] = useState(false); // 發送重設鏈接按鈕的載入狀態
   const [saveSuccessMessage, setSaveSuccessMessage] = useState(null); // 新增：儲存成功訊息
 
-  // 等級選項 (數字，0 代表管理員)
-  const rankOptions = [0, 1, 2, 3, 4, 5, 6, 7]; // 0 通常代表管理員, 1-7 為普通等級
-
-  // 輔助函數：將 ISO 日期字串格式化為更易讀的格式
-  const formatDateTime = (isoString) => {
-    if (!isoString) return "N/A";
-    try {
-      const date = new Date(isoString);
-      if (isNaN(date.getTime())) {
-        return "無效日期";
-      }
-      return date.toLocaleString("zh-TW", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      });
-    } catch (e) {
-      console.error("格式化日期失敗:", e);
-      return "格式化失敗";
-    }
-  };
+  const rankOptions = [0, 1, 2, 3, 4, 5, 6, 7];
 
   // 獲取用戶資料
   useEffect(() => {
@@ -154,7 +131,7 @@ const UserDetailPage = ({ userId }) => {
     };
 
     fetchUserData();
-  }, [userId, db, appId, currentUser, loadingUser, router]);
+  }, [userId, db, appId, currentUser, loadingUser, router, formatDateTime]); // 添加 formatDateTime 到依賴
 
   // 清除儲存成功訊息的 useEffect
   useEffect(() => {
@@ -294,8 +271,6 @@ const UserDetailPage = ({ userId }) => {
 
   const canEdit = currentUser?.isAdmin;
 
-  // 顯示 rank 的文字描述
-
   // 統一的輸入/顯示欄位樣式
   const commonFieldClass =
     "w-full p-3 bg-gray-50 rounded-md border border-gray-200 text-gray-800 h-[48px] flex items-center"; // 固定高度
@@ -396,7 +371,6 @@ const UserDetailPage = ({ userId }) => {
                 <p className={commonFieldClass}>{userData.rank}</p>
               )}
             </div>
-
             {/* 最愛餐廳清單 (現在位於左側欄下方，高約兩個欄位的高度) */}
             <div className="flex-grow">
               <label className="block text-gray-700 text-sm font-bold mb-2">
@@ -467,6 +441,7 @@ const UserDetailPage = ({ userId }) => {
                 placeholder="例如：123-456-7890"
               />
             </div>
+
             {/* 個人相片 (URL) 現在也位於右側欄，以平衡佈局 */}
             <div>
               <label

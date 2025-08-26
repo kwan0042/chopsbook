@@ -3,7 +3,7 @@
 
 import React, { useContext, useCallback } from "react";
 import { useRouter } from "next/navigation"; // 導入 useRouter 鉤子
-import { AuthProvider, AuthContext } from "../../lib/auth-context"; // 確保路徑正確
+import { AuthContext } from "../../lib/auth-context"; // 確保路徑正確
 import PersonalPageContent from "../../components/PersonalPage"; // 導入 PersonalPage 的內容組件
 import LoadingSpinner from "../../components/LoadingSpinner"; // 導入 LoadingSpinner
 
@@ -23,17 +23,16 @@ const PersonalPageWrapper = () => {
   // 如果正在載入用戶資訊，顯示載入指示器
   if (loadingUser) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <LoadingSpinner />
         <p className="text-lg text-gray-700 ml-4">載入用戶資訊...</p>
       </div>
     );
   }
 
-  // 如果用戶未登入，則導向首頁或登入頁面
+  // 如果用戶未登入，則導向登入頁面
   if (!currentUser) {
-    router.push("/"); // 未登入則導回主頁
-    // 這裡也可以導向專門的登入頁面，例如 router.push('/login');
+    router.push("/login"); // 未登入則導向登入頁面
     return null; // 防止在重定向前渲染任何內容
   }
 
@@ -44,11 +43,7 @@ const PersonalPageWrapper = () => {
 /**
  * PersonalPage：Next.js 的頁面組件，用於處理 /personal 路由。
  * 它用 AuthProvider 包裹 PersonalPageWrapper，確保認證上下文可用。
+ * 注意：RootLayout 已經包裹了 AuthProvider，這裡無需重複包裹。
+ * 所以直接導出 PersonalPageWrapper 即可。
  */
-export default function PersonalPage() {
-  return (
-    <AuthProvider>
-      <PersonalPageWrapper />
-    </AuthProvider>
-  );
-}
+export default PersonalPageWrapper;
