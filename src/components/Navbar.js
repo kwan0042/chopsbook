@@ -161,7 +161,6 @@ const Navbar = ({
           <button
             onClick={() => {
               router.push("/personal/reviews"); // 導航到新的食評頁面
-              setShowDropdown(false);
             }}
             className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer p-0 m-0 text-sm"
           >

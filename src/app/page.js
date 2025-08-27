@@ -10,7 +10,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import HomePage from "../components/HomePage";
 import AddRestaurantPage from "../components/AddRestaurantPage";
 import MerchantPage from "../components/MerchantPage";
-import AdminPage from "../components/AdminPage"; // 導入新的 AdminPage
+import AdminPage from "../components/admin/AdminPage"; // 導入新的 AdminPage
 import Modal from "../components/Modal"; // 導入 Modal 組件，用於顯示非管理員訊息
 
 /**

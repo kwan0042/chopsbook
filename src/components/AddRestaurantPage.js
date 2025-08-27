@@ -125,7 +125,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
 
     try {
       await addDoc(
-        collection(db, `artifacts/${appId}/public/data/restaurants`),
+        collection(db, `artifacts/${appId}/public/data/add_rest_request`),
         {
           ...formData, // 提交所有表單數據
           submittedBy: currentUser.uid,
@@ -133,8 +133,8 @@ const AddRestaurantPage = ({ onBackToHome }) => {
         }
       );
       setModalMessage(
-        "謝謝你使用ChopsBook 提供餐廳資訊 為廣大嘅美食家作出貢獻 幕後團隊將火速審批"
-      ); // 自訂成功訊息
+        "謝謝你使用ChopsBook" + "/br" + "提供餐廳資訊 為廣大嘅美食家作出貢獻 幕後團隊將火速審批"
+      ); 
       setModalType("success");
       setFormData(initialFormData); // 清空表單
     } catch (err) {

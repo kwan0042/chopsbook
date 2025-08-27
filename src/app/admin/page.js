@@ -4,7 +4,7 @@
 import React, { useContext, useEffect } from "react";
 import { useRouter } from "next/navigation"; // 用於程式化導航
 import { AuthContext } from "../../lib/auth-context"; // 從 lib/auth-context 導入 AuthContext
-import AdminPage from "../../components/AdminPage"; // 從 components/AdminPage 導入 AdminPage
+import AdminPage from "../../components/admin/AdminPage"; // 從 components/AdminPage 導入 AdminPage
 import LoadingSpinner from "../../components/LoadingSpinner"; // 導入 LoadingSpinner
 
 /**

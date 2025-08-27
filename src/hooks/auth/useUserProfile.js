@@ -26,10 +26,7 @@ export const useUserProfile = (
   setModalMessage
 ) => {
   // DEBUG LOG: 檢查 setCurrentUser 在 Hook 初始化時的值
-  console.log(
-    "useUserProfile: setCurrentUser received:",
-    typeof setCurrentUser
-  );
+  
 
   const updateUserAdminStatus = useCallback(
     async (userId, isAdmin) => {
@@ -50,11 +47,7 @@ export const useUserProfile = (
           const userDocSnap = await getDoc(userProfileDocRef);
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
-            // DEBUG LOG: 在呼叫前檢查 setCurrentUser
-            console.log(
-              "updateUserAdminStatus: Attempting to call setCurrentUser, type:",
-              typeof setCurrentUser
-            );
+            
             setCurrentUser({ ...currentUser, ...userData });
           }
         }

@@ -160,27 +160,8 @@ export const useAuthCore = (setGlobalModalMessage) => {
               setGlobalModalMessage(`用戶資料處理失敗: ${dbError.message}`);
               userWithRole = user; // 即使資料庫操作失敗，也設置基礎用戶資訊
             }
-          } else {
-            userWithRole = null;
-            try {
-              // 如果沒有當前用戶，嘗試使用自定義 token 登入
-              if (initialAuthToken) {
-                await signInWithCustomToken(firebaseAuth, initialAuthToken);
-                console.log("useAuthCore: Signed in with custom token.");
-              } else {
-                // 如果沒有自定義 token，則匿名登入
-                await signInAnonymously(firebaseAuth);
-                console.log("useAuthCore: Signed in anonymously.");
-              }
-            } catch (tokenError) {
-              console.error(
-                "useAuthCore: Firebase Custom Token / Anonymous 認證失敗:",
-                tokenError
-              );
-              setGlobalModalMessage(`自動認證失敗: ${tokenError.message}`);
-            }
           }
-          console.log("useAuthCore: Setting currentUser to:", userWithRole);
+          // 移除所有自動登入邏輯，直接處理用戶狀態
           setCurrentUser(userWithRole);
           setLoadingUser(false);
           console.log("useAuthCore: Current user set to:", userWithRole);

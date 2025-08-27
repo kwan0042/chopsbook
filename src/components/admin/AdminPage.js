@@ -2,26 +2,20 @@
 "use client";
 
 import React, { useState, useContext, useEffect } from "react";
-import { AuthContext } from "../lib/auth-context";
-import {
-  doc, // 雖然這裡不再直接使用 getDoc, 但為了 Firebase Firestore 相關操作，通常仍會保留
-  getDoc, // 為了某些情況下的獲取數據，保留 getDoc
-  collection, // collection 仍被 AdminPage 的 useEffect 用於獲獲取用戶 ID
-  getDocs, // getDocs 仍被 AdminPage 的 useEffect 用於獲取用戶 ID
-} from "firebase/firestore";
-import Modal from "./Modal";
+import { AuthContext } from "../../lib/auth-context";
+import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import Modal from "../Modal";
 import { useRouter } from "next/navigation";
-import LoadingSpinner from "./LoadingSpinner"; // 確保 LoadingSpinner 檔案存在
+import LoadingSpinner from "../LoadingSpinner";
 
 // 導入新的管理組件
-import RestaurantManagement from "./admin/RestaurantManagement";
-import UserRequestManagement from "./admin/UserRequestManagement";
-import ReviewManagement from "./admin/ReviewManagement";
-import RatingsPage from "./admin/RatingsPage";
-import UserManagement from "./admin/UserManagement"; // 導入新的 UserManagement 組件
+import RestaurantManagement from "./RestaurantManagement";
+import UserRequestManagement from "./UserRequestManagement";
+import ReviewManagement from "./ReviewManagement";
+import RatingsPage from "./RatingsPage";
+import UserManagement from "./UserManagement";
 
 const AdminPage = ({ onBackToHome }) => {
-  // 從 AuthContext 獲取所需的功能，移除了 setModalMessage 以避免衝突
   const {
     currentUser,
     db,
@@ -32,45 +26,32 @@ const AdminPage = ({ onBackToHome }) => {
   } = useContext(AuthContext);
   const router = useRouter();
 
-  // AdminPage 自己的模態框狀態
   const [modalMessage, setModalMessage] = useState("");
-  const [activeSection, setActiveSection] = useState("users"); // 控制當前顯示的管理區塊
-
-  // 移除了本地的 formatDateTime 輔助函數，現在從 AuthContext 獲取。
-  // 移除了 AdminPage 中直接獲取用戶列表的邏輯，現在由 UserManagement 組件處理。
-  // 移除了 AdminPage 中直接處理更新用戶管理員權限的邏輯，現在由 UserManagement 組件處理。
+  const [activeSection, setActiveSection] = useState("users");
 
   const closeModal = () => setModalMessage("");
 
-  // React Hook "useEffect" is called conditionally. (已修正)
-  // 將權限檢查和重定向的 useEffect 移至頂層。
   useEffect(() => {
     if (loadingUser) {
-      return; // 等待用戶載入完成
+      return;
     }
 
-    // 如果用戶未登入，導向登入頁面
     if (!currentUser) {
       router.push("/login");
       setModalMessage("請先登入才能訪問管理員頁面。");
       return;
     }
 
-    // 如果用戶已登入但不是管理員，則導向首頁並顯示無權限訊息
     if (!currentUser?.isAdmin) {
       setModalMessage("您沒有權限訪問此管理員頁面。");
       const timer = setTimeout(() => {
         window.location.href = "/";
-      }, 3000); // 3秒後跳轉
+      }, 3000);
 
       return () => clearTimeout(timer);
     }
-  }, [currentUser, loadingUser, router, setModalMessage]); // 確保所有依賴都包含在內
+  }, [currentUser, loadingUser, router]);
 
-  // 由於用戶列表的載入邏輯已移至 UserManagement，
-  // AdminPage 自身的載入狀態僅在 currentUser 載入時需要。
-  // 一旦 currentUser 載入完成，我們就可以渲染 AdminPage 及其內部組件了。
-  // UserManagement 會有自己的 loadingUsers 狀態。
   if (loadingUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -80,7 +61,6 @@ const AdminPage = ({ onBackToHome }) => {
     );
   }
 
-  // 如果已登入且不是管理員，顯示權限不足訊息 (useEffect 會處理重定向)
   if (!currentUser?.isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -97,11 +77,9 @@ const AdminPage = ({ onBackToHome }) => {
     );
   }
 
-  // 如果是管理員，渲染管理員頁面內容
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-100 p-4 font-inter">
       <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 lg:p-8">
-        {/* 頁面標題和返回按鈕 */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-8 pb-4 border-b border-gray-200">
           <h1 className="text-4xl font-extrabold text-gray-900 mb-4 sm:mb-0">
             管理員控制台
@@ -125,7 +103,6 @@ const AdminPage = ({ onBackToHome }) => {
             <span>返回首頁</span>
           </button>
         </div>
-        {/* 當前管理員資訊 */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-sm p-6 mb-8 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
           <div className="w-16 h-16 bg-blue-200 rounded-full flex items-center justify-center flex-shrink-0 shadow-inner">
             <span className="text-blue-700 font-bold text-2xl">
@@ -139,7 +116,6 @@ const AdminPage = ({ onBackToHome }) => {
             <p className="text-sm text-blue-700 mt-1">您是當前登入的管理員。</p>
           </div>
         </div>
-        {/* 導航欄 */}
         <nav className="bg-white rounded-lg shadow-md mb-8 p-2 border border-gray-200">
           <ul className="flex flex-wrap justify-center sm:justify-start gap-2 sm:gap-4">
             <li>
@@ -204,16 +180,16 @@ const AdminPage = ({ onBackToHome }) => {
             </li>
           </ul>
         </nav>
-        {/* 內容區塊：根據 activeSection 顯示不同內容 */}
         {activeSection === "users" && (
           <UserManagement setParentModalMessage={setModalMessage} />
-        )}{" "}
-        {/* 渲染 UserManagement */}
+        )}
         {activeSection === "restaurants" && <RestaurantManagement />}
-        {activeSection === "requests" && <UserRequestManagement />}
+        {activeSection === "requests" && (
+          <UserRequestManagement setParentModalMessage={setModalMessage} />
+        )}
         {activeSection === "reviews" && <ReviewManagement />}
         {activeSection === "ratings" && <RatingsPage />}
-        {/* 使用說明 */}
+
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-8 shadow-sm">
           <h3 className="text-xl font-semibold text-blue-800 mb-3">使用說明</h3>
           <ul className="text-sm text-blue-700 space-y-2 list-disc pl-5">

@@ -1,4 +1,4 @@
-// src/components/UpdateRestaurantPage.js (重構後)
+// src/components/UpdateRestaurantPage.js (還原並調整)
 "use client";
 
 import React, { useState, useContext, useEffect } from "react";
@@ -193,20 +193,39 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
     try {
       const updateApplicationsRef = collection(
         db,
-        `artifacts/${appId}/public/data/restaurant_update_applications`
+        `artifacts/${appId}/public/data/update_rest_request`
       );
-      const now = new Date();
-      const formattedSubmittedAt = formatDateTime(now);
-      const submittedBy = currentUser.uid;
+
+      // 檢查並格式化變更，為每個變更項目添加 'status: pending'
+      const changes = {};
+      const fieldsToCheck = Object.keys(formData);
+      fieldsToCheck.forEach((field) => {
+        if (
+          JSON.stringify(formData[field]) !==
+          JSON.stringify(selectedRestaurantData[field])
+        ) {
+          changes[field] = {
+            value: formData[field],
+            status: "pending",
+          };
+        }
+      });
+
+      // 如果沒有任何變更，則不提交
+      if (Object.keys(changes).length === 0) {
+        const msg = "您沒有做出任何更改。";
+        setModalMessage(msg);
+        setModalType("error");
+        setSubmitting(false);
+        return;
+      }
 
       await addDoc(updateApplicationsRef, {
-        // 仍然是 addDoc, 因為是新增一條申請記錄
         restaurantId: selectedRestaurantId,
-        originalData: selectedRestaurantData,
-        updatedData: formData,
-        submittedAt: formattedSubmittedAt,
-        submittedBy: submittedBy,
+        changes: changes,
+        submittedBy: currentUser.uid,
         status: "pending",
+        createdAt: serverTimestamp(),
       });
       const successMsg =
         "謝謝你使用ChopsBook 提供餐廳資訊 為廣大嘅美食家作出貢獻 幕後團隊將火速審批";
@@ -327,7 +346,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
           message={modalMessage}
           onClose={closeModal}
           isOpen={!!modalMessage}
-          duration={modalType === "success" ? 5000 : 0} // 成功訊息顯示 5 秒
+          duration={modalType === "success" ? 2000 : 0} // 成功訊息顯示 2 秒
           type={modalType}
         />
       )}
