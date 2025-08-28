@@ -89,7 +89,6 @@ const HomePage = ({
         onShowFilterModal={handleShowFilterModal}
         onShowMerchantPage={onShowMerchantPage}
         onShowAdminPage={onShowAdminPage}
-        // onShowPersonalPage={onShowPersonalPage} /* 此行已移除，因為 Navbar 不再直接接收此 prop */
         onSearch={handleSearch}
       />
       <main className="flex-grow">

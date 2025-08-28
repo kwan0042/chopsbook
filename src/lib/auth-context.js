@@ -17,7 +17,7 @@ export const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [modalMessage, setModalMessage] = useState("");
 
-  // 核心認證和 Firebase 實例，並獲取 setCurrentUser
+  // 核心認證和 Firebase 實例，現在也從 useAuthCore 獲取 `app` 實例
   const {
     currentUser,
     loadingUser,
@@ -25,6 +25,7 @@ export const AuthProvider = ({ children }) => {
     auth,
     analytics,
     appId,
+    app, // <<< 從 useAuthCore 獲取 `app` 實例
     setCurrentUser,
   } = useAuthCore(setModalMessage);
   console.log(
@@ -54,14 +55,16 @@ export const AuthProvider = ({ children }) => {
       setModalMessage
     );
 
-  // 餐廳收藏管理
-  const { toggleFavoriteRestaurant } = useRestaurantFavorites(
-    db,
-    currentUser,
-    appId,
-    setCurrentUser,
-    setModalMessage
-  );
+  // 餐廳收藏管理，現在也從 useRestaurantFavorites 獲取 `favoriteRestaurantsCount`
+  const { toggleFavoriteRestaurant, favoriteRestaurantsCount } =
+    useRestaurantFavorites(
+      // <<< 獲取 `favoriteRestaurantsCount`
+      db,
+      currentUser,
+      appId,
+      setCurrentUser,
+      setModalMessage
+    );
 
   // 食評管理 (提交、草稿、審核)
   const { submitReview, saveReviewDraft, checkModeration } =
@@ -87,6 +90,7 @@ export const AuthProvider = ({ children }) => {
         auth,
         analytics,
         appId,
+        app, // <<< 將 `app` 實例暴露給 Context
         setModalMessage, // AuthProvider 自己的 setModalMessage
         login,
         signup,
@@ -97,6 +101,7 @@ export const AuthProvider = ({ children }) => {
         updateUserProfile,
         sendPasswordResetLink,
         toggleFavoriteRestaurant,
+        favoriteRestaurantsCount, // <<< 將 `favoriteRestaurantsCount` 暴露給 Context
         submitReview,
         saveReviewDraft,
         checkModeration,

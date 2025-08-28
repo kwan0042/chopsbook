@@ -1,13 +1,14 @@
-//v3-components/admin/UserRequestManagement.js
+//v3-src/components/admin/UserRequestManagement.js
 "use client";
 
 import React, { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../../lib/auth-context";
-import { collection, query, onSnapshot } from "firebase/firestore";
+import { collection, query, onSnapshot, doc, getDoc } from "firebase/firestore"; // 導入 doc, getDoc
 import LoadingSpinner from "../LoadingSpinner";
 import { useRouter } from "next/navigation";
 
-const UserRequestManagement = ({ onBackToAdmin }) => {
+const UserRequestManagement = () => {
+  // 移除 onBackToAdmin props, 因為它沒有被使用
   const { db, currentUser, appId, formatDateTime, loadingUser } =
     useContext(AuthContext);
   const router = useRouter();
@@ -21,12 +22,17 @@ const UserRequestManagement = ({ onBackToAdmin }) => {
       return;
     }
 
-    const addRequestsQuery = query(
-      collection(db, `artifacts/${appId}/public/data/add_rest_request`)
-    );
+    const addRequestsCollectionPath = `artifacts/${appId}/public/data/add_rest_request`;
+    const updateRequestsCollectionPath = `artifacts/${appId}/public/data/update_rest_request`;
+    const restaurantsCollectionPath = `artifacts/${appId}/public/data/restaurants`;
+
+    const addRequestsQuery = query(collection(db, addRequestsCollectionPath));
     const updateRequestsQuery = query(
-      collection(db, `artifacts/${appId}/public/data/update_rest_request`)
+      collection(db, updateRequestsCollectionPath)
     );
+
+    // 用於儲存餐廳名稱的快取，避免重複查詢
+    const restaurantNameCache = new Map();
 
     const unsubscribeNew = onSnapshot(
       addRequestsQuery,
@@ -35,12 +41,19 @@ const UserRequestManagement = ({ onBackToAdmin }) => {
           id: doc.id,
           ...doc.data(),
           type: "add",
+          displayStatus: getStatusDisplay(doc.data().status), // 處理狀態顯示
         }));
+        // 使用函數式更新確保基於最新狀態進行操作
         setRequests((currentRequests) => {
           const otherRequests = currentRequests.filter(
             (req) => req.type !== "add"
           );
-          return [...otherRequests, ...newRequests];
+          const combinedRequests = [...otherRequests, ...newRequests];
+          // 排序：最新的請求顯示在最上面
+          return combinedRequests.sort(
+            (a, b) =>
+              (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+          );
         });
         setLoading(false);
       },
@@ -52,17 +65,55 @@ const UserRequestManagement = ({ onBackToAdmin }) => {
 
     const unsubscribeUpdate = onSnapshot(
       updateRequestsQuery,
-      (snapshot) => {
-        const updateRequests = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          type: "update",
-        }));
+      async (snapshot) => {
+        const updateRequestsPromises = snapshot.docs.map(async (docSnap) => {
+          const reqData = docSnap.data();
+          let restaurantName = "N/A";
+
+          // 如果是更新請求，需要從主餐廳資料中獲取名稱
+          if (reqData.restaurantId) {
+            // 嘗試從快取中獲取
+            if (restaurantNameCache.has(reqData.restaurantId)) {
+              restaurantName = restaurantNameCache.get(reqData.restaurantId);
+            } else {
+              // 快取中沒有則查詢 Firestore
+              const restaurantDocRef = doc(
+                db,
+                restaurantsCollectionPath,
+                reqData.restaurantId
+              );
+              const restaurantDocSnap = await getDoc(restaurantDocRef);
+              if (restaurantDocSnap.exists()) {
+                const rData = restaurantDocSnap.data();
+                restaurantName =
+                  rData.restaurantNameZh || rData.restaurantNameEn || "N/A";
+                restaurantNameCache.set(reqData.restaurantId, restaurantName); // 存入快取
+              }
+            }
+          }
+
+          return {
+            id: docSnap.id,
+            ...reqData,
+            type: "update",
+            originalRestaurantName: restaurantName, // 儲存原始餐廳名稱
+            displayStatus: getStatusDisplay(reqData.status), // 處理狀態顯示
+          };
+        });
+
+        const updateRequests = await Promise.all(updateRequestsPromises);
+
+        // 使用函數式更新確保基於最新狀態進行操作
         setRequests((currentRequests) => {
           const otherRequests = currentRequests.filter(
             (req) => req.type !== "update"
           );
-          return [...otherRequests, ...updateRequests];
+          const combinedRequests = [...otherRequests, ...updateRequests];
+          // 排序：最新的請求顯示在最上面
+          return combinedRequests.sort(
+            (a, b) =>
+              (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+          );
         });
         setLoading(false);
       },
@@ -78,6 +129,18 @@ const UserRequestManagement = ({ onBackToAdmin }) => {
     };
   }, [db, appId, loadingUser]);
 
+  // 輔助函數：將狀態翻譯成中文
+  const getStatusDisplay = (status) => {
+    switch (status) {
+      case "pending":
+        return "待處理";
+      case "reviewed":
+        return "已審批";
+      default:
+        return "待處理";
+    }
+  };
+
   // 處理導航到詳細頁面
   const handleViewRequestDetails = (requestId, type) => {
     // 使用新的動態路由，並將請求類型作為參數傳遞
@@ -90,11 +153,8 @@ const UserRequestManagement = ({ onBackToAdmin }) => {
       return request.restaurantNameZh || request.restaurantNameEn || "N/A";
     }
     if (request.type === "update") {
-      return (
-        request.changes?.restaurantNameZh?.value ||
-        request.changes?.restaurantNameEn?.value ||
-        "N/A"
-      );
+      // 對於更新請求，使用之前獲取到的原始餐廳名稱
+      return request.originalRestaurantName || "N/A";
     }
     return "N/A";
   };
@@ -133,13 +193,19 @@ const UserRequestManagement = ({ onBackToAdmin }) => {
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                請求
+                請求類型
               </th>
               <th
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
                 請求者 ID
+              </th>
+              <th
+                scope="col"
+                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                狀態
               </th>
               <th
                 scope="col"
@@ -155,7 +221,7 @@ const UserRequestManagement = ({ onBackToAdmin }) => {
           <tbody className="bg-white divide-y divide-gray-200">
             {requests.length === 0 ? (
               <tr>
-                <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
                   目前沒有待處理的請求。
                 </td>
               </tr>
@@ -169,6 +235,7 @@ const UserRequestManagement = ({ onBackToAdmin }) => {
                   }
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    
                     {getRestaurantName(request)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -181,6 +248,19 @@ const UserRequestManagement = ({ onBackToAdmin }) => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     {request.submittedBy || "N/A"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
+                    <span
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        request.status === "pending"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : request.status === "reviewed"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {request.displayStatus}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700">
                     {formatDateTime(request.createdAt)}

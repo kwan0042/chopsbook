@@ -2,10 +2,11 @@
 "use client";
 
 import React, { useContext, useState, useCallback } from "react";
-import { AuthContext } from "../lib/auth-context";
+import { AuthContext } from "../lib/auth-context"; // 確保路徑正確
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUser } from "@fortawesome/free-solid-svg-icons";
+import { faUser, faBookmark } from "@fortawesome/free-solid-svg-icons"; // 匯入 faBookmark
 import { useRouter } from "next/navigation";
+import { getAuth, signOut } from "firebase/auth"; // 匯入 getAuth 和 signOut
 
 const Navbar = ({
   onShowFilterModal,
@@ -13,7 +14,8 @@ const Navbar = ({
   onShowAdminPage,
   onSearch,
 }) => {
-  const { currentUser, logout, setModalMessage } = useContext(AuthContext);
+  const { currentUser, setModalMessage, favoriteRestaurantsCount, app } =
+    useContext(AuthContext); // 從 AuthContext 取得 favoriteRestaurantsCount 和 app
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const router = useRouter();
@@ -47,6 +49,20 @@ const Navbar = ({
     router.push("/login");
   }, [router]);
 
+  // 修改登出函數，直接使用 Firebase signOut
+  const handleLogout = useCallback(async () => {
+    if (app) {
+      const auth = getAuth(app); // 獲取 auth 實例
+      try {
+        await signOut(auth);
+        router.push("/"); // 登出後導向登入頁面
+      } catch (error) {
+        console.error("登出失敗:", error);
+        setModalMessage("登出失敗，請稍後再試。", "error");
+      }
+    }
+  }, [app, router, setModalMessage]);
+
   return (
     <nav className="bg-gray-900 text-white sticky top-0 z-50 shadow-md">
       <div className="flex flex-col lg:flex-row items-center w-full p-3 px-4 sm:px-6 lg:px-8 lg:justify-between">
@@ -78,11 +94,27 @@ const Navbar = ({
                   {currentUser.email ? currentUser.email.split("@")[0] : "用戶"}
                 </span>
                 <button
-                  onClick={logout}
+                  onClick={handleLogout} // 使用新的 handleLogout 函數
                   className="text-red-400 hover:text-red-500 transition duration-200 text-sm"
                 >
                   登出
                 </button>
+                {/* 收藏餐廳圖標和數量 */}
+                <div className="relative flex items-center group">
+                  <FontAwesomeIcon
+                    icon={faBookmark} // 書籤圖標
+                    className="text-xl text-white cursor-pointer hover:text-yellow-300 transition-colors"
+                    title="我的收藏"
+                    onClick={() => router.push("/personal/favorites")} // 假設收藏頁面路徑
+                  />
+                  {console.log(favoriteRestaurantsCount)}
+                  {/* 收藏數量顯示，確保即使為 0 也能看到提示 */}
+                  {favoriteRestaurantsCount !== undefined && ( // 確保 favoriteRestaurantsCount 已載入
+                    <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                      {favoriteRestaurantsCount}
+                    </span>
+                  )}
+                </div>
               </div>
             ) : (
               <button
@@ -236,7 +268,7 @@ const Navbar = ({
         </div>
       )}
 
-      <div className="bg-gray-800 text-white text-sm py-2 px-6 w-full flex flex-wrap justify-center sm:justify-start gap-4 sm:gap-6 border-t border-gray-700">
+      <div className="bg-gray-800 text-white text-sm py-2 px-6 w-full flex flex-wrap justify-center  gap-4 sm:gap-6 border-t border-gray-700">
         <a
           href="#"
           className="hover:text-yellow-500 transition duration-200 text-sm"

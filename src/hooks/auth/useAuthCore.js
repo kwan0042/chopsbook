@@ -19,7 +19,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
  * useAuthCore Hook:
  * 負責 Firebase 的初始化、用戶認證狀態監聽，以及用戶基本資料的處理。
  * @param {function} setGlobalModalMessage - 用於在全局範圍顯示模態框訊息的回調。
- * @returns {object} 包含 currentUser, loadingUser, db, auth, analytics, appId, setCurrentUser 的物件。
+ * @returns {object} 包含 currentUser, loadingUser, db, auth, analytics, appId, app, setCurrentUser 的物件。
  */
 export const useAuthCore = (setGlobalModalMessage) => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -28,6 +28,7 @@ export const useAuthCore = (setGlobalModalMessage) => {
   const [auth, setAuth] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [appId, setAppId] = useState(null);
+  const [app, setApp] = useState(null); // <<< 新增：儲存 Firebase app 實例
 
   // 使用 useRef 避免在 useEffect 依賴中包含對象，導致不必要的重新運行
   const authInstanceRef = useRef(null);
@@ -58,10 +59,11 @@ export const useAuthCore = (setGlobalModalMessage) => {
     const initializeFirebase = async () => {
       try {
         console.log("useAuthCore: Starting Firebase initialization...");
-        const app = initializeFirebaseApp(currentFirebaseConfig);
-        const firestoreDb = getFirebaseDb(app);
-        const firebaseAuth = getFirebaseAuth(app);
-        const firebaseAnalytics = getFirebaseAnalytics(app);
+        const firebaseApp = initializeFirebaseApp(currentFirebaseConfig); // 獲取 app 實例
+        setApp(firebaseApp); // <<< 設置 app 實例
+        const firestoreDb = getFirebaseDb(firebaseApp);
+        const firebaseAuth = getFirebaseAuth(firebaseApp);
+        const firebaseAnalytics = getFirebaseAnalytics(firebaseApp);
 
         dbInstanceRef.current = firestoreDb;
         authInstanceRef.current = firebaseAuth;
@@ -178,7 +180,7 @@ export const useAuthCore = (setGlobalModalMessage) => {
     initializeFirebase();
   }, [setGlobalModalMessage]); // 僅在 setGlobalModalMessage 變化時重新運行
 
-  // 返回所有 AuthContext 需要的值，包括 setCurrentUser
+  // 返回所有 AuthContext 需要的值，包括 setCurrentUser 和 app
   return {
     currentUser,
     loadingUser,
@@ -186,6 +188,7 @@ export const useAuthCore = (setGlobalModalMessage) => {
     auth,
     analytics,
     appId,
+    app, // <<< 現在返回 app 實例
     setCurrentUser,
   };
 };

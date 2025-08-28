@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useContext, useEffect, useRef } from "react";
-import { AuthContext } from "../../lib/auth-context";
+import { AuthContext } from "../../../lib/auth-context";
 import {
   doc,
   getDoc,
@@ -13,13 +13,13 @@ import {
   collection,
   onSnapshot,
 } from "firebase/firestore";
-import LoadingSpinner from "../LoadingSpinner";
+import LoadingSpinner from "../../LoadingSpinner";
 import { useRouter, useParams } from "next/navigation";
-import Modal from "../Modal";
+import Modal from "../../Modal";
 import {
   restaurantFields,
   formatDataForDisplay,
-} from "../../lib/translation-data";
+} from "../../../lib/translation-data";
 
 // 將欄位分組到不同區塊
 const restaurantSections = {
