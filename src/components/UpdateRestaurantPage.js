@@ -1,4 +1,3 @@
-// src/components/UpdateRestaurantPage.js (還原並調整)
 "use client";
 
 import React, { useState, useContext, useEffect } from "react";
@@ -10,9 +9,8 @@ import {
   doc,
   getDoc,
   addDoc,
-  updateDoc,
   serverTimestamp,
-} from "firebase/firestore"; // 導入 updateDoc
+} from "firebase/firestore";
 import Modal from "./Modal";
 import LoadingSpinner from "./LoadingSpinner";
 import RestaurantForm from "./RestaurantForm"; // 導入新的表單元件
@@ -41,8 +39,8 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
   const [allRestaurants, setAllRestaurants] = useState([]);
   const [filteredSuggestions, setFilteredSuggestions] = useState([]);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState(null);
-  const [selectedRestaurantData, setSelectedRestaurantData] = useState(null);
-  const [formData, setFormData] = useState({});
+  const [selectedRestaurantData, setSelectedRestaurantData] = useState(null); // 儲存原始餐廳資料
+  const [formData, setFormData] = useState({}); // 用於編輯的表單資料
   const [loading, setLoading] = useState(true); // 初始載入狀態為 true，因為需要獲取所有餐廳
   const [submitting, setSubmitting] = useState(false); // 提交更新申請時的載入狀態
   const [modalMessage, setModalMessage] = useState("");
@@ -61,7 +59,6 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
   // 獲取所有餐廳，以用於搜尋建議
   useEffect(() => {
     if (!db || !appId) {
-      // 不依賴 currentUser，因為獲取所有餐廳不需要登入資訊
       setLoading(false);
       return;
     }
@@ -119,19 +116,19 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setSelectedRestaurantData(data);
-        setFormData(data);
+        // 核心修改：將文件 ID 加入到資料物件中
+        const restaurantWithId = { id: restaurantId, ...data };
+        setSelectedRestaurantData(restaurantWithId); // 儲存原始數據 (包含 ID)
+        setFormData(restaurantWithId); // 將原始數據載入表單 (包含 ID)
       } else {
-        setModalMessage("找不到選擇的餐廳資料。");
-        setModalType("error");
+        setModalMessage("找不到選擇的餐廳資料。", "error");
         setSelectedRestaurantId(null);
         setSelectedRestaurantData(null);
         setFormData({});
       }
     } catch (error) {
       console.error("獲取選擇餐廳資料失敗:", error);
-      setModalMessage(`獲取餐廳資料失敗: ${error.message}`);
-      setModalType("error");
+      setModalMessage(`獲取餐廳資料失敗: ${error.message}`, "error");
     } finally {
       setSubmitting(false); // 數據獲取完成
     }
@@ -139,10 +136,18 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    // 特殊處理 facadePhotoUrls
+    if (name === "facadePhotoUrl") {
+      setFormData((prev) => ({
+        ...prev,
+        facadePhotoUrls: value ? [value] : [], // 將單個 URL 包裝成陣列
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: type === "checkbox" ? checked : value,
+      }));
+    }
   };
 
   const handleCheckboxChange = (e) => {
@@ -160,7 +165,8 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
     });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, updatedFormDataWithImageUrl) => {
+    // 接收來自 RestaurantForm 的更新後數據
     e.preventDefault();
     setSubmitting(true);
     setModalMessage(""); // 清空之前的訊息
@@ -171,21 +177,19 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
     if (!db || !currentUser || !selectedRestaurantId) {
       const msg = "請先登入並選擇餐廳才能提交更新申請。";
       console.log("Validation failed (DB/User/Restaurant ID missing):", msg);
-      setModalMessage(msg);
-      setModalType("error");
+      setModalMessage(msg, "error");
       setSubmitting(false);
       return;
     }
 
     if (
-      !formData.restaurantNameZh ||
-      !formData.contactName ||
-      !formData.contactPhone
+      !updatedFormDataWithImageUrl.restaurantNameZh || // 使用接收到的數據
+      !updatedFormDataWithImageUrl.contactName ||
+      !updatedFormDataWithImageUrl.contactPhone
     ) {
       const msg = "請填寫所有標記為必填的欄位 (餐廳名稱, 聯絡姓名, 聯絡電話)。";
       console.log("Validation failed (required fields missing):", msg);
-      setModalMessage(msg);
-      setModalType("error");
+      setModalMessage(msg, "error");
       setSubmitting(false);
       return;
     }
@@ -198,14 +202,31 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
 
       // 檢查並格式化變更，為每個變更項目添加 'status: pending'
       const changes = {};
-      const fieldsToCheck = Object.keys(formData);
+      const fieldsToCheck = Object.keys(updatedFormDataWithImageUrl); // 使用接收到的數據
       fieldsToCheck.forEach((field) => {
-        if (
-          JSON.stringify(formData[field]) !==
-          JSON.stringify(selectedRestaurantData[field])
+        // 使用 JSON.stringify 進行深度比較，處理陣列或物件類型
+        // 需要確保 selectedRestaurantData 也已包含 ID，才能正確比較
+        if (field === "id") return; // 不比較 ID
+
+        const formValue = updatedFormDataWithImageUrl[field];
+        const originalValue = selectedRestaurantData?.[field]; // 使用選定的原始數據
+
+        // 處理陣列比較：如果兩個都是陣列，則比較排序後的 JSON 字串
+        if (Array.isArray(formValue) && Array.isArray(originalValue)) {
+          if (
+            JSON.stringify([...formValue].sort()) !==
+            JSON.stringify([...originalValue].sort())
+          ) {
+            changes[field] = {
+              value: formValue,
+              status: "pending",
+            };
+          }
+        } else if (
+          JSON.stringify(formValue) !== JSON.stringify(originalValue)
         ) {
           changes[field] = {
-            value: formData[field],
+            value: formValue,
             status: "pending",
           };
         }
@@ -214,8 +235,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       // 如果沒有任何變更，則不提交
       if (Object.keys(changes).length === 0) {
         const msg = "您沒有做出任何更改。";
-        setModalMessage(msg);
-        setModalType("error");
+        setModalMessage(msg, "info");
         setSubmitting(false);
         return;
       }
@@ -230,8 +250,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       const successMsg =
         "謝謝你使用ChopsBook 提供餐廳資訊 為廣大嘅美食家作出貢獻 幕後團隊將火速審批";
       console.log("Submission successful:", successMsg);
-      setModalMessage(successMsg); // 自訂成功訊息
-      setModalType("success");
+      setModalMessage(successMsg, "success"); // 自訂成功訊息
       setSelectedRestaurantId(null);
       setSelectedRestaurantData(null);
       setFormData({});
@@ -241,8 +260,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       console.error("提交餐廳更新申請失敗:", error);
       const errorMsg = `提交失敗: ${error.message}`;
       console.log("Submission failed, setting modal message:", errorMsg);
-      setModalMessage(errorMsg);
-      setModalType("error");
+      setModalMessage(errorMsg, "error");
     } finally {
       setSubmitting(false);
       console.log("handleSubmit finished, submitting set to false.");
@@ -331,7 +349,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
         {selectedRestaurantId && (
           <RestaurantForm
             formData={formData}
-            selectedRestaurantData={selectedRestaurantData}
+            selectedRestaurantData={selectedRestaurantData} // 傳遞原始數據用於比對和顯示
             handleChange={handleChange}
             handleCheckboxChange={handleCheckboxChange}
             handleSubmit={handleSubmit}

@@ -6,8 +6,8 @@ import Link from "next/link"; // 導入 Link 組件
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faStar as faSolidStar } from "@fortawesome/free-solid-svg-icons";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
-import { faBookmark as faSolidBookmark } from "@fortawesome/free-solid-svg-icons";
-import { faBookmark as faRegularBookmark } from "@fortawesome/free-regular-svg-icons";
+import { faBookmark as faSolidBookmark } from "@fortawesome/free-solid-svg-icons"; // 實心書籤圖標
+import { faBookmark as faRegularBookmark } from "@fortawesome/free-regular-svg-icons"; // 空心書籤圖標
 import { faComment } from "@fortawesome/free-solid-svg-icons";
 
 /**
@@ -67,7 +67,7 @@ const RestaurantCard = ({
     restaurant.facadePhotoUrls && restaurant.facadePhotoUrls.length > 0;
 
   // 根據視圖模式調整圖片佔位符大小
-  const placeholderSize = isGridView ? "400x200" : "112x112";
+  const placeholderSize = isGridView ? "" : "400x200"; // 列表模式也固定為 400x200
 
   const displayImageUrl = hasAnyImage
     ? restaurant.facadePhotoUrls[0]
@@ -99,15 +99,15 @@ const RestaurantCard = ({
             ${
               isGridView
                 ? "hover:scale-105 rounded-xl" // 網格模式樣式
-                : "flex flex-row items-start rounded-xl p-3 border border-gray-200 hover:shadow-md" // 列表模式樣式 (保持不變)
+                : "flex flex-row items-start rounded-xl p-3 border border-gray-200 hover:shadow-md" // 列表模式樣式
             }`}
         >
           {/* 圖片容器 */}
           <div
-            className={`relative ${
+            className={`relative flex-shrink-0 rounded-lg overflow-hidden ${
               isGridView
-                ? "w-full h-48 rounded-lg" // 網格模式圖片大小
-                : "w-80 flex-shrink-0 rounded-lg mr-4 overflow-hidden" // 列表模式圖片大小，圓角 (保持不變)
+                ? "w-full h-48" // 網格模式圖片大小，高度 192px
+                : "w-[350px] h-[200px] mr-4" // 列表模式圖片容器固定 400x200px
             }`}
           >
             <img
@@ -117,7 +117,7 @@ const RestaurantCard = ({
                 restaurant.restaurantNameEn ||
                 "餐廳圖片"
               }
-              className="w-full h-full object-cover" // 統一圖片樣式
+              className="w-full h-full object-cover" // 統一圖片樣式，填滿容器
               onError={(e) => {
                 e.target.onerror = null;
                 e.target.src = `https://placehold.co/${placeholderSize}/CCCCCC/333333?text=圖片`; // 使用動態佔位符大小
@@ -135,7 +135,7 @@ const RestaurantCard = ({
             >
               {restaurant.restaurantNameZh ||
                 restaurant.restaurantNameEn ||
-                `未知餐廳 (ID: ${restaurant.id})`}
+                `未知餐廳`}
             </h3>
 
             {/* 評分和評論數 - 網格模式 14pt (text-sm), 列表模式 14pt (text-sm) */}
@@ -153,7 +153,6 @@ const RestaurantCard = ({
                       : faRegularStar
                   }
                   className={`${isGridView ? "text-sm" : "text-sm"} ${
-                    // 根據視圖調整星級大小
                     index < Math.floor(restaurant.rating || 0)
                       ? "text-yellow-500"
                       : "text-gray-300"
@@ -242,9 +241,9 @@ const RestaurantCard = ({
         type="button" // 明確指定為按鈕類型
       >
         <FontAwesomeIcon
-          icon={isFavorited ? faSolidBookmark : faSolidBookmark}
+          icon={isFavorited ? faSolidBookmark : faSolidBookmark} 
           className={`text-2xl ${
-            isFavorited ? "text-yellow-500" : "text-white"
+            isFavorited ? "text-yellow-500" : "text-white" /* 未收藏時顯示灰色書籤 */
           }`}
         />
       </button>

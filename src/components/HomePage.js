@@ -53,11 +53,12 @@ const HomePage = ({
     setShowFilterModal(false);
   }, []);
 
-  // 應用篩選器，來自 FilterSidebar
+  // 應用篩選器，來自 FilterSidebar 和 FilterModal
   const handleApplyFilters = useCallback((filters) => {
     setAppliedFilters(filters);
     console.log("應用篩選條件:", filters);
     setSearchQuery(""); // 應用篩選時清除搜尋關鍵字
+    setShowFilterModal(false); // 應用篩選後關閉 FilterModal
   }, []);
 
   // 重置篩選器，來自 FilterSidebar 的重置按鈕
@@ -125,9 +126,7 @@ const HomePage = ({
       <FilterModal
         isOpen={showFilterModal}
         onClose={handleCloseFilterModal}
-        onApplyFilters={(filters) =>
-          console.log("FilterModal applied:", filters)
-        }
+        onApplyFilters={handleApplyFilters} 
       />
       {modalMessage && (
         <Modal

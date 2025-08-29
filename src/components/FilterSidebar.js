@@ -1,4 +1,3 @@
-// src/components/FilterSidebar.js
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -6,48 +5,67 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChevronUp,
   faChevronDown,
-  faTimesCircle, // 用於清除按鈕圖標
+  faTimesCircle,
 } from "@fortawesome/free-solid-svg-icons";
 
-/**
- * FilterSidebar 元件: 提供可摺疊的篩選選項。
- * 每個篩選類別（如菜系、價格範圍等）都可以獨立地展開和收合。
- * 側邊欄將始終保持展開狀態，並具有固定的寬度。
- *
- * @param {object} props - 組件屬性。
- * @param {object} props.initialFilters - 初始篩選條件物件。
- * @param {function} props.onApplyFilters - 應用篩選時的回調函數。
- * @param {function} props.onResetFilters - 清除所有篩選時的回調函數。
- */
+import {
+  cuisineOptions,
+  reservationModeOptions,
+  paymentMethodOptions,
+  facilitiesServiceOptions,
+  provinceOptions,
+  seatingCapacityOptions,
+} from "../data/restaurant-options";
+
+const parseSeatingCapacityOptions = (options) => {
+  return options
+    .filter((option) => option !== "選擇座位數")
+    .map((option) => {
+      if (option.includes("-")) {
+        const [minStr, maxStr] = option.split("-");
+        return {
+          label: `${option}人`,
+          min: parseInt(minStr, 10),
+          max: parseInt(maxStr, 10),
+        };
+      } else if (option.includes("+")) {
+        const minStr = option.replace("+", "");
+        return {
+          label: `${option}人以上`,
+          min: parseInt(minStr, 10) + 1,
+          max: 9999,
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+};
+
 const FilterSidebar = ({
   initialFilters = {},
   onApplyFilters,
   onResetFilters,
 }) => {
-  // 本地元件狀態，用於管理表單輸入
   const [localFilters, setLocalFilters] = useState(initialFilters);
 
-  // 每個篩選區塊的摺疊狀態 (內部管理)
-  const [isRegionCollapsed, setIsRegionCollapsed] = useState(false);
-  const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(false);
-  const [isAvgSpendingCollapsed, setIsAvgSpendingCollapsed] = useState(false);
-  const [isMinRatingCollapsed, setIsMinRatingCollapsed] = useState(false);
+  const [isRegionCollapsed, setIsRegionCollapsed] = useState(true);
+  const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(true);
+  const [isAvgSpendingCollapsed, setIsAvgSpendingCollapsed] = useState(true);
+  const [isMinRatingCollapsed, setIsMinRatingCollapsed] = useState(true);
   const [isBusinessHoursCollapsed, setIsBusinessHoursCollapsed] =
-    useState(false);
+    useState(true);
   const [isReservationModesCollapsed, setIsReservationModesCollapsed] =
-    useState(false);
+    useState(true);
   const [isPaymentMethodsCollapsed, setIsPaymentMethodsCollapsed] =
-    useState(false);
-  const [isFacilitiesCollapsed, setIsFacilitiesCollapsed] = useState(false);
+    useState(true);
+  const [isFacilitiesCollapsed, setIsFacilitiesCollapsed] = useState(true);
   const [isSeatingCapacityCollapsed, setIsSeatingCapacityCollapsed] =
-    useState(false);
+    useState(true);
 
-  // 同步外部 initialFilters 到內部 localFilters
   useEffect(() => {
     setLocalFilters(initialFilters);
   }, [initialFilters]);
 
-  // 處理單選/輸入框篩選條件的變化
   const handleFilterChange = useCallback((key, value) => {
     setLocalFilters((prevFilters) => ({
       ...prevFilters,
@@ -55,7 +73,6 @@ const FilterSidebar = ({
     }));
   }, []);
 
-  // 處理多選篩選條件的變化
   const handleMultiSelectFilterChange = useCallback((key, value) => {
     setLocalFilters((prevFilters) => {
       const currentValues = prevFilters[key] || [];
@@ -69,57 +86,33 @@ const FilterSidebar = ({
     });
   }, []);
 
-  // 當點擊 "應用篩選" 按鈕時
   const handleApply = useCallback(() => {
-    onApplyFilters(localFilters); // 將本地篩選條件傳遞給父組件
+    onApplyFilters(localFilters);
   }, [localFilters, onApplyFilters]);
 
-  // 當點擊 "清除所有篩選" 按鈕時
   const handleReset = useCallback(() => {
-    setLocalFilters({}); // 清空本地篩選條件
-    onResetFilters(); // 通知父組件清除所有篩選
+    setLocalFilters({});
+    onResetFilters();
   }, [onResetFilters]);
 
-  // 以下是篩選選項的靜態數據
-  const provinces = ["安大略省", "卑詩省", "魁北克省", "亞伯達省"];
-  const cuisineTypes = ["加拿大菜", "海鮮", "法國菜", "亞洲菜", "意大利菜"];
-  const reservationModes = ["電話預約", "Walk-in", "官方網站", "第三方平台"];
-  const paymentMethods = [
-    "現金",
-    "信用卡",
-    "借記卡",
-    "微信支付",
-    "支付寶",
-    "Apple Pay",
-    "Google Pay",
-  ];
-  const facilities = [
-    "室外座位",
-    "Wi-Fi服務",
-    "酒精飲品",
-    "無障礙設施",
-    "外賣速遞",
-    "兒童友善",
-    "停車場",
-    "包廂",
-  ];
-  const seatingCapacities = [
-    { label: "1-20人", min: 1, max: 20 },
-    { label: "21-50人", min: 21, max: 50 },
-    { label: "51-100人", min: 51, max: 100 },
-    { label: "101-200人", min: 101, max: 200 },
-    { label: "200人以上", min: 201, max: 9999 },
-  ];
+  const displayCuisineTypes = cuisineOptions.filter(
+    (option) => option !== "選擇菜系"
+  );
+  const displayReservationModes = reservationModeOptions;
+  const displayPaymentMethods = paymentMethodOptions;
+  const displayFacilities = facilitiesServiceOptions;
+  const displayProvinces = provinceOptions.filter(
+    (option) => option !== "選擇省份"
+  );
+
+  const parsedSeatingCapacities = parseSeatingCapacityOptions(
+    seatingCapacityOptions
+  );
 
   return (
-    <div
-      className="relative bg-white p-6 shadow-lg rounded-2xl w-60 space-y-6 flex-shrink-0 h-fit" // 固定寬度 w-60，並確保不被壓縮 flex-shrink-0
-    >
-      {/* 移除側邊欄整體摺疊按鈕 */}
-
+    <div className="relative bg-white p-6 shadow-lg rounded-2xl w-60 space-y-6 flex-shrink-0 h-fit">
       <h3 className="text-xl font-bold text-gray-900 mb-6">篩選餐廳</h3>
 
-      {/* 篩選類別區塊 */}
       <div className="space-y-4">
         {/* 地區篩選 */}
         <div className="border-b pb-4 border-gray-200">
@@ -142,24 +135,32 @@ const FilterSidebar = ({
                 >
                   省份
                 </label>
-                <select // 將 select 元素的 class 與 input 保持一致
-                  id="province"
-                  value={localFilters.province || ""}
-                  onChange={(e) =>
-                    handleFilterChange("province", e.target.value)
-                  }
-                  // 使用與城市輸入框相同的 Tailwind CSS 類別
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                >
-                  <option value="">所有省份</option>
-                  {provinces.map((province) => (
-                    // 對於 <option> 標籤，直接用 CSS 樣式化它們在大多數瀏覽器中是無效的
-                    // 這些樣式將主要影響 <select> 框本身，而非下拉選項列表
-                    <option key={province} value={province}>
-                      {province}
-                    </option>
-                  ))}
-                </select>
+                {/* 修改了這裡的 select 元素 */}
+                <div className="relative">
+                  {" "}
+                  {/* 新增：包裹 select 的 div */}
+                  <select
+                    id="province"
+                    value={localFilters.province || ""}
+                    onChange={(e) =>
+                      handleFilterChange("province", e.target.value)
+                    }
+                    // 新增：appearance-none 隱藏原生箭頭，pr-8 確保文字不與自訂箭頭重疊
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8"
+                  >
+                    <option value="">所有省份</option>
+                    {displayProvinces.map((province) => (
+                      <option key={province} value={province}>
+                        {province}
+                      </option>
+                    ))}
+                  </select>
+                  {/* 新增：自訂箭頭圖標 */}
+                  <FontAwesomeIcon
+                    icon={faChevronDown}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" // pointer-events-none 讓點擊穿透到 select
+                  />
+                </div>
               </div>
               <div>
                 <label
@@ -174,7 +175,6 @@ const FilterSidebar = ({
                   placeholder="輸入城市名稱"
                   value={localFilters.city || ""}
                   onChange={(e) => handleFilterChange("city", e.target.value)}
-                  // 使用與省份下拉選單相同的 Tailwind CSS 類別
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
                 />
               </div>
@@ -185,7 +185,7 @@ const FilterSidebar = ({
         {/* 菜系類別篩選 (多選) */}
         <div className="border-b pb-4 border-gray-200">
           <div
-            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
             onClick={() => setIsCategoryCollapsed(!isCategoryCollapsed)}
           >
             <h4 className="text-base font-semibold text-gray-800">菜系類別</h4>
@@ -196,7 +196,7 @@ const FilterSidebar = ({
           </div>
           {!isCategoryCollapsed && (
             <div className="mt-3 space-y-2">
-              {cuisineTypes.map((type) => (
+              {displayCuisineTypes.map((type) => (
                 <div key={type} className="flex items-center">
                   <input
                     type="checkbox"
@@ -222,7 +222,7 @@ const FilterSidebar = ({
         {/* 人均價錢篩選 */}
         <div className="border-b pb-4 border-gray-200">
           <div
-            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
             onClick={() => setIsAvgSpendingCollapsed(!isAvgSpendingCollapsed)}
           >
             <h4 className="text-base font-semibold text-gray-800">人均價錢</h4>
@@ -282,7 +282,7 @@ const FilterSidebar = ({
         {/* 最低評分篩選 */}
         <div className="border-b pb-4 border-gray-200">
           <div
-            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
             onClick={() => setIsMinRatingCollapsed(!isMinRatingCollapsed)}
           >
             <h4 className="text-base font-semibold text-gray-800">最低評分</h4>
@@ -314,7 +314,7 @@ const FilterSidebar = ({
         {/* 座位數篩選 */}
         <div className="border-b pb-4 border-gray-200">
           <div
-            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
             onClick={() =>
               setIsSeatingCapacityCollapsed(!isSeatingCapacityCollapsed)
             }
@@ -327,7 +327,7 @@ const FilterSidebar = ({
           </div>
           {!isSeatingCapacityCollapsed && (
             <div className="mt-3 space-y-2">
-              {seatingCapacities.map((capacity) => (
+              {parsedSeatingCapacities.map((capacity) => (
                 <div key={capacity.label} className="flex items-center">
                   <input
                     type="radio"
@@ -380,7 +380,7 @@ const FilterSidebar = ({
         {/* 營業狀態篩選 */}
         <div className="border-b pb-4 border-gray-200">
           <div
-            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
             onClick={() =>
               setIsBusinessHoursCollapsed(!isBusinessHoursCollapsed)
             }
@@ -455,7 +455,7 @@ const FilterSidebar = ({
         {/* 訂座模式篩選 (多選) */}
         <div className="border-b pb-4 border-gray-200">
           <div
-            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
             onClick={() =>
               setIsReservationModesCollapsed(!isReservationModesCollapsed)
             }
@@ -468,7 +468,7 @@ const FilterSidebar = ({
           </div>
           {!isReservationModesCollapsed && (
             <div className="mt-3 space-y-2">
-              {reservationModes.map((mode) => (
+              {displayReservationModes.map((mode) => (
                 <div key={mode} className="flex items-center">
                   <input
                     type="checkbox"
@@ -496,7 +496,7 @@ const FilterSidebar = ({
         {/* 付款方式篩選 (多選) */}
         <div className="border-b pb-4 border-gray-200">
           <div
-            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
             onClick={() =>
               setIsPaymentMethodsCollapsed(!isPaymentMethodsCollapsed)
             }
@@ -509,7 +509,7 @@ const FilterSidebar = ({
           </div>
           {!isPaymentMethodsCollapsed && (
             <div className="mt-3 space-y-2">
-              {paymentMethods.map((method) => (
+              {displayPaymentMethods.map((method) => (
                 <div key={method} className="flex items-center">
                   <input
                     type="checkbox"
@@ -536,10 +536,8 @@ const FilterSidebar = ({
 
         {/* 設施/服務篩選 (多選) */}
         <div className="pb-4">
-          {" "}
-          {/* 移除最後一個區塊的 border-b */}
           <div
-            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
             onClick={() => setIsFacilitiesCollapsed(!isFacilitiesCollapsed)}
           >
             <h4 className="text-base font-semibold text-gray-800">設施/服務</h4>
@@ -550,7 +548,7 @@ const FilterSidebar = ({
           </div>
           {!isFacilitiesCollapsed && (
             <div className="mt-3 space-y-2">
-              {facilities.map((facility) => (
+              {displayFacilities.map((facility) => (
                 <div key={facility} className="flex items-center">
                   <input
                     type="checkbox"

@@ -1,7 +1,7 @@
 // src/components/RestaurantListPage.js
 "use client";
 
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useContext, useEffect, useCallback } from "react"; // Added useCallback
 // Please ensure the path and filename (auth-context.js) for '../lib/auth-context' are completely correct, minding case.
 import { AuthContext } from "../lib/auth-context";
 import {
@@ -39,7 +39,7 @@ const normalizeString = (str) => {
  * Helper function: Determines the operating status of a restaurant based on business hours and custom statuses.
  * This is a simplified determination; actual applications would require more precise business hour parsing.
  * @param {object} restaurant - The restaurant data object.
- * @returns {string} The operating status string (Operating, Temporarily Closed, Closed, Permanently Closed).
+ * @returns {string} The operating status string (營業中, 暫時休業, 休假中, 已結業).
  */
 const getOperatingStatus = (restaurant) => {
   if (restaurant.isPermanentlyClosed) {
@@ -72,12 +72,13 @@ const getOperatingStatus = (restaurant) => {
       return "營業中";
     }
   }
-  return "休假中";
+  return "休假中"; // Default if no specific hours or not open today
 };
 
 /**
  * RestaurantListPage: Displays a list of restaurants fetched from Firestore,
- * and can be filtered based on search keywords. Now includes list/grid view toggle functionality.
+ * and can be filtered based on search keywords. Now includes list/grid view toggle functionality
+ * and pagination.
  * @param {object} props - Component properties.
  * @param {object} props.filters - An object containing filter conditions (e.g., region, cuisineType, priceRange, specialConditions, minRating).
  * @param {function} props.onClearFilters - Callback to clear filters and return to the home page.
@@ -94,18 +95,20 @@ const RestaurantListPage = ({
 }) => {
   const { db, currentUser, appId, toggleFavoriteRestaurant, setModalMessage } =
     useContext(AuthContext);
-  const [restaurants, setRestaurants] = useState([]);
+  const [restaurants, setRestaurants] = useState([]); // All fetched and filtered restaurants
   const [loading, setLoading] = useState(true);
-  // const userId = currentUser?.uid || "anonymous"; // This is not displayed in the current UI
+
+  // --- Pagination states ---
+  const itemsPerPage = 9;
+  const [currentPage, setCurrentPage] = useState(1);
+  // --- End Pagination states ---
 
   // Effect 1: Fetches all restaurant data and applies filter and search logic
+  // This effect now combines data fetching and client-side filtering.
   useEffect(() => {
     if (!db) {
       // If db is not initialized yet (e.g., AuthContext still setting up Firebase)
-      // Set loading to false only if there's no db after initial render to avoid infinite loading.
-      // This might happen if firebaseConfig is invalid or __app_id is missing.
       if (!appId || !db) {
-        // Check for both appId and db
         console.warn(
           "Firestore DB or App ID not available. Cannot fetch restaurants."
         );
@@ -115,20 +118,24 @@ const RestaurantListPage = ({
       return;
     }
 
+    setLoading(true); // Set loading true at the start of fetch/filter cycle
     let q = collection(db, `artifacts/${appId}/public/data/restaurants`);
 
     const unsubscribe = onSnapshot(
       q,
       async (snapshot) => {
-        // Make this async to allow await inside
         let fetchedRestaurants = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
+          // Ensure reviewCount is present, default to 0 if not
+          reviewCount: doc.data().reviewCount || 0,
+          // Ensure rating is present, default to 0 if not
+          rating: doc.data().rating || 0,
         }));
 
-        // --- Client-side in-memory filtering logic ---
+        // --- Client-side in-memory filtering logic (unchanged) ---
         // Province filter
-        if (filters.province && filters.province !== "選擇省份") {
+        if (filters.province && filters.province !== "所有省份") {
           fetchedRestaurants = fetchedRestaurants.filter((restaurant) =>
             normalizeString(restaurant.province || "").includes(
               normalizeString(filters.province)
@@ -154,32 +161,33 @@ const RestaurantListPage = ({
         if (filters.minAvgSpending !== undefined) {
           fetchedRestaurants = fetchedRestaurants.filter(
             (restaurant) =>
-              restaurant.avgSpending &&
-              restaurant.avgSpending >= filters.minAvgSpending
+              (restaurant.avgSpending || 0) >= filters.minAvgSpending
           );
         }
         // Max Average Spending
         if (filters.maxAvgSpending !== undefined) {
           fetchedRestaurants = fetchedRestaurants.filter(
             (restaurant) =>
-              restaurant.avgSpending &&
-              restaurant.avgSpending <= filters.maxAvgSpending
+              (restaurant.avgSpending || 0) <= filters.maxAvgSpending
           );
         }
 
         // Min Seating Capacity
-        if (filters.minSeatingCapacity !== undefined) {
+        if (
+          filters.minSeatingCapacity !== undefined &&
+          filters.maxSeatingCapacity !== undefined
+        ) {
           fetchedRestaurants = fetchedRestaurants.filter(
             (restaurant) =>
-              restaurant.seatingCapacity &&
-              restaurant.seatingCapacity >= filters.minSeatingCapacity
+              (restaurant.seatingCapacity || 0) >= filters.minSeatingCapacity &&
+              (restaurant.seatingCapacity || 0) <= filters.maxSeatingCapacity
           );
         }
 
         // Min Rating
         if (filters.minRating && filters.minRating > 0) {
           fetchedRestaurants = fetchedRestaurants.filter(
-            (restaurant) => restaurant.rating >= filters.minRating
+            (restaurant) => (restaurant.rating || 0) >= filters.minRating
           );
         }
 
@@ -187,7 +195,14 @@ const RestaurantListPage = ({
         if (filters.businessHours) {
           fetchedRestaurants = fetchedRestaurants.filter((restaurant) => {
             const status = getOperatingStatus(restaurant);
-            return filters.businessHours === status;
+            // Translate the filter value if needed to match getOperatingStatus output
+            let filterStatus = filters.businessHours;
+            if (filterStatus === "營業中") filterStatus = "營業中";
+            else if (filterStatus === "休假中") filterStatus = "休假中";
+            else if (filterStatus === "暫時休業") filterStatus = "暫時休業";
+            else if (filterStatus === "已結業") filterStatus = "已結業";
+
+            return filterStatus === status;
           });
         }
 
@@ -236,18 +251,9 @@ const RestaurantListPage = ({
           });
         }
 
-        // Fetch review counts for all restaurants
-        // Assuming reviewCount is already part of the restaurant document for efficiency.
-        // If not, a separate query per restaurant would be needed, which is less efficient.
-        const restaurantsWithReviewCounts = fetchedRestaurants.map(
-          (restaurant) => ({
-            ...restaurant,
-            reviewCount: restaurant.reviewCount || 0, // Assume reviewCount is already in restaurant data, default to 0
-          })
-        );
-
-        setRestaurants(restaurantsWithReviewCounts);
+        setRestaurants(fetchedRestaurants);
         setLoading(false);
+        setCurrentPage(1); // Reset to first page when filters/search change
       },
       (error) => {
         console.error("Failed to fetch restaurant data:", error);
@@ -269,26 +275,49 @@ const RestaurantListPage = ({
       await toggleFavoriteRestaurant(restaurantId);
     } catch (error) {
       // Error message is already handled by AuthContext's setModalMessage
+      console.error("Failed to toggle favorite:", error); // Log error for debugging
     }
   };
 
+  // Check if any filters or search query are active for the "Clear All" button
   const hasFiltersOrSearch =
     Object.values(filters).some(
       (value) =>
         (Array.isArray(value) && value.length > 0) ||
         (!Array.isArray(value) &&
           value &&
-          value !== "0" &&
-          value !== "選擇菜系" &&
-          value !== "選擇省份" &&
-          value !== "") // Add check for empty string for filters like city
+          value !== "0" && // For number inputs, 0 might be a valid filter
+          value !== "所有省份" && // Specific default for province
+          value !== "" &&
+          value !== null && // Handle null values
+          value !== undefined) // Handle undefined values
     ) || searchQuery.length > 0;
 
+  // --- Pagination Logic ---
+  const totalPages = Math.ceil(restaurants.length / itemsPerPage);
+  const indexOfLastRestaurant = currentPage * itemsPerPage;
+  const indexOfFirstRestaurant = indexOfLastRestaurant - itemsPerPage;
+  const currentRestaurants = restaurants.slice(
+    indexOfFirstRestaurant,
+    indexOfLastRestaurant
+  );
+
+  const handleNextPage = useCallback(() => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  }, [totalPages]);
+
+  const handlePrevPage = useCallback(() => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  }, []);
+  // --- End Pagination Logic ---
+
   return (
-    <div className="py-6">
+    <div className="py-6 flex-1">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-gray-800">
           {hasFiltersOrSearch ? "搜尋/篩選結果" : "所有餐廳"}
+          {restaurants.length > 0 && ` (${restaurants.length} 間)`}{" "}
+          {/* Display count */}
         </h2>
         <div className="flex items-center space-x-4">
           {/* Clear Filter/Search button, only shown if filters or search are active */}
@@ -297,7 +326,6 @@ const RestaurantListPage = ({
               onClick={onClearFilters}
               className="flex items-center text-red-600 hover:text-red-800 transition duration-150"
             >
-              {/* Using a generic 'X' icon from FontAwesome instead of faTimesCircle which is a full circle */}
               <FontAwesomeIcon icon={faTimesCircle} className="mr-2" />
               清除所有篩選/搜尋
             </button>
@@ -327,26 +355,51 @@ const RestaurantListPage = ({
             : "目前沒有餐廳資料。"}
         </p>
       ) : (
-        <div
-          className={
-            isGridView
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-              : "flex flex-col space-y-4"
-          }
-        >
-          {restaurants.map((restaurant) => (
-            <RestaurantCard
-              key={restaurant.id}
-              restaurant={restaurant}
-              isGridView={isGridView}
-              isFavorited={
-                currentUser?.favoriteRestaurants?.includes(restaurant.id) ||
-                false
-              } // Get favorite status from currentUser
-              onToggleFavorite={handleToggleFavorite} // Pass favorite toggle function
-            />
-          ))}
-        </div>
+        <>
+          <div
+            className={
+              isGridView
+                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6" // 修改為 xl:grid-cols-3
+                : "flex flex-col space-y-4"
+            }
+          >
+            {currentRestaurants.map((restaurant) => (
+              <RestaurantCard
+                key={restaurant.id}
+                restaurant={restaurant}
+                isGridView={isGridView}
+                isFavorited={
+                  currentUser?.favoriteRestaurants?.includes(restaurant.id) ||
+                  false
+                } // Get favorite status from currentUser
+                onToggleFavorite={handleToggleFavorite} // Pass favorite toggle function
+              />
+            ))}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center space-x-4 mt-8">
+              <button
+                onClick={handlePrevPage}
+                disabled={currentPage === 1}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500 transition duration-150"
+              >
+                上一頁
+              </button>
+              <span className="text-lg font-medium text-gray-700">
+                頁 {currentPage} / {totalPages}
+              </span>
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500 transition duration-150"
+              >
+                下一頁
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

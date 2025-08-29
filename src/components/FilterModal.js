@@ -1,7 +1,12 @@
-// src/components/FilterModal.js
 "use client";
 
 import React, { useState } from "react";
+// 引入 restaurant-options.js 中的選項
+import {
+  cuisineOptions,
+  facilitiesServiceOptions, // 更名為 facilitiesServiceOptions 以匹配 restaurant-options.js
+  provinceOptions,
+} from "../data/restaurant-options"; // 確保路徑正確
 
 /**
  * FilterModal: 允許使用者根據各種條件篩選餐廳。
@@ -11,26 +16,17 @@ import React, { useState } from "react";
  * @param {function} props.onApplyFilters - 應用篩選條件的回調函數，接收一個包含篩選條件的物件。
  */
 const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
-  const [cuisineType, setCuisineType] = useState("");
+  const [selectedCuisineType, setSelectedCuisineType] = useState(""); // 將狀態名稱更改為更清晰的 selectedCuisineType
   const [priceRange, setPriceRange] = useState("0"); // 使用數字表示最大消費
   const [minRating, setMinRating] = useState(0);
   const [city, setCity] = useState("");
-  const [province, setProvince] = useState("");
-  const [facilitiesServices, setFacilitiesServices] = useState([]); // 新增設施/服務
+  const [selectedProvince, setSelectedProvince] = useState(""); // 將狀態名稱更改為更清晰的 selectedProvince
+  const [selectedFacilitiesServices, setSelectedFacilitiesServices] = useState(
+    []
+  ); // 將狀態名稱更改為更清晰的 selectedFacilitiesServices
 
-  // Dropdown 選項
-  const cuisineOptions = [
-    "選擇菜系",
-    "加拿大菜",
-    "海鮮",
-    "法國菜",
-    "亞洲菜",
-    "意大利菜",
-    "美式菜",
-    "中餐",
-    "日式料理",
-    "其他",
-  ];
+  // Dropdown 選項 - 現在直接從導入的檔案中使用
+  // cuisineOptions (已導入)
   const priceRangeOptions = [
     { value: "0", label: "不限人均" },
     { value: "20", label: "低於 $20" },
@@ -47,61 +43,62 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
     { value: 4, label: "4 星或以上" },
     { value: 4.5, label: "4.5 星或以上" },
   ];
-  const provinceOptions = [
-    "選擇省份",
-    "安大略省",
-    "魁北克省",
-    "卑詩省",
-    "亞伯達省",
-    "曼尼托巴省",
-    "薩斯喀徹溫省",
-    "新斯科細亞省",
-    "新不倫瑞克省",
-    "紐芬蘭與拉布拉多省",
-    "愛德華王子島省",
-    "西北地區",
-    "育空地區",
-    "努納武特地區",
-  ];
-  const facilitiesServiceOptions = [
-    "室外座位",
-    "電視播放",
-    "酒精飲品",
-    "Wi-Fi服務",
-    "切餅費",
-    "可自帶酒水",
-    "外賣速遞",
-    "停車場",
-    "無障礙設施",
-    "兒童友善",
-  ];
+  // provinceOptions (已導入)
+  // facilitiesServiceOptions (已導入)
 
   const handleFacilitiesChange = (e) => {
     const { value, checked } = e.target;
-    setFacilitiesServices((prev) =>
+    setSelectedFacilitiesServices((prev) =>
       checked ? [...prev, value] : prev.filter((item) => item !== value)
     );
   };
 
   const handleApply = () => {
-    const filters = {
-      cuisineType,
-      priceRange: parseInt(priceRange, 10), // 確保是數字
-      minRating,
-      city,
-      province,
-      facilitiesServices,
-    };
+    // 构建一个临时的 filters 对象
+    const filters = {};
+
+    // 1. 菜系篩選: 確保鍵名為 'category'，且不是 "選擇菜系"
+    if (selectedCuisineType && selectedCuisineType !== "選擇菜系") {
+      filters.category = selectedCuisineType;
+    }
+
+    // 2. 人均消費篩選: 將 priceRange 轉換為 maxAvgSpending，並處理 "不限" 情況
+    const parsedPriceRange = parseInt(priceRange, 10);
+    // 只有當 parsedPriceRange 大於 0 且不是 "9999" (不限高價) 時才應用此篩選
+    if (parsedPriceRange > 0 && parsedPriceRange !== 9999) {
+      filters.maxAvgSpending = parsedPriceRange;
+    }
+
+    // 3. 最低評分篩選: 確保鍵名為 'minRating'，且大於 0
+    if (minRating > 0) {
+      filters.minRating = minRating;
+    }
+
+    // 4. 城市篩選
+    if (city) {
+      filters.city = city;
+    }
+
+    // 5. 省份篩選: 確保鍵名為 'province'，且不是 "選擇省份"
+    if (selectedProvince && selectedProvince !== "選擇省份") {
+      filters.province = selectedProvince;
+    }
+
+    // 6. 設施/服務篩選: 確保鍵名為 'facilities'
+    if (selectedFacilitiesServices.length > 0) {
+      filters.facilities = selectedFacilitiesServices;
+    }
+
     onApplyFilters(filters);
   };
 
   const handleReset = () => {
-    setCuisineType("");
+    setSelectedCuisineType("");
     setPriceRange("0");
     setMinRating(0);
     setCity("");
-    setProvince("");
-    setFacilitiesServices([]);
+    setSelectedProvince("");
+    setSelectedFacilitiesServices([]);
     onApplyFilters({}); // 清除所有篩選
   };
 
@@ -133,8 +130,8 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
             <select
               id="cuisineType"
               className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={cuisineType}
-              onChange={(e) => setCuisineType(e.target.value)}
+              value={selectedCuisineType} // 使用新的狀態變數
+              onChange={(e) => setSelectedCuisineType(e.target.value)} // 使用新的狀態變數的設置函數
             >
               {cuisineOptions.map((option) => (
                 <option
@@ -220,8 +217,8 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
             <select
               id="province"
               className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={province}
-              onChange={(e) => setProvince(e.target.value)}
+              value={selectedProvince} // 使用新的狀態變數
+              onChange={(e) => setSelectedProvince(e.target.value)} // 使用新的狀態變數的設置函數
             >
               {provinceOptions.map((option) => (
                 <option
@@ -248,7 +245,7 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
                   <input
                     type="checkbox"
                     value={option}
-                    checked={facilitiesServices.includes(option)}
+                    checked={selectedFacilitiesServices.includes(option)} // 使用新的狀態變數
                     onChange={handleFacilitiesChange}
                     className="form-checkbox h-4 w-4 text-blue-600 rounded"
                   />

@@ -3,6 +3,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics"; // 導入 Analytics
+import { getStorage } from "firebase/storage"; // <-- 新增：導入 getStorage
 
 // 初始化 Firebase App，並確保只初始化一次
 export const initializeFirebaseApp = (config) => {
@@ -38,4 +39,10 @@ export const getFirebaseAnalytics = (app) => {
     );
     return null; // 在伺服器端或沒有 measurementId 時返回 null
   }
+};
+
+// <-- 新增：獲取 Storage 實例
+export const getFirebaseStorage = (app) => {
+  console.log("Firebase.js: Getting Storage instance.");
+  return getStorage(app);
 };
