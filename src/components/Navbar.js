@@ -103,7 +103,7 @@ const Navbar = ({
                 <div className="relative flex items-center group">
                   <FontAwesomeIcon
                     icon={faBookmark} // 書籤圖標
-                    className="text-xl text-white cursor-pointer hover:text-yellow-300 transition-colors"
+                    className="text-xl text-yellow-500 cursor-pointer hover:text-white transition-colors"
                     title="我的收藏"
                     onClick={() => router.push("/personal/favorites")} // 假設收藏頁面路徑
                   />
@@ -185,7 +185,7 @@ const Navbar = ({
         <div className="flex items-center w-full lg:w-[30%] justify-end space-x-2 mt-2 lg:mt-0">
           <button
             onClick={onShowMerchantPage}
-            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer p-0 m-0 text-sm"
+            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-1 m-0 text-sm"
           >
             餐廳專區
           </button>
@@ -194,7 +194,7 @@ const Navbar = ({
             onClick={() => {
               router.push("/personal/reviews"); // 導航到新的食評頁面
             }}
-            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer p-0 m-0 text-sm"
+            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-1 m-0 text-sm"
           >
             寫食評
           </button>
@@ -202,15 +202,15 @@ const Navbar = ({
           {isAdmin && (
             <button
               onClick={onShowAdminPage}
-              className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer p-0 m-0 text-sm"
+              className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-1 m-0 text-sm"
             >
               管理員頁面
             </button>
           )}
-          <select className="bg-gray-800 border border-gray-600 rounded-md py-0.5 px-1 text-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-500">
+          {/* <select className="bg-gray-800 border border-gray-600 rounded-md py-0.5 px-1 text-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-500">
             <option>繁體中文</option>
             <option>English</option>
-          </select>
+          </select> */}
 
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

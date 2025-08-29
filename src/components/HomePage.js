@@ -1,19 +1,17 @@
-// src/components/HomePage.js
+// src/app/HomePage.js
 "use client";
 
 import React, { useState, useContext, useCallback } from "react";
-import { AuthContext } from "../lib/auth-context"; // 確保路徑正確：從 components 目錄往上一層到 src，再進入 lib
+import { AuthContext } from "../lib/auth-context";
 
 // 導入所有現在獨立的組件
-// 請再次確認以下所有檔案都存在於 `src/components/` 目錄中，並且檔名與大小寫都完全正確！
-import Navbar from "./Navbar";
-import FilterModal from "./FilterModal";
-import HeroSection from "./HeroSection";
-import PromotionsSection from "./PromotionsSection";
-// import FoodCategoriesSection from "./FoodCategoriesSection"; // 已從主佈局中移除
-import RestaurantListPage from "./RestaurantListPage";
-import Modal from "./Modal"; // 引入 Modal 組件
-// import LoadingSpinner from "./LoadingSpinner"; // HomePage 本身不再需要 LoadingSpinner，因為 App.js 處理了最初的用戶載入狀態
+import Navbar from "../components/Navbar";
+import FilterModal from "../components/FilterModal";
+import HeroSection from "../components/HeroSection";
+import PromotionsSection from "../components/PromotionsSection";
+import RestaurantListPage from "../components/RestaurantListPage";
+import Modal from "../components/Modal";
+import FilterSidebar from "../components/FilterSidebar";
 
 /**
  * HomePage: ChopsBook 的主登陸頁面。
@@ -28,8 +26,6 @@ import Modal from "./Modal"; // 引入 Modal 組件
  */
 const HomePage = ({
   onShowLoginPage,
-  // onShowAddRestaurantPage, // 這些 props 現在由 Navbar 內部處理，不再直接傳遞
-  // onShowUpdateRestaurantPage, // 這些 props 現在由 Navbar 內部處理，不再直接傳遞
   onShowMerchantPage,
   onShowAdminPage,
   onShowPersonalPage,
@@ -38,15 +34,16 @@ const HomePage = ({
     useContext(AuthContext);
   var currentYear = new Date().getFullYear();
 
-  // 管理 FilterModal 的顯示狀態
+  // 管理 FilterModal (舊有的，不同的 Modal) 的顯示狀態
   const [showFilterModal, setShowFilterModal] = useState(false);
-  // 用於儲存已應用的篩選條件，並在篩選結果頁面顯示
+
+  // 管理篩選側邊欄的篩選條件
   const [appliedFilters, setAppliedFilters] = useState({});
-  // Removed showFilteredResultsPage as RestaurantListPage will always render now.
   // 搜尋關鍵字狀態
   const [searchQuery, setSearchQuery] = useState("");
   // 列表視圖模式
-  const [isGridView, setIsGridView] = useState(true);
+  const [isGridView, setIsGridView] = useState(false);
+  // 移除 isSidebarCollapsed 狀態，因為側邊欄不再整體摺疊
 
   const handleShowFilterModal = useCallback(() => {
     setShowFilterModal(true);
@@ -56,24 +53,22 @@ const HomePage = ({
     setShowFilterModal(false);
   }, []);
 
+  // 應用篩選器，來自 FilterSidebar
   const handleApplyFilters = useCallback((filters) => {
     setAppliedFilters(filters);
     console.log("應用篩選條件:", filters);
     setSearchQuery(""); // 應用篩選時清除搜尋關鍵字
-    // 不再需要切換 showFilteredResultsPage 狀態
-    setShowFilterModal(false); // 關閉篩選 Modal
   }, []);
 
-  const handleClearFiltersOrSearch = useCallback(() => {
+  // 重置篩選器，來自 FilterSidebar 的重置按鈕
+  const handleResetFilters = useCallback(() => {
     setAppliedFilters({}); // 清除所有篩選條件
     setSearchQuery(""); // 清除搜尋關鍵字
-    // 不再需要切換 showFilteredResultsPage 狀態
   }, []);
 
   const handleSearch = useCallback((query) => {
     setSearchQuery(query);
     setAppliedFilters({}); // 搜尋時清除篩選條件
-    // 不再需要切換 showFilteredResultsPage 狀態
   }, []);
 
   const toggleView = useCallback(() => {
@@ -86,35 +81,53 @@ const HomePage = ({
     <div className="min-h-screen flex flex-col bg-gray-100 font-inter">
       {/* Navbar 現在接收用於顯示 Modal 的函數，以及新的頁面導航函數 */}
       <Navbar
-        onShowFilterModal={handleShowFilterModal}
+        onShowFilterModal={handleShowFilterModal} // 這個是舊的 FilterModal
         onShowMerchantPage={onShowMerchantPage}
         onShowAdminPage={onShowAdminPage}
         onSearch={handleSearch}
       />
-      <main className="flex-grow">
+      <main className="flex-grow bg-white">
         <HeroSection />
+
+        {/* PromotionsSection 自己一行，佔滿 max-w-screen-xl 寬度 */}
         <div className="max-w-screen-xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           <PromotionsSection />
-          {/* 始終渲染 RestaurantListPage */}
-          <RestaurantListPage
-            filters={appliedFilters}
-            onClearFilters={handleClearFiltersOrSearch}
-            searchQuery={searchQuery}
-            isGridView={isGridView}
-            toggleView={toggleView}
+        </div>
+
+        {/* 篩選器與餐廳列表區域 */}
+        {/* 調整這裡的 gap-x-8 來增加篩選器和列表之間的橫向間距 */}
+        <div className="max-w-screen-xl mx-auto pb-8 px-4 sm:px-6 lg:px-8 flex mt-8 gap-x-8">
+          {/* 左側篩選側邊欄 */}
+          {/* 不再傳遞 isCollapsed 和 onToggleCollapse props */}
+          <FilterSidebar
+            initialFilters={appliedFilters} // 傳遞已應用的篩選條件，以便側邊欄顯示當前狀態
+            onApplyFilters={handleApplyFilters}
+            onResetFilters={handleResetFilters}
           />
-          {/* FoodCategoriesSection 已從主佈局中移除 */}
+
+          {/* 右側主要內容區域：餐廳列表 */}
+          <div className="flex-grow">
+            <RestaurantListPage
+              filters={appliedFilters}
+              onClearFilters={handleResetFilters} // 現在 RestaurantListPage 的清除篩選也指向新的重置函數
+              searchQuery={searchQuery}
+              isGridView={isGridView}
+              toggleView={toggleView}
+            />
+          </div>
         </div>
       </main>
-      <footer className="bg-gray-800 text-white text-center py-6 text-sm">
+      <footer className="bg-gray-800 text-white text-center py-6 text-sm font-light">
         &copy; {currentYear} ChopsBook. 版權所有.
       </footer>
 
-      {/* FilterModal 根據 showFilterModal 狀態顯示 */}
+      {/* FilterModal (舊的，獨立於側邊欄) 根據 showFilterModal 狀態顯示 */}
       <FilterModal
         isOpen={showFilterModal}
         onClose={handleCloseFilterModal}
-        onApplyFilters={handleApplyFilters}
+        onApplyFilters={(filters) =>
+          console.log("FilterModal applied:", filters)
+        }
       />
       {modalMessage && (
         <Modal

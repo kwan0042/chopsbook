@@ -180,14 +180,14 @@ const RestaurantDetailPage = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="text-xl font-semibold text-gray-700">加載中...</div>
+        <div className="text-base font-semibold text-gray-700">加載中...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50 text-red-600 text-xl p-4">
+      <div className="flex justify-center items-center min-h-screen bg-gray-50 text-red-600 text-base p-4">
         {error}
       </div>
     );
@@ -195,7 +195,7 @@ const RestaurantDetailPage = () => {
 
   if (!restaurant) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50 text-gray-700 text-xl p-4">
+      <div className="flex justify-center items-center min-h-screen bg-gray-50 text-gray-700 text-base p-4">
         沒有找到餐廳。
       </div>
     );
@@ -215,14 +215,14 @@ const RestaurantDetailPage = () => {
         <FontAwesomeIcon
           key={index}
           icon={index < Math.floor(rating || 0) ? faSolidStar : faRegularStar}
-          className={`text-xl ${
+          className={`text-base ${
             index < Math.floor(rating || 0)
               ? "text-yellow-500"
               : "text-gray-300"
           }`}
         />
       ))}
-      <span className="text-gray-800 font-bold text-lg ml-2">
+      <span className="text-gray-800 font-bold text-base ml-2">
         {rating?.toFixed(1) || "N/A"}
       </span>
       <span className="text-gray-600 ml-3 text-sm">
@@ -259,14 +259,14 @@ const RestaurantDetailPage = () => {
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700 border-b border-gray-200">
           <div>
             {renderRatingStars(restaurant.rating)}
-            <p className="mt-2 text-lg">
+            <p className="mt-2 text-base">
               <FontAwesomeIcon
                 icon={faMapMarkerAlt}
                 className="mr-2 text-gray-500"
               />
               {restaurant.fullAddress || "N/A"}
             </p>
-            <p className="mt-1 text-lg">
+            <p className="mt-1 text-base">
               <FontAwesomeIcon
                 icon={faUtensils}
                 className="mr-2 text-gray-500"
@@ -277,11 +277,11 @@ const RestaurantDetailPage = () => {
             </p>
           </div>
           <div className="md:text-right">
-            <p className="text-lg">
+            <p className="text-base">
               <FontAwesomeIcon icon={faWallet} className="mr-2 text-gray-500" />
               人均: ${restaurant.avgSpending || "N/A"}
             </p>
-            <p className="mt-1 text-lg">
+            <p className="mt-1 text-base">
               <FontAwesomeIcon icon={faClock} className="mr-2 text-gray-500" />
               <span
                 className={`font-bold ${
@@ -321,7 +321,7 @@ const RestaurantDetailPage = () => {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`py-2 px-4 text-lg font-medium transition-colors duration-200 ease-in-out
+              className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
                 ${
                   activeTab === tab
                     ? "text-blue-600 border-b-2 border-blue-600"
@@ -339,7 +339,7 @@ const RestaurantDetailPage = () => {
             <div className="space-y-8">
               {/* facade image section */}
               <section className="bg-gray-50 p-4 rounded-lg shadow-sm">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                <h2 className="text-base font-bold text-gray-800 mb-4">
                   餐廳門面
                 </h2>
                 <img
@@ -355,7 +355,7 @@ const RestaurantDetailPage = () => {
 
               {/* restaurant intro section */}
               <section className="bg-gray-50 p-4 rounded-lg shadow-sm">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                <h2 className="text-base font-bold text-gray-800 mb-4">
                   餐廳介紹
                 </h2>
                 <p className="text-gray-700 leading-relaxed">
@@ -366,7 +366,7 @@ const RestaurantDetailPage = () => {
               {/* Promotion section */}
               {mockPromotions.length > 0 && (
                 <section className="bg-blue-50 p-4 rounded-lg shadow-sm border border-blue-200">
-                  <h2 className="text-2xl font-bold text-blue-800 mb-4 flex items-center">
+                  <h2 className="text-base font-bold text-blue-800 mb-4 flex items-center">
                     <FontAwesomeIcon icon={faTag} className="mr-2" /> 優惠活動
                   </h2>
                   <ul className="list-disc list-inside text-blue-700 space-y-2">
@@ -380,7 +380,7 @@ const RestaurantDetailPage = () => {
               {/* 3 top menu section */}
               {mockTopMenus.length > 0 && (
                 <section className="bg-gray-50 p-4 rounded-lg shadow-sm">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                  <h2 className="text-base font-bold text-gray-800 mb-4">
                     熱門菜品
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -394,7 +394,7 @@ const RestaurantDetailPage = () => {
                           alt={menuItem.name}
                           className="w-24 h-24 object-cover rounded-full mb-3 border-2 border-gray-200"
                         />
-                        <h3 className="text-lg font-semibold text-gray-800 text-center">
+                        <h3 className="text-base font-semibold text-gray-800 text-center">
                           {menuItem.name}
                         </h3>
                         <p className="text-blue-600 font-bold mt-1">
@@ -417,7 +417,7 @@ const RestaurantDetailPage = () => {
               {/* 10 top liked photos section */}
               {mockTopPhotos.length > 0 && (
                 <section className="bg-gray-50 p-4 rounded-lg shadow-sm">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                  <h2 className="text-base font-bold text-gray-800 mb-4">
                     精選照片
                   </h2>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -444,7 +444,7 @@ const RestaurantDetailPage = () => {
               {/* reviews section recent 3 reviews */}
               {mockRecentReviews.length > 0 && (
                 <section className="bg-gray-50 p-4 rounded-lg shadow-sm">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                  <h2 className="text-base font-bold text-gray-800 mb-4">
                     最新評論
                   </h2>
                   <div className="space-y-4">
@@ -495,7 +495,7 @@ const RestaurantDetailPage = () => {
 
               {/* Restaurant information section */}
               <section className="bg-gray-50 p-4 rounded-lg shadow-sm">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                <h2 className="text-base font-bold text-gray-800 mb-4">
                   餐廳資訊
                 </h2>
                 <div className="space-y-2 text-gray-700">
@@ -544,25 +544,25 @@ const RestaurantDetailPage = () => {
           {/* 其他標籤內容 (暫時為佔位符) */}
           {activeTab === "menu" && (
             <div className="text-center p-8 text-gray-600">
-              <h2 className="text-2xl font-bold mb-4">菜單 (待開發)</h2>
+              <h2 className="text-base font-bold mb-4">菜單 (待開發)</h2>
               <p>這裡將顯示詳細的菜單列表。</p>
             </div>
           )}
           {activeTab === "photos" && (
             <div className="text-center p-8 text-gray-600">
-              <h2 className="text-2xl font-bold mb-4">照片 (待開發)</h2>
+              <h2 className="text-base font-bold mb-4">照片 (待開發)</h2>
               <p>這裡將顯示餐廳的所有照片。</p>
             </div>
           )}
           {activeTab === "reviews" && (
             <div className="text-center p-8 text-gray-600">
-              <h2 className="text-2xl font-bold mb-4">評論 (待開發)</h2>
+              <h2 className="text-base font-bold mb-4">評論 (待開發)</h2>
               <p>這裡將顯示所有的用戶評論。</p>
             </div>
           )}
           {activeTab === "map" && (
             <div className="text-center p-8 text-gray-600">
-              <h2 className="text-2xl font-bold mb-4">地圖 (待開發)</h2>
+              <h2 className="text-base font-bold mb-4">地圖 (待開發)</h2>
               <p>這裡將顯示餐廳在地圖上的位置。</p>
             </div>
           )}

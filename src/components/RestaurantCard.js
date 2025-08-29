@@ -66,9 +66,12 @@ const RestaurantCard = ({
   const hasAnyImage =
     restaurant.facadePhotoUrls && restaurant.facadePhotoUrls.length > 0;
 
+  // 根據視圖模式調整圖片佔位符大小
+  const placeholderSize = isGridView ? "400x200" : "112x112";
+
   const displayImageUrl = hasAnyImage
     ? restaurant.facadePhotoUrls[0]
-    : `https://placehold.co/400x200/CCCCCC/333333?text=${encodeURIComponent(
+    : `https://placehold.co/${placeholderSize}/CCCCCC/333333?text=${encodeURIComponent(
         restaurant.restaurantNameZh || restaurant.restaurantNameEn || "餐廳圖片"
       )}`;
 
@@ -76,82 +79,99 @@ const RestaurantCard = ({
 
   const handleFavoriteClick = (e) => {
     e.stopPropagation(); // 阻止事件冒泡到卡片本身，避免觸發 Link 導航
+    e.preventDefault(); // 確保 Link 導航不會被觸發
     onToggleFavorite(restaurant.id);
   };
 
   return (
-    <Link href={`/restaurants/${restaurant.id}`} passHref>
-      {" "}
-      {/* <<< 這裡用 Link 包裹 */}
-      <div
-        className={`bg-white shadow-lg overflow-hidden transform transition duration-300 ease-in-out relative cursor-pointer
-          ${
-            isGridView
-              ? "hover:scale-105 rounded-xl"
-              : "flex flex-col sm:flex-row items-center sm:h-50 rounded-xl"
-          }`}
-      >
-        {/* 收藏按鈕 (右上角) */}
-        <button
-          onClick={handleFavoriteClick}
-          className="absolute top-3 right-3 z-10 p-2 bg-transparent border-none
-                     hover:text-yellow-500 transition duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-          aria-label={isFavorited ? "取消收藏" : "收藏餐廳"}
-        >
-          <FontAwesomeIcon
-            icon={isFavorited ? faSolidBookmark : faRegularBookmark}
-            className={`text-2xl ${
-              isFavorited ? "text-yellow-500" : "text-white"
-            }`}
-          />
-        </button>
-
-        {/* 圖片容器 */}
+    // 外層容器，用於相對定位收藏按鈕
+    <div
+      className={`relative ${
+        isGridView
+          ? "w-full" // 網格模式下，外層容器寬度適應
+          : "w-full my-2" // 列表模式下，外層容器寬度適應，並保留 my-2 間距
+      }`}
+    >
+      {/* 主要的餐廳卡片內容，被 Link 包裹 */}
+      <Link href={`/restaurants/${restaurant.id}`} passHref>
         <div
-          className={`relative ${
-            isGridView
-              ? "w-full h-48 rounded-lg"
-              : "w-full h-full sm:w-1/3 flex-shrink-0 rounded-l-lg mb-4 sm:mb-0 sm:mr-4 overflow-hidden"
-          }`}
+          className={`bg-white shadow-lg overflow-hidden transform transition duration-300 ease-in-out cursor-pointer h-fit
+            ${
+              isGridView
+                ? "hover:scale-105 rounded-xl" // 網格模式樣式
+                : "flex flex-row items-start rounded-xl p-3 border border-gray-200 hover:shadow-md" // 列表模式樣式 (保持不變)
+            }`}
         >
-          <img
-            src={displayImageUrl}
-            alt={
-              restaurant.restaurantNameZh ||
-              restaurant.restaurantNameEn ||
-              "餐廳圖片"
-            }
-            className="w-full h-full object-cover rounded-inherit"
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = `https://placehold.co/400x200/CCCCCC/333333?text=圖片載入失敗`;
-            }}
-          />
-        </div>
+          {/* 圖片容器 */}
+          <div
+            className={`relative ${
+              isGridView
+                ? "w-full h-48 rounded-lg" // 網格模式圖片大小
+                : "w-80 flex-shrink-0 rounded-lg mr-4 overflow-hidden" // 列表模式圖片大小，圓角 (保持不變)
+            }`}
+          >
+            <img
+              src={displayImageUrl}
+              alt={
+                restaurant.restaurantNameZh ||
+                restaurant.restaurantNameEn ||
+                "餐廳圖片"
+              }
+              className="w-full h-full object-cover" // 統一圖片樣式
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = `https://placehold.co/${placeholderSize}/CCCCCC/333333?text=圖片`; // 使用動態佔位符大小
+              }}
+            />
+          </div>
 
-        {/* 餐廳資訊區塊 */}
-        <div className={`${isGridView ? "p-6" : "p-4 sm:flex-grow text-left"}`}>
-          <div className="flex items-center mt-1 mb-1">
-            {Array.from({ length: 5 }, (_, index) => (
-              <FontAwesomeIcon
-                key={index}
-                icon={
-                  index < Math.floor(restaurant.rating || 0)
-                    ? faSolidStar
-                    : faRegularStar
-                }
-                className={`text-xl ${
-                  index < Math.floor(restaurant.rating || 0)
-                    ? "text-yellow-500"
-                    : "text-gray-300"
+          {/* 餐廳資訊區塊 */}
+          <div className={`${isGridView ? "p-6" : "flex-grow text-left py-1"}`}>
+            {/* 餐廳名稱 - 網格模式 16pt (text-base), 列表模式 16pt (text-base) */}
+            <h3
+              className={`font-bold text-gray-900 mb-1 leading-tight text-wrap ${
+                isGridView ? "text-base" : "text-base"
+              }`}
+            >
+              {restaurant.restaurantNameZh ||
+                restaurant.restaurantNameEn ||
+                `未知餐廳 (ID: ${restaurant.id})`}
+            </h3>
+
+            {/* 評分和評論數 - 網格模式 14pt (text-sm), 列表模式 14pt (text-sm) */}
+            <div
+              className={`flex items-center mb-1 ${
+                isGridView ? "text-sm" : "text-sm"
+              }`}
+            >
+              {Array.from({ length: 5 }, (_, index) => (
+                <FontAwesomeIcon
+                  key={index}
+                  icon={
+                    index < Math.floor(restaurant.rating || 0)
+                      ? faSolidStar
+                      : faRegularStar
+                  }
+                  className={`${isGridView ? "text-sm" : "text-sm"} ${
+                    // 根據視圖調整星級大小
+                    index < Math.floor(restaurant.rating || 0)
+                      ? "text-yellow-500"
+                      : "text-gray-300"
+                  }`}
+                />
+              ))}
+              <span
+                className={`text-gray-800 font-bold ml-1 ${
+                  isGridView ? "text-sm" : "text-sm"
                 }`}
-              />
-            ))}
-            <span className="text-gray-800 font-bold text-lg ml-2">
-              {restaurant.rating?.toFixed(1) || "N/A"}
-            </span>
-            <div className="flex items-center text-sm text-gray-700 mb-1">
-              <span className="ml-3 flex items-center">
+              >
+                {restaurant.rating?.toFixed(1) || "N/A"}
+              </span>
+              <span
+                className={`ml-2 flex items-center text-gray-700 ${
+                  isGridView ? "text-sm" : "text-sm"
+                }`}
+              >
                 <div className="relative">
                   <FontAwesomeIcon icon={faComment} className="text-blue-500" />
                   <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
@@ -160,44 +180,75 @@ const RestaurantCard = ({
                 </div>
               </span>
             </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2 leading-tight text-wrap">
-            {restaurant.restaurantNameZh ||
-              restaurant.restaurantNameEn ||
-              `未知餐廳 (ID: ${restaurant.id})`}
-          </h3>
-          <p className="text-base text-gray-700 mb-1 text-wrap">
-            <span className="font-semibold"></span>
-            {restaurant.fullAddress || "N/A"}
-          </p>
-          <p className="text-base text-gray-700 mb-1 text-wrap">
-            <span className="font-semibold mr-1">🏠</span>
-            {restaurant.city || "N/A"} | {restaurant.cuisineType || "N/A"} |
-            人均 :${restaurant.avgSpending || "N/A"}
-          </p>
-          <p className="text-base text-gray-700 mb-1 text-wrap">
-            <span className="font-semibold">電話:</span>
-            {restaurant.phone || "N/A"}
-          </p>
-          <p className="text-base text-gray-700 mt-1 text-wrap">
-            <span className="font-semibold"></span>
-            <span
-              className={`font-bold ${
-                operatingStatus === "營業中"
-                  ? "text-green-600"
-                  : operatingStatus === "暫時休業"
-                  ? "text-orange-500"
-                  : operatingStatus === "休假中"
-                  ? "text-blue-500"
-                  : "text-red-600"
+
+            {/* 地址 - 網格模式 14pt (text-sm), 列表模式 14pt (text-sm) */}
+            <p
+              className={`text-gray-700 mb-1 text-wrap ${
+                isGridView ? "text-sm" : "text-sm"
               }`}
             >
-              {operatingStatus}
-            </span>
-          </p>
+              {restaurant.fullAddress || "N/A"}
+            </p>
+
+            {/* 城市 | 菜系 | 人均 - 網格模式 14pt (text-sm), 列表模式 14pt (text-sm) */}
+            <p
+              className={`text-gray-700 mb-1 text-wrap ${
+                isGridView ? "text-sm" : "text-sm"
+              }`}
+            >
+              {restaurant.city || "N/A"} | {restaurant.cuisineType || "N/A"} |
+              人均: ${restaurant.avgSpending || "N/A"}
+            </p>
+
+            {/* 電話 - 網格模式 14pt (text-sm), 列表模式 14pt (text-sm) */}
+            <p
+              className={`text-gray-700 mb-1 text-wrap ${
+                isGridView ? "text-sm" : "text-sm"
+              }`}
+            >
+              電話: {restaurant.phone || "N/A"}
+            </p>
+
+            {/* 營業狀態 - 網格模式 14pt (text-sm), 列表模式 14pt (text-sm) */}
+            <p
+              className={`text-gray-700 mt-1 text-wrap ${
+                isGridView ? "text-sm" : "text-sm"
+              }`}
+            >
+              <span
+                className={`font-bold ${
+                  operatingStatus === "營業中"
+                    ? "text-green-600"
+                    : operatingStatus === "暫時休業"
+                    ? "text-orange-500"
+                    : operatingStatus === "休假中"
+                    ? "text-blue-500"
+                    : "text-red-600"
+                }`}
+              >
+                {operatingStatus}
+              </span>
+            </p>
+          </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+
+      {/* 收藏按鈕 (現在作為兄弟元素，獨立於 Link) */}
+      <button
+        onClick={handleFavoriteClick}
+        className="absolute top-3 right-3 z-10 p-2 bg-transparent border-none
+                   hover:text-yellow-500 transition duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+        aria-label={isFavorited ? "取消收藏" : "收藏餐廳"}
+        type="button" // 明確指定為按鈕類型
+      >
+        <FontAwesomeIcon
+          icon={isFavorited ? faSolidBookmark : faSolidBookmark}
+          className={`text-2xl ${
+            isFavorited ? "text-yellow-500" : "text-white"
+          }`}
+        />
+      </button>
+    </div>
   );
 };
 
