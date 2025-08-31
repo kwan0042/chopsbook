@@ -41,10 +41,7 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser,
   } = useAuthCore(handleGlobalModalMessage);
 
-  console.log(
-    "AuthContext: setCurrentUser from useAuthCore:",
-    typeof setCurrentUser
-  ); // DEBUG LOG
+  
 
   // 認證操作 (登入、註冊、登出、重設密碼)
   const { login, signup, logout, sendPasswordReset } = useAuthOperations(

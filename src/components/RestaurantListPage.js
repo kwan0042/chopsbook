@@ -2,21 +2,9 @@
 "use client";
 
 import React, { useState, useContext, useEffect, useCallback } from "react"; // Added useCallback
-// Please ensure the path and filename (auth-context.js) for '../lib/auth-context' are completely correct, minding case.
 import { AuthContext } from "../lib/auth-context";
-import {
-  collection,
-  query,
-  onSnapshot,
-  // addDoc, // Not used in this version, as addSampleRestaurants is removed
-  // getDocs, // Not used as reviewCount is assumed to be in restaurant document
-  // where, // Not used as filtering is client-side for now
-} from "firebase/firestore"; // Ensure all necessary Firestore functions are imported
-// Please ensure the path and filename (LoadingSpinner.js) for './LoadingSpinner' are completely correct, minding case.
+import { collection, query, onSnapshot } from "firebase/firestore"; // Ensure all necessary Firestore functions are imported
 import LoadingSpinner from "./LoadingSpinner";
-// The AuthContext already handles the global Modal, so direct import and rendering of Modal is no longer needed here.
-// import Modal from "./Modal";
-
 import RestaurantCard from "./RestaurantCard"; // Import RestaurantCard
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -98,6 +86,122 @@ const RestaurantListPage = ({
   const [restaurants, setRestaurants] = useState([]); // All fetched and filtered restaurants
   const [loading, setLoading] = useState(true);
 
+  // --- 開發模式設定 ---
+  const IS_DEVELOPMENT_MODE = process.env.NODE_ENV === "development";
+  // 將此設定為 true 以啟用模擬數據，跳過 Firebase 連接
+  const ENABLE_DEV_MOCK_DATA = false;
+  // --- 開發模式設定結束 ---
+
+  // --- Mock Restaurant Data ---
+  const MOCK_RESTAURANTS = [
+    {
+      id: "mock-res-1",
+      restaurantNameZh: "模擬餐廳一號",
+      restaurantNameEn: "Mock Restaurant One",
+      cuisineType: "中式",
+      rating: 4.5,
+      reviewCount: 120,
+      province: "廣東省",
+      city: "廣州市",
+      fullAddress: "廣州市天河區模擬大道100號",
+      description: "這是一個提供美味中餐的模擬餐廳。",
+      imageUrl: "https://placehold.co/400x300/e0e0e0/333?text=Mock+Res+1",
+      avgSpending: 150,
+      seatingCapacity: 50,
+      businessHours: "每日 11:00-22:00",
+      reservationModes: ["線上預訂", "電話預訂"],
+      paymentMethods: ["現金", "支付寶", "微信支付"],
+      facilities: ["WIFI", "空調", "兒童椅"],
+      isPermanentlyClosed: false,
+      isTemporarilyClosed: false,
+    },
+    {
+      id: "mock-res-2",
+      restaurantNameZh: "模擬餐廳二號",
+      restaurantNameEn: "Mock Restaurant Two",
+      cuisineType: "西式",
+      rating: 3.8,
+      reviewCount: 75,
+      province: "廣東省",
+      city: "深圳市",
+      fullAddress: "深圳市南山區模擬路200號",
+      description: "提供精緻西餐和舒適環境的模擬餐廳。",
+      imageUrl: "https://placehold.co/400x300/d0d0d0/444?text=Mock+Res+2",
+      avgSpending: 280,
+      seatingCapacity: 80,
+      businessHours: "星期一至五 10:00-21:00",
+      reservationModes: ["線上預訂"],
+      paymentMethods: ["信用卡", "現金"],
+      facilities: ["WIFI", "停車場"],
+      isPermanentlyClosed: false,
+      isTemporarilyClosed: false,
+    },
+    {
+      id: "mock-res-3",
+      restaurantNameZh: "模擬咖啡店",
+      restaurantNameEn: "Mock Coffee Shop",
+      cuisineType: "咖啡甜點",
+      rating: 4.2,
+      reviewCount: 200,
+      province: "廣東省",
+      city: "珠海市",
+      fullAddress: "珠海市香洲區模擬街300號",
+      description: "悠閒的咖啡時光。",
+      imageUrl: "https://placehold.co/400x300/c0c0c0/555?text=Mock+Coffee",
+      avgSpending: 80,
+      seatingCapacity: 30,
+      businessHours: "每日 08:00-23:00",
+      reservationModes: [],
+      paymentMethods: ["現金", "微信支付"],
+      facilities: ["WIFI"],
+      isPermanentlyClosed: false,
+      isTemporarilyClosed: false,
+    },
+    {
+      id: "mock-res-4",
+      restaurantNameZh: "模擬日本料理",
+      restaurantNameEn: "Mock Japanese Cuisine",
+      cuisineType: "日式",
+      rating: 4.8,
+      reviewCount: 300,
+      province: "廣東省",
+      city: "廣州市",
+      fullAddress: "廣州市越秀區模擬巷400號",
+      description: "正宗日式料理體驗。",
+      imageUrl: "https://placehold.co/400x300/b0b0b0/666?text=Mock+JP+Food",
+      avgSpending: 350,
+      seatingCapacity: 60,
+      businessHours: "星期二至日 17:00-22:00",
+      reservationModes: ["電話預訂"],
+      paymentMethods: ["現金", "信用卡"],
+      facilities: ["私人包廂"],
+      isPermanentlyClosed: false,
+      isTemporarilyClosed: true, // 暫時休業
+    },
+    {
+      id: "mock-res-5",
+      restaurantNameZh: "模擬火鍋店",
+      restaurantNameEn: "Mock Hotpot Place",
+      cuisineType: "火鍋",
+      rating: 4.0,
+      reviewCount: 150,
+      province: "四川省",
+      city: "成都市",
+      fullAddress: "成都市錦江區模擬街500號",
+      description: "麻辣鮮香的火鍋。",
+      imageUrl: "https://placehold.co/400x300/a0a0a0/777?text=Mock+Hotpot",
+      avgSpending: 180,
+      seatingCapacity: 100,
+      businessHours: "每日 10:00-02:00",
+      reservationModes: ["線上預訂"],
+      paymentMethods: ["支付寶", "微信支付"],
+      facilities: ["WIFI"],
+      isPermanentlyClosed: true, // 已結業
+      isTemporarilyClosed: false,
+    },
+  ];
+  // --- End Mock Restaurant Data ---
+
   // --- Pagination states ---
   const itemsPerPage = 9;
   const [currentPage, setCurrentPage] = useState(1);
@@ -106,19 +210,165 @@ const RestaurantListPage = ({
   // Effect 1: Fetches all restaurant data and applies filter and search logic
   // This effect now combines data fetching and client-side filtering.
   useEffect(() => {
+    setLoading(true); // Set loading true at the start of fetch/filter cycle
+
+    // --- 開發模式模擬數據邏輯 ---
+    if (IS_DEVELOPMENT_MODE && ENABLE_DEV_MOCK_DATA) {
+      console.log(
+        "--- DEV MODE: Using mock restaurant data, bypassing Firestore ---"
+      );
+      // 使用 setTimeout 模擬網絡延遲
+      const timer = setTimeout(() => {
+        let filteredMockRestaurants = [...MOCK_RESTAURANTS];
+
+        // 應用所有的篩選和搜尋邏輯到模擬數據
+        // Province filter
+        if (filters.province && filters.province !== "所有省份") {
+          filteredMockRestaurants = filteredMockRestaurants.filter(
+            (restaurant) =>
+              normalizeString(restaurant.province || "").includes(
+                normalizeString(filters.province)
+              )
+          );
+        }
+        // City filter
+        if (filters.city) {
+          filteredMockRestaurants = filteredMockRestaurants.filter(
+            (restaurant) =>
+              normalizeString(restaurant.city || "").includes(
+                normalizeString(filters.city)
+              )
+          );
+        }
+        // Category (CuisineType) filter
+        if (filters.category && filters.category.length > 0) {
+          filteredMockRestaurants = filteredMockRestaurants.filter(
+            (restaurant) => filters.category.includes(restaurant.cuisineType)
+          );
+        }
+
+        // Min Average Spending
+        if (filters.minAvgSpending !== undefined) {
+          filteredMockRestaurants = filteredMockRestaurants.filter(
+            (restaurant) =>
+              (restaurant.avgSpending || 0) >= filters.minAvgSpending
+          );
+        }
+        // Max Average Spending
+        if (filters.maxAvgSpending !== undefined) {
+          filteredMockRestaurants = filteredMockRestaurants.filter(
+            (restaurant) =>
+              (restaurant.avgSpending || 0) <= filters.maxAvgSpending
+          );
+        }
+
+        // Min Seating Capacity
+        if (
+          filters.minSeatingCapacity !== undefined &&
+          filters.maxSeatingCapacity !== undefined
+        ) {
+          filteredMockRestaurants = filteredMockRestaurants.filter(
+            (restaurant) =>
+              (restaurant.seatingCapacity || 0) >= filters.minSeatingCapacity &&
+              (restaurant.seatingCapacity || 0) <= filters.maxSeatingCapacity
+          );
+        }
+
+        // Min Rating
+        if (filters.minRating && filters.minRating > 0) {
+          filteredMockRestaurants = filteredMockRestaurants.filter(
+            (restaurant) => (restaurant.rating || 0) >= filters.minRating
+          );
+        }
+
+        // Business Hours (Operating Status) filter
+        if (filters.businessHours) {
+          filteredMockRestaurants = filteredMockRestaurants.filter(
+            (restaurant) => {
+              const status = getOperatingStatus(restaurant);
+              // Translate the filter value if needed to match getOperatingStatus output
+              let filterStatus = filters.businessHours;
+              if (filterStatus === "營業中") filterStatus = "營業中";
+              else if (filterStatus === "休假中") filterStatus = "休假中";
+              else if (filterStatus === "暫時休業") filterStatus = "暫時休業";
+              else if (filterStatus === "已結業") filterStatus = "已結業";
+
+              return filterStatus === status;
+            }
+          );
+        }
+
+        // Reservation Modes filter (multi-select: must have at least one selected mode)
+        if (filters.reservationModes && filters.reservationModes.length > 0) {
+          filteredMockRestaurants = filteredMockRestaurants.filter(
+            (restaurant) =>
+              filters.reservationModes.some((mode) =>
+                restaurant.reservationModes?.includes(mode)
+              )
+          );
+        }
+
+        // Payment Methods filter (multi-select: must have at least one selected method)
+        if (filters.paymentMethods && filters.paymentMethods.length > 0) {
+          filteredMockRestaurants = filteredMockRestaurants.filter(
+            (restaurant) =>
+              filters.paymentMethods.some((method) =>
+                restaurant.paymentMethods?.includes(method)
+              )
+          );
+        }
+
+        // Facilities/Services filter (multi-select: must have ALL selected facilities)
+        if (filters.facilities && filters.facilities.length > 0) {
+          filteredMockRestaurants = filteredMockRestaurants.filter(
+            (restaurant) =>
+              filters.facilities.every((facility) =>
+                restaurant.facilities?.includes(facility)
+              )
+          );
+        }
+
+        // Search Query filter (applies to multiple fields)
+        if (searchQuery) {
+          const normalizedSearchQuery = normalizeString(searchQuery);
+          filteredMockRestaurants = filteredMockRestaurants.filter(
+            (restaurant) => {
+              const nameZh = normalizeString(restaurant.restaurantNameZh || "");
+              const nameEn = normalizeString(restaurant.restaurantNameEn || "");
+              const cuisine = normalizeString(restaurant.cuisineType || "");
+              const address = normalizeString(restaurant.fullAddress || "");
+
+              return (
+                nameZh.includes(normalizedSearchQuery) ||
+                nameEn.includes(normalizedSearchQuery) ||
+                cuisine.includes(normalizedSearchQuery) ||
+                address.includes(normalizedSearchQuery)
+              );
+            }
+          );
+        }
+
+        setRestaurants(filteredMockRestaurants);
+        setLoading(false);
+        setCurrentPage(1); // Reset to first page when filters/search change
+      }, 500); // 模擬 500ms 的網絡延遲
+
+      return () => clearTimeout(timer); // 清理定時器
+    }
+    // --- 開發模式模擬數據邏輯結束 ---
+
+    // --- 正常 Firebase 數據獲取邏輯 (當ENABLE_DEV_MOCK_DATA為false或非開發模式時執行) ---
     if (!db) {
-      // If db is not initialized yet (e.g., AuthContext still setting up Firebase)
       if (!appId || !db) {
         console.warn(
           "Firestore DB or App ID not available. Cannot fetch restaurants."
         );
-        setModalMessage("未能連接到數據庫。請檢查設定。");
+        // setModalMessage("未能連接到數據庫。請檢查設定。"); // AuthContext 已經處理了 db 為 null 的情況，避免重複顯示
         setLoading(false);
       }
       return;
     }
 
-    setLoading(true); // Set loading true at the start of fetch/filter cycle
     let q = collection(db, `artifacts/${appId}/public/data/restaurants`);
 
     const unsubscribe = onSnapshot(
@@ -263,7 +513,15 @@ const RestaurantListPage = ({
     );
 
     return () => unsubscribe();
-  }, [db, appId, JSON.stringify(filters), searchQuery, setModalMessage]); // JSON.stringify for object dependency
+  }, [
+    db,
+    appId,
+    JSON.stringify(filters),
+    searchQuery,
+    setModalMessage,
+    IS_DEVELOPMENT_MODE,
+    ENABLE_DEV_MOCK_DATA,
+  ]); // 添加新的依賴項
 
   /**
    * Handles the logic for favoriting/unfavoriting a restaurant.
@@ -271,6 +529,25 @@ const RestaurantListPage = ({
    * @param {string} restaurantId - The ID of the restaurant to favorite or unfavorite.
    */
   const handleToggleFavorite = async (restaurantId) => {
+    // 在模擬模式下，可以選擇性地模擬收藏行為，或者簡單地不執行任何操作。
+    // 這裡我們選擇在模擬模式下直接返回，不嘗試連接 Firebase。
+    if (IS_DEVELOPMENT_MODE && ENABLE_DEV_MOCK_DATA) {
+      console.log(
+        `--- DEV MODE: Mocking toggle favorite for ${restaurantId} (no Firebase interaction) ---`
+      );
+      // 可選：在這裡添加模擬的狀態更新邏輯，以在 UI 上反映收藏狀態
+      // 例如：
+      // setCurrentUser(prevUser => {
+      //     const isCurrentlyFavorited = prevUser?.favoriteRestaurants?.includes(restaurantId);
+      //     if (isCurrentlyFavorited) {
+      //         return { ...prevUser, favoriteRestaurants: prevUser.favoriteRestaurants.filter(id => id !== restaurantId) };
+      //     } else {
+      //         return { ...prevUser, favoriteRestaurants: [...(prevUser?.favoriteRestaurants || []), restaurantId] };
+      //     }
+      // });
+      return;
+    }
+
     try {
       await toggleFavoriteRestaurant(restaurantId);
     } catch (error) {

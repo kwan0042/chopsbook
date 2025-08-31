@@ -2,9 +2,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-// 移除 useRouter，因為重定向邏輯已移出此 Hook
-// import { useRouter } from "next/navigation";
 import {
+  // 這些 Firebase 相關的 import 語句會保留，因為在生產環境或非繞過模式下仍然需要。
+  // 它們只會被導入，但實際的初始化和使用會被條件性地跳過。
   initializeFirebaseApp,
   getFirebaseDb,
   getFirebaseAuth,
@@ -14,8 +14,8 @@ import {
 import {
   onAuthStateChanged,
   signInWithCustomToken,
-  setPersistence, // 導入 setPersistence
-  browserLocalPersistence, // 導入 browserLocalPersistence
+  setPersistence,
+  browserLocalPersistence,
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
@@ -23,13 +23,14 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
  * useAuthCore Hook:
  * 負責 Firebase 的初始化、用戶認證狀態監聽，以及用戶基本資料的處理。
  * 現在也負責設定 Firebase Auth 的持久化並暴露 `authReady` 狀態。
+ * 在開發模式下，可以選擇性地啟用模擬管理員用戶，以繞過登入並防止連接 Firebase。
  * @param {function} setGlobalModalMessage - 用於在全局範圍顯示模態框訊息的回調。
  * @returns {object} 包含 currentUser, loadingUser, authReady, db, auth, analytics, appId, app, storage, setCurrentUser 的物件。
  */
 export const useAuthCore = (setGlobalModalMessage) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
-  const [authReady, setAuthReady] = useState(false); // 新增：指示 Firebase 認證檢查是否完成
+  const [authReady, setAuthReady] = useState(false);
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -40,8 +41,6 @@ export const useAuthCore = (setGlobalModalMessage) => {
   const authInstanceRef = useRef(null);
   const dbInstanceRef = useRef(null);
   const isMountedRef = useRef(true);
-  // 移除 useRouter，因為重定向邏輯已移出此 Hook
-  // const router = useRouter();
 
   useEffect(() => {
     return () => {
@@ -50,6 +49,49 @@ export const useAuthCore = (setGlobalModalMessage) => {
   }, []);
 
   useEffect(() => {
+    // --- 開發模式設定：控制是否啟用登入繞過與 Firebase 連接禁用 ---
+    // 判斷是否在開發模式。在 Next.js 中，process.env.NODE_ENV 會自動設定。
+    const IS_DEVELOPMENT_MODE = process.env.NODE_ENV === "development";
+    // 設置一個旗標來控制是否啟用登入繞過。
+    // 在開發測試期間可以設為 true，生產環境或需要真實登入時設為 false。
+    const ENABLE_DEV_LOGIN_BYPASS = false; // <--- 將此設定為 true 以啟用模擬管理員登入並跳過 Firebase 連接
+
+    // 模擬管理員用戶的資料
+    const MOCK_ADMIN_USER_DATA = {
+      uid: "mock-admin-uid-kwan6d16", // 模擬一個固定的 UID
+      email: "kwan6d16@gmail.com",
+      isAdmin: true,
+      username: "kwan6d16",
+      rank: "1", // 管理員等級
+      publishedReviews: [],
+      favoriteRestaurants: [],
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+      // 根據您 `currentUser` 實際可能包含的其他屬性添加
+    };
+    // --- 開發模式設定結束 ---
+
+    // --- 開發模式登入繞過邏輯 ---
+    // 如果在開發模式下且啟用了繞過，則直接設定模擬用戶，並跳過 Firebase 初始化
+    if (IS_DEVELOPMENT_MODE && ENABLE_DEV_LOGIN_BYPASS) {
+      console.log(
+        "--- DEV BYPASS: Activating mock admin user, bypassing Firebase connection ---"
+      );
+      // 直接設定模擬用戶資訊
+      setCurrentUser(MOCK_ADMIN_USER_DATA);
+      setLoadingUser(false); // 立即停止加載
+      setAuthReady(true); // 立即標記認證系統已就緒
+      setAppId("dev-mock-app-id"); // 為開發模式設定一個模擬的 appId
+      setDb(null); // 明確設定為 null，表示沒有連接到 Firestore
+      setAuth(null); // 明確設定為 null，表示沒有連接到 Auth
+      setAnalytics(null); // 明確設定為 null
+      setStorage(null); // 明確設定為 null
+      setApp(null); // 明確設定為 null
+      return; // 立即退出 useEffect，防止執行 Firebase 初始化和連接邏輯
+    }
+    // --- 開發模式登入繞過邏輯結束 ---
+
+    // --- 以下為正常的 Firebase 初始化和認證邏輯，僅在未啟用開發模式繞過時執行 ---
     const projectAppId =
       typeof __app_id !== "undefined" ? __app_id : "default-app-id";
     setAppId(projectAppId);
@@ -94,8 +136,6 @@ export const useAuthCore = (setGlobalModalMessage) => {
           throw new Error("Firebase 認證服務初始化失敗");
         }
 
-        // --- 關鍵修改：設定 Firebase Auth 持久化 ---
-        // 這應在 onAuthStateChanged 監聽器設置之前完成
         await setPersistence(firebaseAuth, browserLocalPersistence)
           .then(() => {
             console.log("useAuthCore: Firebase Auth 持久化設定為 LOCAL。");
@@ -106,10 +146,8 @@ export const useAuthCore = (setGlobalModalMessage) => {
               `設定認證持久化失敗: ${error.message}`,
               "error"
             );
-            // 即使持久化設定失敗，仍繼續嘗試其他認證流程
           });
 
-        // 設定 onAuthStateChanged 監聽器
         console.log("useAuthCore: Setting up onAuthStateChanged listener...");
         const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
           if (!isMountedRef.current) return;
@@ -120,7 +158,6 @@ export const useAuthCore = (setGlobalModalMessage) => {
 
           if (user) {
             try {
-              // 確保用戶的根級文檔存在
               const userRootDocRef = doc(
                 firestoreDb,
                 `artifacts/${projectAppId}/users/${user.uid}`
@@ -135,7 +172,6 @@ export const useAuthCore = (setGlobalModalMessage) => {
                 );
               }
 
-              // 獲取或創建用戶個人資料
               const userProfileDocRef = doc(
                 firestoreDb,
                 `artifacts/${projectAppId}/users/${user.uid}/profile`,
@@ -151,7 +187,6 @@ export const useAuthCore = (setGlobalModalMessage) => {
                 isAdmin = userProfileData.isAdmin === true;
               }
 
-              // 設定默認值並更新
               const updatedUserProfile = {
                 email: user.email || "",
                 createdAt:
@@ -184,17 +219,16 @@ export const useAuthCore = (setGlobalModalMessage) => {
                 `用戶資料處理失敗: ${dbError.message}`,
                 "error"
               );
-              setCurrentUser(user); // 即使資料庫操作失敗，也設置基礎用戶資訊
+              setCurrentUser(user);
             }
           } else {
-            setCurrentUser(null); // 如果用戶未認證，設置為 null
+            setCurrentUser(null);
             console.log("useAuthCore: No authenticated user.");
           }
-          setLoadingUser(false); // 無論是否登入，都結束加載狀態
-          setAuthReady(true); // --- 關鍵修改：認證檢查完成，標記為就緒 ---
+          setLoadingUser(false);
+          setAuthReady(true);
         });
 
-        // 在監聽器設置完成後，嘗試進行一次性登入 (如果沒有現有用戶)
         if (!firebaseAuth.currentUser && initialAuthToken) {
           console.log(
             "useAuthCore: Attempting to sign in with custom token..."
@@ -205,19 +239,14 @@ export const useAuthCore = (setGlobalModalMessage) => {
           } catch (error) {
             console.error("useAuthCore: Custom token sign-in failed:", error);
             setGlobalModalMessage(
-              `認證失敗: ${error.message}。請確認您已登入。`, // 更明確的訊息
+              `認證失敗: ${error.message}。請確認您已登入。`,
               "error"
             );
-            if (isMountedRef.current) {
-              // 在此處不要設置 setLoadingUser(false) 或 setAuthReady(true)，讓 onAuthStateChanged 來處理
-              // 因為 onAuthStateChanged 會在 custom token 登入失敗後以 null user 再次觸發
-            }
           }
         } else if (!firebaseAuth.currentUser && !initialAuthToken) {
           console.log(
             "useAuthCore: No initial authentication token provided and no current user. User will remain unauthenticated."
           );
-          // 在此處的處理會被 onAuthStateChanged 覆蓋
         } else {
           console.log(
             "useAuthCore: User already authenticated or no initial token needed to sign-in."
@@ -236,26 +265,18 @@ export const useAuthCore = (setGlobalModalMessage) => {
             "error"
           );
           setLoadingUser(false);
-          setAuthReady(true); // 初始化失敗也標記為就緒
+          setAuthReady(true);
         }
       }
     };
 
     initializeAndAuthenticateFirebase();
-  }, [setGlobalModalMessage, app]); // 依賴 `setGlobalModalMessage` 和 `app` 實例，避免重複初始化
-
-  // --- 關鍵修改：移除此處的重定向邏輯 ---
-  // useEffect(() => {
-  //   if (!currentUser && !loadingUser) {
-  //     console.log("useAuthCore: 用戶未認證且載入完成。重定向到 /login。");
-  //     router.push("/login");
-  //   }
-  // }, [currentUser, loadingUser, router]);
+  }, [setGlobalModalMessage, app]); // 依賴項不變
 
   return {
     currentUser,
     loadingUser,
-    authReady, // <<< 新增：將 authReady 狀態暴露出去
+    authReady,
     db,
     auth,
     analytics,

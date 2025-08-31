@@ -214,7 +214,7 @@ export default function LoginPage() {
 
           {!loginResult.success && (
             <div className="space-y-4">
-              <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+              {/* <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
                     <svg
@@ -243,7 +243,7 @@ export default function LoginPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </div> */}
 
               <button
                 onClick={handleBackToLogin}
@@ -251,22 +251,21 @@ export default function LoginPage() {
               >
                 返回登入畫面
               </button>
+              {/* 保留註冊按鈕 */}
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginResult(null);
+                    setIsRegisterMode(true);
+                  }}
+                  className="font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none"
+                >
+                  註冊新帳戶
+                </button>
+              </div>
             </div>
           )}
-
-          {/* 保留註冊按鈕 */}
-          <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setLoginResult(null);
-                setIsRegisterMode(true);
-              }}
-              className="font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none"
-            >
-              註冊新帳戶
-            </button>
-          </div>
 
           <div className="mt-4 text-center">
             <Link href="/" passHref>
