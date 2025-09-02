@@ -122,14 +122,16 @@ const AddRestaurantRequestPage = ({ requestId }) => {
       setIsSubmitting(true);
       const batch = writeBatch(db);
 
-      // 將餐廳資料寫入主表
+      // 解構賦值，排除 `id` 屬性
+      const { id, ...newRestaurantData } = requestData;
+
+      // 將餐廳資料寫入主表，使用新生成的ID
       const restaurantDocRef = doc(
-        db,
-        `artifacts/${appId}/public/data/restaurants`,
-        requestData.restaurantId ||
-          doc(collection(db, `artifacts/${appId}/public/data/restaurants`)).id
+        collection(db, `artifacts/${appId}/public/data/restaurants`)
       );
-      batch.set(restaurantDocRef, { ...requestData, status: "approved" });
+
+      // 使用不帶 id 的 newRestaurantData
+      batch.set(restaurantDocRef, { ...newRestaurantData, status: "approved" });
 
       // 更新請求狀態
       const requestDocRef = doc(
@@ -190,7 +192,7 @@ const AddRestaurantRequestPage = ({ requestId }) => {
 
   const requestStatus = requestData?.status;
   const dataToDisplay = requestData;
-  const restaurantId = requestData?.restaurantId || "N/A";
+  const restaurantId = "N/A";
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">

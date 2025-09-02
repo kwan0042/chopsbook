@@ -1,13 +1,13 @@
-// src/components/AddRestaurantPage.js
 "use client";
 
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect, useRef } from "react";
 import { AuthContext } from "../lib/auth-context";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import LoadingSpinner from "./LoadingSpinner";
 import Modal from "./Modal";
 import RestaurantForm from "./RestaurantForm"; // 導入 RestaurantForm
 import { useRouter } from "next/navigation";
+import { validateRestaurantForm } from "../lib/validation"; // 導入新的驗證函數
 
 // 圖標：用於返回按鈕
 const ArrowLeftIcon = ({ className = "" }) => (
@@ -61,9 +61,10 @@ const AddRestaurantPage = ({ onBackToHome }) => {
   };
 
   const [formData, setFormData] = useState(initialFormData);
-  const [loading, setLoading] = useState(false); // 提交表單時的載入狀態
+  const [loading, setLoading] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState(""); // "success" or "error"
+  const [errors, setErrors] = useState({}); // 新增 state 來管理驗證錯誤
 
   const closeModal = () => {
     setModalMessage("");
@@ -96,11 +97,21 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, updatedFormData) => {
     e.preventDefault();
     setLoading(true);
     setModalMessage("");
     setModalType("");
+    setErrors({}); // 每次提交前先清除舊的錯誤
+
+    const dataToValidate = updatedFormData || formData;
+    const validationErrors = validateRestaurantForm(dataToValidate);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      setLoading(false);
+      return; // 發現錯誤，停止提交
+    }
 
     if (!db || !currentUser || !appId) {
       setModalMessage("錯誤：數據庫服務未準備或用戶未登入。");
@@ -109,34 +120,26 @@ const AddRestaurantPage = ({ onBackToHome }) => {
       return;
     }
 
-    // 簡單的必填欄位驗證
-    if (
-      !formData.restaurantNameZh ||
-      !formData.contactName ||
-      !formData.contactPhone
-    ) {
-      setModalMessage(
-        "請填寫所有標記為必填的欄位 (餐廳名稱, 聯絡姓名, 聯絡電話)。"
-      );
-      setModalType("error");
-      setLoading(false);
-      return;
-    }
+    const dataToSubmit = updatedFormData || formData;
 
     try {
       await addDoc(
         collection(db, `artifacts/${appId}/public/data/add_rest_request`),
         {
-          ...formData, // 提交所有表單數據
+          ...dataToSubmit,
           submittedBy: currentUser.uid,
           createdAt: serverTimestamp(),
+          status: "pending", // 新增的欄位
         }
       );
       setModalMessage(
-        "謝謝你使用ChopsBook" + "/br" + "提供餐廳資訊 為廣大嘅美食家作出貢獻 幕後團隊將火速審批"
-      ); 
+        "謝謝你使用ChopsBook" +
+          "/br" +
+          "提供餐廳資訊 為廣大嘅美食家作出貢獻 幕後團隊將火速審批"
+      );
       setModalType("success");
       setFormData(initialFormData); // 清空表單
+      setErrors({}); // 成功後清空錯誤
     } catch (err) {
       console.error("新增餐廳失敗:", err);
       setModalMessage(`新增餐廳失敗：${err.message}`);
@@ -166,11 +169,9 @@ const AddRestaurantPage = ({ onBackToHome }) => {
           <ArrowLeftIcon className="mr-2" />
           返回
         </button>
-
         <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
           新增餐廳
         </h2>
-
         <RestaurantForm
           formData={formData}
           handleChange={handleChange}
@@ -179,6 +180,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
           isLoading={loading}
           submitButtonText="新增餐廳"
           isUpdateForm={false}
+          errors={errors}
         />
       </div>
 

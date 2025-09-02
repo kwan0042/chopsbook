@@ -2,35 +2,35 @@
 "use client";
 
 import React, { useContext, useState, useCallback } from "react";
-import { AuthContext } from "../lib/auth-context"; // 確保路徑正確
+import { AuthContext } from "../lib/auth-context";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUser, faBookmark } from "@fortawesome/free-solid-svg-icons"; // 匯入 faBookmark
-import { useRouter } from "next/navigation";
-import { getAuth, signOut } from "firebase/auth"; // 匯入 getAuth 和 signOut
+import { faUser, faBookmark } from "@fortawesome/free-solid-svg-icons";
+import { useRouter, usePathname } from "next/navigation"; // 導入 usePathname
+import { getAuth, signOut } from "firebase/auth";
 
-const Navbar = ({
-  onShowFilterModal,
-  onShowMerchantPage,
-  onShowAdminPage,
-  onSearch,
-}) => {
+const Navbar = ({ onShowFilterModal, onShowMerchantPage, onShowAdminPage }) => {
   const { currentUser, setModalMessage, favoriteRestaurantsCount, app } =
-    useContext(AuthContext); // 從 AuthContext 取得 favoriteRestaurantsCount 和 app
+    useContext(AuthContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const router = useRouter();
+  const pathname = usePathname(); // 獲取當前路徑
 
-  // 檢查 currentUser 是否存在且其 isAdmin 屬性為 true
   const isAdmin = currentUser && currentUser.isAdmin;
+
+  // 判斷是否為餐廳列表頁面
+  const isRestaurantsPage = pathname === "/restaurants";
 
   const handleSearchSubmit = useCallback(
     (e) => {
       e.preventDefault();
-      if (onSearch) {
-        onSearch(searchText);
+      const params = new URLSearchParams();
+      if (searchText) {
+        params.set("search", searchText);
       }
+      router.push(`/restaurants?${params.toString()}`);
     },
-    [onSearch, searchText]
+    [router, searchText]
   );
 
   const handleGoHome = useCallback(() => {
@@ -49,19 +49,22 @@ const Navbar = ({
     router.push("/login");
   }, [router]);
 
-  // 修改登出函數，直接使用 Firebase signOut
   const handleLogout = useCallback(async () => {
     if (app) {
-      const auth = getAuth(app); // 獲取 auth 實例
+      const auth = getAuth(app);
       try {
         await signOut(auth);
-        router.push("/"); // 登出後導向登入頁面
+        router.push("/");
       } catch (error) {
         console.error("登出失敗:", error);
         setModalMessage("登出失敗，請稍後再試。", "error");
       }
     }
   }, [app, router, setModalMessage]);
+
+  const handleGoToRestaurants = useCallback(() => {
+    router.push("/restaurants");
+  }, [router]);
 
   return (
     <nav className="bg-gray-900 text-white sticky top-0 z-50 shadow-md">
@@ -94,22 +97,19 @@ const Navbar = ({
                   {currentUser.email ? currentUser.email.split("@")[0] : "用戶"}
                 </span>
                 <button
-                  onClick={handleLogout} // 使用新的 handleLogout 函數
+                  onClick={handleLogout}
                   className="text-red-400 hover:text-red-500 transition duration-200 text-sm"
                 >
                   登出
                 </button>
-                {/* 收藏餐廳圖標和數量 */}
                 <div className="relative flex items-center group">
                   <FontAwesomeIcon
-                    icon={faBookmark} // 書籤圖標
+                    icon={faBookmark}
                     className="text-xl text-yellow-500 cursor-pointer hover:text-white transition-colors"
                     title="我的收藏"
-                    onClick={() => router.push("/personal/favorites")} // 假設收藏頁面路徑
+                    onClick={() => router.push("/personal/favorites")}
                   />
-                  {console.log(favoriteRestaurantsCount)}
-                  {/* 收藏數量顯示，確保即使為 0 也能看到提示 */}
-                  {favoriteRestaurantsCount !== undefined && ( // 確保 favoriteRestaurantsCount 已載入
+                  {favoriteRestaurantsCount !== undefined && (
                     <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
                       {favoriteRestaurantsCount}
                     </span>
@@ -158,47 +158,48 @@ const Navbar = ({
                 />
               </svg>
             </button>
-            <button
-              type="button"
-              onClick={onShowFilterModal}
-              className="bg-gray-700 hover:bg-gray-600 text-white h-10 p-2.5 rounded-md ml-2 transition duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              aria-label="打開篩選器"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+            {/* 這裡加入條件判斷 */}
+            {!isRestaurantsPage && (
+              <button
+                type="button"
+                onClick={onShowFilterModal}
+                className="bg-gray-700 hover:bg-gray-600 text-white h-10 p-2.5 rounded-md ml-2 transition duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                aria-label="打開篩選器"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V19l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                />
-              </svg>
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V19l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                  />
+                </svg>
+              </button>
+            )}
           </div>
         </form>
 
         <div className="flex items-center w-full lg:w-[30%] justify-end space-x-2 mt-2 lg:mt-0">
           <button
-            onClick={onShowMerchantPage}
-            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-1 m-0 text-sm"
-          >
-            餐廳專區
-          </button>
-          {/* 新增「寫食評」連結 */}
-          <button
             onClick={() => {
-              router.push("/personal/reviews"); // 導航到新的食評頁面
+              router.push("/personal/reviews");
             }}
             className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-1 m-0 text-sm"
           >
             寫食評
           </button>
-          {/* 根據 currentUser.isAdmin 狀態顯示管理員頁面按鈕 */}
+          <button
+            onClick={onShowMerchantPage}
+            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-1 m-0 text-sm"
+          >
+            餐廳管理專區
+          </button>
           {isAdmin && (
             <button
               onClick={onShowAdminPage}
@@ -207,10 +208,6 @@ const Navbar = ({
               管理員頁面
             </button>
           )}
-          {/* <select className="bg-gray-800 border border-gray-600 rounded-md py-0.5 px-1 text-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-500">
-            <option>繁體中文</option>
-            <option>English</option>
-          </select> */}
 
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -251,12 +248,14 @@ const Navbar = ({
           >
             餐廳專區
           </button>
-          <a
-            href="#"
-            className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1"
+          <button
+            onClick={() => {
+              router.push("/personal/reviews");
+            }}
+            className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
           >
             寫食評
-          </a>
+          </button>
           {isAdmin && (
             <button
               onClick={onShowAdminPage}
@@ -268,7 +267,13 @@ const Navbar = ({
         </div>
       )}
 
-      <div className="bg-gray-800 text-white text-sm py-2 px-6 w-full flex flex-wrap justify-center  gap-4 sm:gap-6 border-t border-gray-700">
+      <div className="bg-gray-800 text-white text-sm py-2 px-6 w-full flex flex-wrap justify-center gap-4 sm:gap-6 border-t border-gray-700">
+        <button
+          onClick={handleGoToRestaurants}
+          className="hover:text-yellow-500 transition duration-200 text-sm bg-transparent border-none"
+        >
+          所有餐廳
+        </button>
         <a
           href="#"
           className="hover:text-yellow-500 transition duration-200 text-sm"

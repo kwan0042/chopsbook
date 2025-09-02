@@ -56,7 +56,7 @@ export const useRestaurantFavorites = (
         (error) => {
           console.error("useRestaurantFavorites: 監聽收藏餐廳失敗:", error);
           setFavoriteRestaurantsCount(0);
-          setModalMessage(`加載收藏數量失敗: ${error.message}`);
+          // setModalMessage(`加載收藏數量失敗: ${error.message}`);
         }
       );
     } else {

@@ -52,10 +52,10 @@ const MerchantPage = ({ onBackToHome }) => {
           &times;
         </button>
         <h2 className="text-4xl font-extrabold text-gray-900 mb-6 text-center">
-          商戶專區
+          餐廳管理專區
         </h2>
         <p className="text-lg text-gray-700 mb-8 leading-relaxed text-center">
-          歡迎來到 ChopsBook 商戶專區！請選擇您要執行的操作。
+          歡迎來到 ChopsBook 餐廳管理專區！請選擇您要執行的操作。
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">

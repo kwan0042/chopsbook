@@ -236,14 +236,16 @@ const RestaurantCard = ({
       <button
         onClick={handleFavoriteClick}
         className="absolute top-3 right-3 z-10 p-2 bg-transparent border-none
-                   hover:text-yellow-500 transition duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                   hover:text-yellow-500 transition duration-200 "
         aria-label={isFavorited ? "取消收藏" : "收藏餐廳"}
         type="button" // 明確指定為按鈕類型
       >
         <FontAwesomeIcon
-          icon={isFavorited ? faSolidBookmark : faSolidBookmark} 
+          icon={isFavorited ? faSolidBookmark : faSolidBookmark}
           className={`text-2xl ${
-            isFavorited ? "text-yellow-500" : "text-white" /* 未收藏時顯示灰色書籤 */
+            isFavorited
+              ? "text-yellow-500"
+              : "text-blue-100" /* 未收藏時顯示灰色書籤 */
           }`}
         />
       </button>

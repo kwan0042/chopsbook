@@ -122,6 +122,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
         setFormData(restaurantWithId); // 將原始數據載入表單 (包含 ID)
       } else {
         setModalMessage("找不到選擇的餐廳資料。", "error");
+        console.log(restaurantId );
         setSelectedRestaurantId(null);
         setSelectedRestaurantData(null);
         setFormData({});

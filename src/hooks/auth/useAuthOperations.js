@@ -1,4 +1,3 @@
-// src/hooks/auth/useAuthOperations.js
 "use client";
 
 import { useCallback } from "react";
@@ -48,7 +47,8 @@ export const useAuthOperations = (
   );
 
   const signup = useCallback(
-    async (email, password) => {
+    // 移除 ownedRestId 參數
+    async (email, password, phoneNumber, isRestaurantOwner, ownedRest) => {
       try {
         if (!auth) {
           throw new Error("Firebase 認證服務未初始化");
@@ -73,6 +73,7 @@ export const useAuthOperations = (
         const defaultUsername = email.split("@")[0];
         const isAdmin = false;
 
+        // 包含新的用戶資料
         const additionalProfileData = {
           email: email,
           createdAt: new Date().toISOString(),
@@ -81,7 +82,14 @@ export const useAuthOperations = (
           rank: "銅",
           publishedReviews: [],
           favoriteRestaurants: [],
+          phoneNumber: phoneNumber || null,
+          isRestaurantOwner: isRestaurantOwner || false,
         };
+
+        // 如果是餐廳擁有人，添加餐廳名稱
+        if (isRestaurantOwner) {
+          additionalProfileData.ownedRest = ownedRest || null;
+        }
 
         await setDoc(userProfileDocRef, additionalProfileData, { merge: true });
         setModalMessage(

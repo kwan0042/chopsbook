@@ -20,6 +20,7 @@ const RestaurantForm = ({
   handleSubmit,
   isUpdateForm = false,
   selectedRestaurantData,
+  errors = {}, // 接收 errors prop，並提供默認值
 }) => {
   const { storage, setModalMessage, appId } = useContext(AuthContext);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -101,9 +102,6 @@ const RestaurantForm = ({
           fileInputRef.current.value = ""; // 清空文件輸入框
         }
         // 移除此處的 setModalMessage("圖片上傳成功！", "success");
-      } else {
-        // 如果沒有選擇新檔案，則 finalPhotoUrl 保持現有值
-        setModalMessage("正在提交表單...", "info"); // 顯示表單提交進度訊息
       }
 
       // 創建包含潛在更新的 facadePhotoUrls 的最終表單數據對象
@@ -145,6 +143,11 @@ const RestaurantForm = ({
               className="block text-gray-700 text-sm font-bold mb-2"
             >
               餐廳名稱 (中文) <span className="text-red-500">*</span>
+              {errors.restaurantNameZh && (
+                <span className="text-red-500 font-normal text-xs ml-2">
+                  {errors.restaurantNameZh}
+                </span>
+              )}
             </label>
             <input
               type="text"
@@ -152,9 +155,12 @@ const RestaurantForm = ({
               name="restaurantNameZh"
               value={formData.restaurantNameZh || ""}
               onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+                errors.restaurantNameZh
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
+              }`}
               placeholder="例如：楓葉小館"
-              required
             />
           </div>
           <div>
@@ -162,7 +168,12 @@ const RestaurantForm = ({
               htmlFor="restaurantNameEn"
               className="block text-gray-700 text-sm font-bold mb-2"
             >
-              餐廳名稱 (英文)
+              餐廳名稱 (英文) <span className="text-red-500">*</span>
+              {errors.restaurantNameEn && (
+                <span className="text-red-500 font-normal text-xs ml-2">
+                  {errors.restaurantNameEn}
+                </span>
+              )}
             </label>
             <input
               type="text"
@@ -170,7 +181,11 @@ const RestaurantForm = ({
               name="restaurantNameEn"
               value={formData.restaurantNameEn || ""}
               onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+                errors.restaurantNameEn
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
+              }`}
               placeholder="例如：Maple Leaf Bistro"
             />
           </div>
@@ -182,14 +197,23 @@ const RestaurantForm = ({
               htmlFor="province"
               className="block text-gray-700 text-sm font-bold mb-2"
             >
-              省份
+              省份 <span className="text-red-500">*</span>
+              {errors.province && (
+                <span className="text-red-500 font-normal text-xs ml-2">
+                  {errors.province}
+                </span>
+              )}
             </label>
             <select
               id="province"
               name="province"
               value={formData.province || ""}
               onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+                errors.province
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
+              }`}
             >
               {provinceOptions.map((option) => (
                 <option
@@ -206,7 +230,12 @@ const RestaurantForm = ({
               htmlFor="city"
               className="block text-gray-700 text-sm font-bold mb-2"
             >
-              城市
+              城市 <span className="text-red-500">*</span>
+              {errors.city && (
+                <span className="text-red-500 font-normal text-xs ml-2">
+                  {errors.city}
+                </span>
+              )}
             </label>
             <input
               type="text"
@@ -214,7 +243,11 @@ const RestaurantForm = ({
               name="city"
               value={formData.city || ""}
               onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+                errors.city
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
+              }`}
               placeholder="例如：多倫多"
             />
           </div>
@@ -225,7 +258,12 @@ const RestaurantForm = ({
             htmlFor="fullAddress"
             className="block text-gray-700 text-sm font-bold mb-2"
           >
-            完整地址
+            完整地址 <span className="text-red-500">*</span>
+            {errors.fullAddress && (
+              <span className="text-red-500 font-normal text-xs ml-2">
+                {errors.fullAddress}
+              </span>
+            )}
           </label>
           <textarea
             id="fullAddress"
@@ -233,7 +271,11 @@ const RestaurantForm = ({
             value={formData.fullAddress || ""}
             onChange={handleChange}
             rows="3"
-            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+              errors.fullAddress
+                ? "border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:ring-blue-500"
+            }`}
             placeholder="請輸入餐廳完整地址，包含街號、門牌號、郵遞區號"
           ></textarea>
         </div>
@@ -244,7 +286,12 @@ const RestaurantForm = ({
               htmlFor="phone"
               className="block text-gray-700 text-sm font-bold mb-2"
             >
-              電話
+              電話 <span className="text-red-500">*</span>
+              {errors.phone && (
+                <span className="text-red-500 font-normal text-xs ml-2">
+                  {errors.phone}
+                </span>
+              )}
             </label>
             <input
               type="tel"
@@ -252,7 +299,11 @@ const RestaurantForm = ({
               name="phone"
               value={formData.phone || ""}
               onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+                errors.phone
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
+              }`}
               placeholder="例如：416-123-4567"
             />
           </div>
@@ -281,14 +332,23 @@ const RestaurantForm = ({
               htmlFor="cuisineType"
               className="block text-gray-700 text-sm font-bold mb-2"
             >
-              菜系
+              菜系 <span className="text-red-500">*</span>
+              {errors.cuisineType && (
+                <span className="text-red-500 font-normal text-xs ml-2">
+                  {errors.cuisineType}
+                </span>
+              )}
             </label>
             <select
               id="cuisineType"
               name="cuisineType"
               value={formData.cuisineType || ""}
               onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+                errors.cuisineType
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
+              }`}
             >
               {cuisineOptions.map((option) => (
                 <option
@@ -305,14 +365,23 @@ const RestaurantForm = ({
               htmlFor="restaurantType"
               className="block text-gray-700 text-sm font-bold mb-2"
             >
-              餐廳類型
+              餐廳類型 <span className="text-red-500">*</span>
+              {errors.restaurantType && (
+                <span className="text-red-500 font-normal text-xs ml-2">
+                  {errors.restaurantType}
+                </span>
+              )}
             </label>
             <select
               id="restaurantType"
               name="restaurantType"
               value={formData.restaurantType || ""}
               onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+                errors.restaurantType
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
+              }`}
             >
               {restaurantTypeOptions.map((option) => (
                 <option
@@ -347,12 +416,12 @@ const RestaurantForm = ({
           </div>
 
           {/* 門面相片顯示與瀏覽按鈕 */}
-          <div className="mt-4">
+          <div>
             <label
               htmlFor="facadePhotoUrlDisplay" // 更改為描述性 ID
               className="block text-gray-700 text-sm font-bold mb-2"
             >
-              門面相片 URL
+              門面相片
             </label>
             <div className="flex items-center space-x-2">
               <input // 這是一個只讀的 input，用於顯示 URL
@@ -362,7 +431,7 @@ const RestaurantForm = ({
                 value={formData.facadePhotoUrls?.[0] || ""} // 存取陣列的第一個元素
                 readOnly // 關鍵：設為只讀
                 className="flex-grow p-3 border border-gray-300 rounded-md bg-gray-50 text-gray-600 focus:outline-none"
-                placeholder="圖片將在此處顯示其上傳後的 URL"
+                placeholder="圖片將在此處顯示"
               />
               <button
                 type="button"
@@ -420,7 +489,12 @@ const RestaurantForm = ({
             htmlFor="businessHours"
             className="block text-gray-700 text-sm font-bold mb-2"
           >
-            營業時間
+            營業時間 <span className="text-red-500">*</span>
+            {errors.businessHours && (
+              <span className="text-red-500 font-normal text-xs ml-2">
+                {errors.businessHours}
+              </span>
+            )}
           </label>
           <textarea
             id="businessHours"
@@ -428,7 +502,11 @@ const RestaurantForm = ({
             value={formData.businessHours || ""}
             onChange={handleChange}
             rows="3"
-            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+              errors.businessHours
+                ? "border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:ring-blue-500"
+            }`}
             placeholder="例如：週一至週五 11:00-22:00, 週六日 10:00-23:00"
           ></textarea>
         </div>
@@ -456,7 +534,12 @@ const RestaurantForm = ({
 
         <div className="mt-4">
           <label className="block text-gray-700 text-sm font-bold mb-2">
-            接受付款方式
+            接受付款方式 <span className="text-red-500">*</span>
+            {errors.paymentMethods && (
+              <span className="text-red-500 font-normal text-xs ml-2">
+                {errors.paymentMethods}
+              </span>
+            )}
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {paymentMethodOptions.map((option) => (
@@ -540,6 +623,11 @@ const RestaurantForm = ({
               className="block text-gray-700 text-sm font-bold mb-2"
             >
               姓名 <span className="text-red-500">*</span>
+              {errors.contactName && (
+                <span className="text-red-500 font-normal text-xs ml-2">
+                  {errors.contactName}
+                </span>
+              )}
             </label>
             <input
               type="text"
@@ -547,9 +635,12 @@ const RestaurantForm = ({
               name="contactName"
               value={formData.contactName || ""}
               onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+                errors.contactName
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
+              }`}
               placeholder="您的姓名"
-              required
             />
           </div>
           <div>
@@ -558,6 +649,11 @@ const RestaurantForm = ({
               className="block text-gray-700 text-sm font-bold mb-2"
             >
               電話 <span className="text-red-500">*</span>
+              {errors.contactPhone && (
+                <span className="text-red-500 font-normal text-xs ml-2">
+                  {errors.contactPhone}
+                </span>
+              )}
             </label>
             <input
               type="tel"
@@ -565,9 +661,12 @@ const RestaurantForm = ({
               name="contactPhone"
               value={formData.contactPhone || ""}
               onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+                errors.contactPhone
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
+              }`}
               placeholder="您的聯絡電話"
-              required
             />
           </div>
         </div>
