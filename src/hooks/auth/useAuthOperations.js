@@ -79,7 +79,7 @@ export const useAuthOperations = (
           createdAt: new Date().toISOString(),
           isAdmin: isAdmin,
           username: defaultUsername,
-          rank: "銅",
+          rank: "7",
           publishedReviews: [],
           favoriteRestaurants: [],
           phoneNumber: phoneNumber || null,

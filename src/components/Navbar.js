@@ -1,36 +1,46 @@
-// src/components/Navbar.js
 "use client";
 
 import React, { useContext, useState, useCallback } from "react";
 import { AuthContext } from "../lib/auth-context";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser, faBookmark } from "@fortawesome/free-solid-svg-icons";
-import { useRouter, usePathname } from "next/navigation"; // 導入 usePathname
+import { useRouter, usePathname } from "next/navigation";
 import { getAuth, signOut } from "firebase/auth";
 
-const Navbar = ({ onShowFilterModal, onShowMerchantPage, onShowAdminPage }) => {
+const Navbar = ({
+  onShowFilterModal,
+  onShowMerchantPage,
+  onShowAdminPage,
+  onSearch,
+}) => {
   const { currentUser, setModalMessage, favoriteRestaurantsCount, app } =
     useContext(AuthContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const router = useRouter();
-  const pathname = usePathname(); // 獲取當前路徑
+  const pathname = usePathname();
 
   const isAdmin = currentUser && currentUser.isAdmin;
 
-  // 判斷是否為餐廳列表頁面
   const isRestaurantsPage = pathname === "/restaurants";
 
   const handleSearchSubmit = useCallback(
     (e) => {
       e.preventDefault();
-      const params = new URLSearchParams();
-      if (searchText) {
-        params.set("search", searchText);
+      // 根據當前頁面決定搜尋行為
+      if (isRestaurantsPage) {
+        if (onSearch) {
+          onSearch(searchText);
+        }
+      } else {
+        const params = new URLSearchParams();
+        if (searchText) {
+          params.set("search", searchText);
+        }
+        router.push(`/restaurants?${params.toString()}`);
       }
-      router.push(`/restaurants?${params.toString()}`);
     },
-    [router, searchText]
+    [onSearch, searchText, isRestaurantsPage, router]
   );
 
   const handleGoHome = useCallback(() => {
@@ -158,7 +168,6 @@ const Navbar = ({ onShowFilterModal, onShowMerchantPage, onShowAdminPage }) => {
                 />
               </svg>
             </button>
-            {/* 這裡加入條件判斷 */}
             {!isRestaurantsPage && (
               <button
                 type="button"

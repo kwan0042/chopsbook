@@ -4,7 +4,7 @@
 import React, { useContext, useCallback, useEffect } from "react"; // 導入 useEffect
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthContext } from "../../lib/auth-context";
-import ReviewForm from "../ReviewForm"; // 假設 ReviewForm 在同一個目錄或有正確的路徑
+import ReviewForm from "./ReviewForm"; // 假設 ReviewForm 在同一個目錄或有正確的路徑
 import LoadingSpinner from "../LoadingSpinner"; // 假設 LoadingSpinner 在同一個目錄或有正確的路徑
 
 export default function ReviewPageContent() {
@@ -17,7 +17,7 @@ export default function ReviewPageContent() {
 
   // 返回個人主頁的回調函數
   const handleBackToPersonal = useCallback(() => {
-    router.push("/personal");
+    router.push("/");
   }, [router]);
 
   // --- 關鍵修改：將導航邏輯移到 useEffect 中 ---

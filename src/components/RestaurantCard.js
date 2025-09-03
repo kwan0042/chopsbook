@@ -126,7 +126,11 @@ const RestaurantCard = ({
           </div>
 
           {/* 餐廳資訊區塊 */}
-          <div className={`${isGridView ? "p-6" : "flex-grow text-left py-1"}`}>
+          <div
+            className={`${
+              isGridView ? "p-6 h-60" : "flex-grow text-left py-1"
+            }`}
+          >
             {/* 餐廳名稱 - 網格模式 16pt (text-base), 列表模式 16pt (text-base) */}
             <h3
               className={`font-bold text-gray-900 mb-1 leading-tight text-wrap ${

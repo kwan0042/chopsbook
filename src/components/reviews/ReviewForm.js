@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useContext, useCallback } from "react";
-import { AuthContext } from "../lib/auth-context";
+import { AuthContext } from "../../lib/auth-context";
 import {
   collection,
   query,
@@ -11,9 +11,9 @@ import {
   getDoc,
   where,
 } from "firebase/firestore";
-import LoadingSpinner from "./LoadingSpinner";
+import LoadingSpinner from "../LoadingSpinner";
 import { useRouter } from "next/navigation";
-import ReviewModerationCheck from "./ReviewModerationCheck"; // 導入新的審核組件
+import ReviewModerationCheck from "../ReviewModerationCheck"; // 導入新的審核組件
 
 // 圖標：用於返回按鈕
 const ArrowLeftIcon = ({ className = "" }) => (
