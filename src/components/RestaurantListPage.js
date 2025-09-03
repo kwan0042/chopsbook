@@ -111,7 +111,7 @@ const RestaurantListPage = ({
       businessHours: "每日 11:00-22:00",
       reservationModes: ["線上預訂", "電話預訂"],
       paymentMethods: ["現金", "支付寶", "微信支付"],
-      facilities: ["WIFI", "空調", "兒童椅"],
+      facilitiesServices: ["WIFI", "空調", "兒童椅"],
       isPermanentlyClosed: false,
       isTemporarilyClosed: false,
     },
@@ -132,7 +132,7 @@ const RestaurantListPage = ({
       businessHours: "星期一至五 10:00-21:00",
       reservationModes: ["線上預訂"],
       paymentMethods: ["信用卡", "現金"],
-      facilities: ["WIFI", "停車場"],
+      facilitiesServices: ["WIFI", "停車場"],
       isPermanentlyClosed: false,
       isTemporarilyClosed: false,
     },
@@ -153,7 +153,7 @@ const RestaurantListPage = ({
       businessHours: "每日 08:00-23:00",
       reservationModes: [],
       paymentMethods: ["現金", "微信支付"],
-      facilities: ["WIFI"],
+      facilitiesServices: ["WIFI"],
       isPermanentlyClosed: false,
       isTemporarilyClosed: false,
     },
@@ -174,7 +174,7 @@ const RestaurantListPage = ({
       businessHours: "星期二至日 17:00-22:00",
       reservationModes: ["電話預訂"],
       paymentMethods: ["現金", "信用卡"],
-      facilities: ["私人包廂"],
+      facilitiesServices: ["私人包廂"],
       isPermanentlyClosed: false,
       isTemporarilyClosed: true, // 暫時休業
     },
@@ -195,7 +195,7 @@ const RestaurantListPage = ({
       businessHours: "每日 10:00-02:00",
       reservationModes: ["線上預訂"],
       paymentMethods: ["支付寶", "微信支付"],
-      facilities: ["WIFI"],
+      facilitiesServices: ["WIFI"],
       isPermanentlyClosed: true, // 已結業
       isTemporarilyClosed: false,
     },
@@ -318,12 +318,12 @@ const RestaurantListPage = ({
           );
         }
 
-        // Facilities/Services filter (multi-select: must have ALL selected facilities)
-        if (filters.facilities && filters.facilities.length > 0) {
+        // Facilities/Services filter (multi-select: must have ALL selected facilitiesServices)
+        if (filters.facilitiesServicesServices && filters.facilitiesServices.length > 0) {
           filteredMockRestaurants = filteredMockRestaurants.filter(
             (restaurant) =>
-              filters.facilities.every((facility) =>
-                restaurant.facilities?.includes(facility)
+              filters.facilitiesServices.every((facility) =>
+                restaurant.facilitiesServices?.includes(facility)
               )
           );
         }
@@ -474,11 +474,11 @@ const RestaurantListPage = ({
           );
         }
 
-        // Facilities/Services filter (multi-select: must have ALL selected facilities)
-        if (filters.facilities && filters.facilities.length > 0) {
+        // Facilities/Services filter (multi-select: must have ALL selected facilitiesServices)
+        if (filters.facilitiesServices && filters.facilitiesServices.length > 0) {
           fetchedRestaurants = fetchedRestaurants.filter((restaurant) =>
-            filters.facilities.every((facility) =>
-              restaurant.facilities?.includes(facility)
+            filters.facilitiesServices.every((facility) =>
+              restaurant.facilitiesServices?.includes(facility)
             )
           );
         }

@@ -13,6 +13,31 @@ import {
   provinceOptions,
 } from "../data/restaurant-options";
 
+// 營業時間 UI 相關的輔助資料
+const DAYS_OF_WEEK = [
+  "星期日",
+  "星期一",
+  "星期二",
+  "星期三",
+  "星期四",
+  "星期五",
+  "星期六",
+];
+
+const generateTimeOptions = () => {
+  const times = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const hour = h.toString().padStart(2, "0");
+      const minute = m.toString().padStart(2, "0");
+      times.push(`${hour}:${minute}`);
+    }
+  }
+  return times;
+};
+
+const TIME_OPTIONS = generateTimeOptions();
+
 const RestaurantForm = ({
   formData,
   handleChange,
@@ -27,6 +52,9 @@ const RestaurantForm = ({
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const fileInputRef = useRef(null);
+
+  // 新增一個 state 來追蹤整體營業時間是否被鎖定
+  const [isBusinessHoursLocked, setIsBusinessHoursLocked] = useState(false);
 
   // 這個 useEffect 確保當 formData.facadePhotoUrls[0] 外部改變時（例如在更新模式下加載數據），selectedFile 被清除。
   // 同時，當用戶選擇新檔案後，selectedFile 會存在，此時不應該清除
@@ -61,6 +89,29 @@ const RestaurantForm = ({
       // 如果取消選擇，也清除 formData 中的圖片 URL
       handleChange({ target: { name: "facadePhotoUrl", value: "" } });
     }
+  };
+
+  // 處理營業時間的變動
+  const handleBusinessHoursChange = (day, field, value) => {
+    const newBusinessHours = {
+      ...formData.businessHours,
+      [day]: {
+        ...formData.businessHours[day],
+        [field]: value,
+      },
+    };
+
+    handleChange({
+      target: {
+        name: "businessHours",
+        value: newBusinessHours,
+      },
+    });
+  };
+
+  // 新增一個處理所有營業時間鎖定的功能
+  const toggleAllBusinessHoursLock = () => {
+    setIsBusinessHoursLocked(!isBusinessHoursLocked);
   };
 
   // 表單的實際提交處理函數，負責上傳圖片（如果選中）並調用父組件的 handleSubmit
@@ -484,32 +535,110 @@ const RestaurantForm = ({
           </select>
         </div>
 
+        {/* 營業時間 - 新 UI */}
         <div className="mt-4">
-          <label
-            htmlFor="businessHours"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
+          <label className="block text-gray-700 text-sm font-bold mb-2">
             營業時間 <span className="text-red-500">*</span>
             {errors.businessHours && (
               <span className="text-red-500 font-normal text-xs ml-2">
                 {errors.businessHours}
               </span>
             )}
+            {errors.businessHoursLocked && (
+              <span className="text-red-500 font-normal text-xs ml-2">
+                {errors.businessHoursLocked}
+              </span>
+            )}
           </label>
-          <textarea
-            id="businessHours"
-            name="businessHours"
-            value={formData.businessHours || ""}
-            onChange={handleChange}
-            rows="3"
-            className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-              errors.businessHours
-                ? "border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:ring-blue-500"
-            }`}
-            placeholder="例如：週一至週五 11:00-22:00, 週六日 10:00-23:00"
-          ></textarea>
+          <div className="space-y-2">
+            {DAYS_OF_WEEK.map((day) => (
+              <div key={day} className="flex items-center space-x-2 h-8">
+                <input
+                  type="checkbox"
+                  id={`day-${day}`}
+                  checked={formData.businessHours?.[day]?.isOpen || false}
+                  onChange={(e) =>
+                    handleBusinessHoursChange(day, "isOpen", e.target.checked)
+                  }
+                  className="form-checkbox h-5 w-5 text-blue-600 rounded"
+                  disabled={isBusinessHoursLocked}
+                />
+                <label
+                  htmlFor={`day-${day}`}
+                  className="flex-shrink-0 w-20 text-gray-700"
+                >
+                  {day}
+                </label>
+                {formData.businessHours?.[day]?.isOpen ? (
+                  <>
+                    <span className="text-gray-700">由</span>
+                    <select
+                      value={formData.businessHours?.[day]?.startTime || ""}
+                      onChange={(e) =>
+                        handleBusinessHoursChange(
+                          day,
+                          "startTime",
+                          e.target.value
+                        )
+                      }
+                      disabled={isBusinessHoursLocked}
+                      className={`p-1 border rounded-md text-sm  ${
+                        isBusinessHoursLocked
+                          ? "bg-gray-200 cursor-not-allowed"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      {TIME_OPTIONS.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-gray-700">到</span>
+                    <select
+                      value={formData.businessHours?.[day]?.endTime || ""}
+                      onChange={(e) =>
+                        handleBusinessHoursChange(
+                          day,
+                          "endTime",
+                          e.target.value
+                        )
+                      }
+                      disabled={isBusinessHoursLocked}
+                      className={`p-1 border rounded-md text-sm  ${
+                        isBusinessHoursLocked
+                          ? "bg-gray-200 cursor-not-allowed"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      {TIME_OPTIONS.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                ) : (
+                  <span className="text-gray-500 italic text-base">休假</span>
+                )}
+              </div>
+            ))}
+            <div className="flex justify-start pt-4">
+              <button
+                type="button"
+                onClick={toggleAllBusinessHoursLock}
+                className={`p-2 rounded-md font-semibold text-white transition-colors duration-200 ${
+                  isBusinessHoursLocked
+                    ? "bg-gray-400 hover:bg-gray-500"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {isBusinessHoursLocked ? "修改時間" : "鎖定時間"}
+              </button>
+            </div>
+          </div>
         </div>
+        {/* 營業時間 - 結束 */}
 
         <div className="mt-4">
           <label className="block text-gray-700 text-sm font-bold mb-2">

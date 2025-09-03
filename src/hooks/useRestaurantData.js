@@ -39,7 +39,7 @@ export const useRestaurantData = (firestoreDb, appId, restaurantId) => {
             ...doc.data(),
           }));
         };
-        
+
         const [promos, menus, photos, reviews] = await Promise.all([
           fetchCollection(
             `artifacts/${appId}/public/data/restaurants/${restaurantId}/promotions`
@@ -54,14 +54,13 @@ export const useRestaurantData = (firestoreDb, appId, restaurantId) => {
             where("restaurantId", "==", restaurantId),
             orderBy("createdAt", "desc"),
           ]),
-          
         ]);
-        
+
         setData({
           promotions: promos,
           topMenus: menus.slice(0, 3),
           topPhotos: photos.slice(0, 10),
-          recentReviews: reviews.slice(0, 5),
+          recentReviews: reviews.slice(0, 3),
         });
       } catch (err) {
         console.error("Failed to fetch restaurant data:", err);

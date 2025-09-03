@@ -7,12 +7,7 @@ import { faUser, faBookmark } from "@fortawesome/free-solid-svg-icons";
 import { useRouter, usePathname } from "next/navigation";
 import { getAuth, signOut } from "firebase/auth";
 
-const Navbar = ({
-  onShowFilterModal,
-  onShowMerchantPage,
-  onShowAdminPage,
-  onSearch,
-}) => {
+const Navbar = ({ onShowFilterModal, onSearch }) => {
   const { currentUser, setModalMessage, favoriteRestaurantsCount, app } =
     useContext(AuthContext);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -27,7 +22,6 @@ const Navbar = ({
   const handleSearchSubmit = useCallback(
     (e) => {
       e.preventDefault();
-      // 根據當前頁面決定搜尋行為
       if (isRestaurantsPage) {
         if (onSearch) {
           onSearch(searchText);
@@ -75,6 +69,8 @@ const Navbar = ({
   const handleGoToRestaurants = useCallback(() => {
     router.push("/restaurants");
   }, [router]);
+
+  
 
   return (
     <nav className="bg-gray-900 text-white sticky top-0 z-50 shadow-md">
@@ -204,14 +200,18 @@ const Navbar = ({
             寫食評
           </button>
           <button
-            onClick={onShowMerchantPage}
+            onClick={() => {
+              router.push("/merchant");
+            }}
             className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-1 m-0 text-sm"
           >
             餐廳管理專區
           </button>
           {isAdmin && (
             <button
-              onClick={onShowAdminPage}
+            onClick={() => {
+              router.push("/admin");
+            }}
               className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-1 m-0 text-sm"
             >
               管理員頁面
@@ -252,7 +252,9 @@ const Navbar = ({
             </button>
           )}
           <button
-            onClick={onShowMerchantPage}
+            onClick={() => {
+              router.push("/merchant");
+            }}
             className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
           >
             餐廳專區
@@ -267,7 +269,7 @@ const Navbar = ({
           </button>
           {isAdmin && (
             <button
-              onClick={onShowAdminPage}
+              onClick={handleGoToAdminPage}
               className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
             >
               管理員頁面

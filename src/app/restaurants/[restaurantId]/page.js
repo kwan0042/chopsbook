@@ -161,7 +161,7 @@ export default function RestaurantOverviewPage() {
                 className="bg-white p-4 rounded-lg shadow-md border border-gray-200"
               >
                 <div className="flex items-center mb-2">
-                  <span className="ml-3 font-semibold text-gray-800">
+                  <span className=" font-semibold text-gray-800">
                     {review.username || "匿名用戶"}
                   </span>
                   <span className="ml-auto text-sm text-gray-500">

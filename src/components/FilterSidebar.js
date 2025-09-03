@@ -553,9 +553,14 @@ const FilterSidebar = ({
                   <input
                     type="checkbox"
                     id={`facility-${facility}`}
-                    checked={(localFilters.facilities || []).includes(facility)}
+                    checked={(localFilters.facilitiesServices || []).includes(
+                      facility
+                    )}
                     onChange={() =>
-                      handleMultiSelectFilterChange("facilities", facility)
+                      handleMultiSelectFilterChange(
+                        "facilitiesServices",
+                        facility
+                      )
                     }
                     className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
