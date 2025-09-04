@@ -3,8 +3,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  // 這些 Firebase 相關的 import 語句會保留，因為在生產環境或非繞過模式下仍然需要。
-  // 它們只會被導入，但實際的初始化和使用會被條件性地跳過。
   initializeFirebaseApp,
   getFirebaseDb,
   getFirebaseAuth,
@@ -50,64 +48,51 @@ export const useAuthCore = (setGlobalModalMessage) => {
 
   useEffect(() => {
     // --- 開發模式設定：控制是否啟用登入繞過與 Firebase 連接禁用 ---
-    // 判斷是否在開發模式。在 Next.js 中，process.env.NODE_ENV 會自動設定。
     const IS_DEVELOPMENT_MODE = process.env.NODE_ENV === "development";
-    // 設置一個旗標來控制是否啟用登入繞過。
-    // 在開發測試期間可以設為 true，生產環境或需要真實登入時設為 false。
-    const ENABLE_DEV_LOGIN_BYPASS = false; // <--- 將此設定為 true 以啟用模擬管理員登入並跳過 Firebase 連接
+    const ENABLE_DEV_LOGIN_BYPASS = false;
 
-    // 模擬管理員用戶的資料
     const MOCK_ADMIN_USER_DATA = {
-      uid: "mock-admin-uid-kwan6d16", // 模擬一個固定的 UID
+      uid: "mock-admin-uid-kwan6d16",
       email: "kwan6d16@gmail.com",
       isAdmin: true,
       username: "kwan6d16",
-      rank: "1", // 管理員等級
+      rank: "1",
       publishedReviews: [],
       favoriteRestaurants: [],
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),
-      // 根據您 `currentUser` 實際可能包含的其他屬性添加
     };
     // --- 開發模式設定結束 ---
 
-    // --- 開發模式登入繞過邏輯 ---
-    // 如果在開發模式下且啟用了繞過，則直接設定模擬用戶，並跳過 Firebase 初始化
     if (IS_DEVELOPMENT_MODE && ENABLE_DEV_LOGIN_BYPASS) {
       console.log(
         "--- DEV BYPASS: Activating mock admin user, bypassing Firebase connection ---"
       );
-      // 直接設定模擬用戶資訊
       setCurrentUser(MOCK_ADMIN_USER_DATA);
-      setLoadingUser(false); // 立即停止加載
-      setAuthReady(true); // 立即標記認證系統已就緒
-      setAppId("dev-mock-app-id"); // 為開發模式設定一個模擬的 appId
-      setDb(null); // 明確設定為 null，表示沒有連接到 Firestore
-      setAuth(null); // 明確設定為 null，表示沒有連接到 Auth
-      setAnalytics(null); // 明確設定為 null
-      setStorage(null); // 明確設定為 null
-      setApp(null); // 明確設定為 null
-      return; // 立即退出 useEffect，防止執行 Firebase 初始化和連接邏輯
+      setLoadingUser(false);
+      setAuthReady(true);
+      setAppId("dev-mock-app-id");
+      setDb(null);
+      setAuth(null);
+      setAnalytics(null);
+      setStorage(null);
+      setApp(null);
+      return;
     }
-    // --- 開發模式登入繞過邏輯結束 ---
 
-    // --- 以下為正常的 Firebase 初始化和認證邏輯，僅在未啟用開發模式繞過時執行 ---
     const projectAppId =
       typeof __app_id !== "undefined" ? __app_id : "default-app-id";
     setAppId(projectAppId);
 
-    const currentFirebaseConfig =
-      typeof __firebase_config !== "undefined"
-        ? JSON.parse(__firebase_config)
-        : {
-            apiKey: "AIzaSyBtXmTdeY4bTn558wLhZ-9GkVejWxe_3lk",
-            authDomain: "chopsbook.firebaseapp.com",
-            projectId: "chopsbook",
-            storageBucket: "chopsbook.firebasestorage.app",
-            messagingSenderId: "357146304445",
-            appId: "1:357146304445:web:b97659b3ad6e276e62fcd4",
-            measurementId: "G-H4M0D99T60",
-          };
+    const currentFirebaseConfig = {
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+      measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+    };
 
     const initialAuthToken =
       typeof __initial_auth_token !== "undefined" ? __initial_auth_token : null;
@@ -158,58 +143,44 @@ export const useAuthCore = (setGlobalModalMessage) => {
 
           if (user) {
             try {
-              const userRootDocRef = doc(
+              // 🚨 修正點：只讀取頂層文檔
+              const userDocRef = doc(
                 firestoreDb,
                 `artifacts/${projectAppId}/users/${user.uid}`
               );
-              const userRootDocSnap = await getDoc(userRootDocRef);
+              const userDocSnap = await getDoc(userDocRef);
 
-              if (!userRootDocSnap.exists()) {
-                await setDoc(
-                  userRootDocRef,
-                  { uid: user.uid, lastLogin: new Date().toISOString() },
-                  { merge: true }
+              if (!userDocSnap.exists()) {
+                // 如果用戶文件不存在，則創建一個基本的
+                const defaultUserData = {
+                  uid: user.uid,
+                  email: user.email || "",
+                  isAdmin: false,
+                  createdAt: new Date().toISOString(),
+                  lastLogin: new Date().toISOString(),
+                };
+                await setDoc(userDocRef, defaultUserData, { merge: true });
+                setCurrentUser({ ...user, ...defaultUserData });
+                console.log(
+                  "useAuthCore: 新用戶文件已創建並處理。",
+                  userDocRef.path
+                );
+              } else {
+                // 如果用戶文件存在，讀取所有數據並更新最後登入時間
+                const userData = userDocSnap.data();
+                const updatedUserData = {
+                  ...userData,
+                  lastLogin: new Date().toISOString(),
+                };
+                await setDoc(userDocRef, updatedUserData, { merge: true });
+
+                const userWithProfile = { ...user, ...updatedUserData };
+                setCurrentUser(userWithProfile);
+                console.log(
+                  "useAuthCore: 現有用戶資料已處理:",
+                  userWithProfile
                 );
               }
-
-              const userProfileDocRef = doc(
-                firestoreDb,
-                `artifacts/${projectAppId}/users/${user.uid}/profile`,
-                "main"
-              );
-              const userProfileDocSnap = await getDoc(userProfileDocRef);
-
-              let userProfileData = {};
-              let isAdmin = false;
-
-              if (userProfileDocSnap.exists()) {
-                userProfileData = userProfileDocSnap.data();
-                isAdmin = userProfileData.isAdmin === true;
-              }
-
-              const updatedUserProfile = {
-                email: user.email || "",
-                createdAt:
-                  userProfileData.createdAt || new Date().toISOString(),
-                isAdmin: isAdmin,
-                username:
-                  userProfileData.username ||
-                  (user.email ? user.email.split("@")[0] : "用戶"),
-                rank: userProfileData.rank || "7",
-                publishedReviews: userProfileData.publishedReviews || [],
-                favoriteRestaurants: userProfileData.favoriteRestaurants || [],
-                lastLogin: new Date().toISOString(),
-              };
-
-              await setDoc(userProfileDocRef, updatedUserProfile, {
-                merge: true,
-              });
-              const userWithRole = { ...user, ...updatedUserProfile };
-              setCurrentUser(userWithRole);
-              console.log(
-                "useAuthCore: Current user profile processed:",
-                userWithRole
-              );
             } catch (dbError) {
               console.error(
                 "useAuthCore: 從 Firestore 獲取或創建用戶資料失敗:",
@@ -271,7 +242,7 @@ export const useAuthCore = (setGlobalModalMessage) => {
     };
 
     initializeAndAuthenticateFirebase();
-  }, [setGlobalModalMessage, app]); // 依賴項不變
+  }, [setGlobalModalMessage, app]);
 
   return {
     currentUser,

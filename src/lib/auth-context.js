@@ -41,15 +41,13 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser,
   } = useAuthCore(handleGlobalModalMessage);
 
-  
-
   // 認證操作 (登入、註冊、登出、重設密碼)
   const { login, signup, logout, sendPasswordReset } = useAuthOperations(
     auth,
     db,
-    currentUser,
     appId,
     handleGlobalModalMessage,
+    // 🚨 修正點: 新增 setCurrentUser 到 useAuthOperations 的參數中
     setCurrentUser
   );
 

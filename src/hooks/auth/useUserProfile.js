@@ -2,8 +2,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { sendPasswordResetEmail } from "firebase/auth";
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { isValidEmail } from "./useUtils";
 
 /**
@@ -25,45 +24,58 @@ export const useUserProfile = (
   setCurrentUser,
   setModalMessage
 ) => {
-  // DEBUG LOG: 檢查 setCurrentUser 在 Hook 初始化時的值
-  
-
   const updateUserAdminStatus = useCallback(
     async (userId, isAdmin) => {
+      if (!auth.currentUser) {
+        setModalMessage("認證失敗，請重新登入。", "error");
+        return;
+      }
+
       try {
-        if (!db) {
-          throw new Error("Firebase 資料庫服務未初始化");
-        }
+        const idToken = await auth.currentUser.getIdToken();
+        const response = await fetch("/api/admin/manage-users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            action: "updateAdminStatus",
+            targetUid: userId,
+            newStatus: isAdmin,
+          }),
+        });
 
-        const userProfileDocRef = doc(
-          db,
-          `artifacts/${appId}/users/${userId}/profile`,
-          "main"
-        );
+        const data = await response.json();
 
-        await setDoc(userProfileDocRef, { isAdmin }, { merge: true });
+        if (response.ok) {
+          // 在 API 請求成功後，同時更新 Firestore 中的 isAdmin 欄位
+          // 現在直接更新頂層文檔
+          const userDocRef = doc(db, `artifacts/${appId}/users/${userId}`);
+          await setDoc(userDocRef, { isAdmin: isAdmin }, { merge: true });
 
-        if (currentUser && currentUser.uid === userId) {
-          const userDocSnap = await getDoc(userProfileDocRef);
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
-            
-            setCurrentUser({ ...currentUser, ...userData });
+          setModalMessage(data.message, "success");
+
+          // 如果更新的是當前登入的使用者自己，也更新客戶端狀態
+          if (currentUser.uid === userId) {
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+              const userData = userDocSnap.data();
+              setCurrentUser({ ...currentUser, ...userData });
+            }
           }
+        } else {
+          throw new Error(data.message || "更新管理員狀態失敗。");
         }
-        setModalMessage(
-          `用戶 ${userId} 的管理員權限已更新為: ${
-            isAdmin ? "管理員" : "普通用戶"
-          }`
-        );
+
         return true;
       } catch (error) {
         console.error("useUserProfile: 更新用戶管理員權限失敗:", error);
-        setModalMessage(`更新用戶管理員權限失敗: ${error.message}`);
+        setModalMessage(`更新用戶管理員權限失敗: ${error.message}`, "error");
         throw error;
       }
     },
-    [db, appId, currentUser, setCurrentUser, setModalMessage]
+    [db, appId, auth, currentUser, setCurrentUser, setModalMessage]
   );
 
   const updateUserProfile = useCallback(
@@ -72,32 +84,29 @@ export const useUserProfile = (
         if (!db) {
           throw new Error("Firebase 資料庫服務未初始化");
         }
-        // 確保只有管理員或用戶本人可以更新資料
         if (!currentUser?.isAdmin && currentUser?.uid !== userId) {
           throw new Error("您沒有權限更新此用戶資料。");
         }
 
+        // 現在同時更新頂層和 profile/main 子文檔，確保數據同步
+        const userDocRef = doc(db, `artifacts/${appId}/users/${userId}`);
         const userProfileDocRef = doc(
           db,
           `artifacts/${appId}/users/${userId}/profile`,
           "main"
         );
+
+        await updateDoc(userDocRef, updates);
         await updateDoc(userProfileDocRef, updates);
 
         if (currentUser && currentUser.uid === userId) {
-          // DEBUG LOG: 在呼叫前檢查 setCurrentUser
-          console.log(
-            "updateUserProfile: Attempting to call setCurrentUser, type:",
-            typeof setCurrentUser
-          );
-          // 使用傳入的 setCurrentUser 函數來更新全局狀態
           setCurrentUser((prevUser) => ({ ...prevUser, ...updates }));
         }
         setModalMessage("用戶資料更新成功！");
         return true;
       } catch (error) {
         console.error("useUserProfile: 更新用戶資料失敗:", error);
-        setModalMessage(`更新用戶資料失敗: ${error.message}`);
+        setModalMessage(`更新用戶資料失敗: ${error.message}`, "error");
         throw error;
       }
     },
@@ -106,28 +115,48 @@ export const useUserProfile = (
 
   const sendPasswordResetLink = useCallback(
     async (email) => {
+      if (!auth.currentUser) {
+        setModalMessage("認證失敗，請重新登入。", "error");
+        return;
+      }
+
       try {
-        if (!auth) {
-          throw new Error("Firebase 認證服務未初始化");
-        }
         if (!isValidEmail(email)) {
           throw new Error("無效的電子郵件格式。");
         }
-        // 通常只有管理員才能為其他用戶發送重設鏈接，或者用戶自己通過 /login 頁面發送
-        // 這裡假設是管理員操作
-        if (!currentUser?.isAdmin) {
-          throw new Error("您沒有權限執行此操作。");
+
+        const idToken = await auth.currentUser.getIdToken();
+        const response = await fetch("/api/admin/manage-users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            action: "sendPasswordResetLink",
+            email,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setModalMessage(`已向 ${email} 發送密碼重設電郵。`);
+        } else {
+          throw new Error(data.message || "發送重設密碼連結失敗。");
         }
-        await sendPasswordResetEmail(auth, email);
-        setModalMessage(`已向 ${email} 發送密碼重設電郵。`);
+
         return true;
       } catch (error) {
         console.error("useUserProfile: 管理員發送密碼重設電郵失敗:", error);
-        setModalMessage(`管理員發送密碼重設電郵失敗: ${error.message}`);
+        setModalMessage(
+          `管理員發送密碼重設電郵失敗: ${error.message}`,
+          "error"
+        );
         throw error;
       }
     },
-    [auth, currentUser, setModalMessage]
+    [auth, setModalMessage]
   );
 
   return { updateUserAdminStatus, updateUserProfile, sendPasswordResetLink };

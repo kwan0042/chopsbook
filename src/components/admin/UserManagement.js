@@ -2,10 +2,10 @@
 "use client";
 
 import React, { useState, useContext, useEffect } from "react";
-import { AuthContext } from "../../lib/auth-context"; // 確保路徑正確
-import { doc, collection, getDocs, getDoc, query } from "firebase/firestore"; // 確保導入了 getDoc 和 query, onSnapshot
-import { onSnapshot } from "firebase/firestore"; // 單獨導入 onSnapshot
-import LoadingSpinner from "../LoadingSpinner"; // 確保路徑正確
+import { AuthContext } from "../../lib/auth-context";
+import { doc, collection, getDocs, getDoc, query } from "firebase/firestore";
+import { onSnapshot } from "firebase/firestore";
+import LoadingSpinner from "../LoadingSpinner";
 import { useRouter } from "next/navigation";
 
 /**
@@ -16,7 +16,6 @@ import { useRouter } from "next/navigation";
  * @param {function} props.setParentModalMessage - 用於在 AdminPage 中顯示模態框訊息的回調。
  */
 const UserManagement = ({ setParentModalMessage }) => {
-  // 從 AuthContext 獲取所需的功能
   const { currentUser, db, updateUserAdminStatus, appId, formatDateTime } =
     useContext(AuthContext);
   const router = useRouter();
@@ -33,103 +32,49 @@ const UserManagement = ({ setParentModalMessage }) => {
       return;
     }
 
-    setLoadingUsers(true); // 開始監聽時設置載入狀態
+    setLoadingUsers(true);
 
-    const usersUidCollectionRef = collection(db, `artifacts/${appId}/users`);
-    const q = query(usersUidCollectionRef); // 建立一個對整個 users 集合的查詢
+    // 監聽頂層的 users 集合
+    const usersCollectionRef = collection(db, `artifacts/${appId}/users`);
+    const q = query(usersCollectionRef);
 
     // 設置實時監聽
     const unsubscribe = onSnapshot(
       q,
-      async (querySnapshot) => {
+      (querySnapshot) => {
         const fetchedUsersData = [];
+
         if (querySnapshot.empty) {
+          setUsers([]);
+          setLoadingUsers(false);
           setParentModalMessage("沒有找到任何用戶資料。");
+          return;
         }
 
-        for (const userDoc of querySnapshot.docs) {
-          const uid = userDoc.id;
-          const profileDocRef = doc(
-            db,
-            `artifacts/${appId}/users/${uid}/profile/main`
-          );
+        // 直接從 querySnapshot.docs 獲取所有用戶資料，無需額外請求
+        querySnapshot.forEach((userDoc) => {
+          const userData = userDoc.data();
+          fetchedUsersData.push({
+            uid: userDoc.id,
+            ...userData, // 展開所有頂層文檔資料
+            email: userData.email || `未知郵箱`,
+            isAdmin: userData.isAdmin || false,
+            username:
+              userData.username ||
+              (userData.email ? userData.email.split("@")[0] : "N/A"),
+            rank: userData.rank ?? "7",
+            lastLogin: userData.lastLogin || "N/A",
+            publishedReviews: Array.isArray(userData.publishedReviews)
+              ? userData.publishedReviews
+              : [],
+            favoriteRestaurants: Array.isArray(userData.favoriteRestaurants)
+              ? userData.favoriteRestaurants
+              : [],
+          });
+        });
 
-          try {
-            const profileDocSnap = await getDoc(profileDocRef);
-
-            if (profileDocSnap.exists()) {
-              const profileData = profileDocSnap.data();
-              const publishedReviews = Array.isArray(
-                profileData.publishedReviews
-              )
-                ? profileData.publishedReviews
-                : [];
-              const favoriteRestaurants = Array.isArray(
-                profileData.favoriteRestaurants
-              )
-                ? profileData.favoriteRestaurants
-                : [];
-
-              fetchedUsersData.push({
-                uid: uid,
-                email: profileData.email || `未知郵箱`,
-                isAdmin: profileData.isAdmin || false,
-                createdAt: profileData.createdAt || "未知時間",
-                username:
-                  profileData.username ||
-                  (profileData.email ? profileData.email.split("@")[0] : "N/A"),
-                rank: profileData.rank ?? "7", // 已修正：使用 ?? 確保 0 能被正確顯示
-                lastLogin: profileData.lastLogin || "N/A",
-                publishedReviews,
-                favoriteRestaurants,
-              });
-            } else {
-              // 如果 profile/main 不存在，但根 UID 文檔存在，也提取一些基礎資訊
-              const userDataFromRootDoc = userDoc.data();
-              const publishedReviews = Array.isArray(
-                userDataFromRootDoc.publishedReviews
-              )
-                ? userDataFromRootDoc.publishedReviews
-                : [];
-              const favoriteRestaurants = Array.isArray(
-                userDataFromRootDoc.favoriteRestaurants
-              )
-                ? userDataFromRootDoc.favoriteRestaurants
-                : [];
-              fetchedUsersData.push({
-                uid: uid,
-                email: userDataFromRootDoc.email || `未知郵箱`,
-                isAdmin: userDataFromRootDoc.isAdmin || false,
-                createdAt: userDataFromRootDoc.createdAt || "未知時間",
-                username:
-                  userDataFromRootDoc.username ||
-                  (userDataFromRootDoc.email
-                    ? userDataFromRootDoc.email.split("@")[0]
-                    : "N/A"),
-                rank: userDataFromRootDoc.rank ?? "7", // 已修正：使用 ?? 確保 0 能被正確顯示
-                lastLogin: userDataFromRootDoc.lastLogin || "N/A",
-                publishedReviews,
-                favoriteRestaurants,
-              });
-            }
-          } catch (profileError) {
-            console.error(
-              `獲取用戶 ${uid} 的 profile/main 失敗:`,
-              profileError
-            );
-            fetchedUsersData.push({
-              uid: uid,
-              email: `獲取失敗 (錯誤)`,
-              isAdmin: false,
-              createdAt: "未知時間",
-              username: "N/A",
-              rank: "N/A",
-              lastLogin: "N/A",
-            });
-          }
-        }
         setUsers(fetchedUsersData);
-        setLoadingUsers(false); // 數據更新後關閉載入狀態
+        setLoadingUsers(false);
       },
       (error) => {
         console.error("實時監聽用戶資料失敗:", error);
@@ -140,16 +85,13 @@ const UserManagement = ({ setParentModalMessage }) => {
 
     // 清理函數：組件卸載時取消訂閱
     return () => unsubscribe();
-  }, [db, appId, setParentModalMessage]); // 確保所有依賴項都包含在內
+  }, [db, appId, setParentModalMessage]);
 
-  // 更新用戶管理員權限
   const handleUpdateAdminStatus = async (userId, newIsAdmin) => {
     try {
       setUpdatingUserStatus(true);
       await updateUserAdminStatus(userId, newIsAdmin);
 
-      // 因為有 onSnapshot 實時監聽，這裡不需要手動更新 users 狀態
-      // onSnapshot 會自動觸發 setUsers 重新渲染
       setParentModalMessage(
         `用戶權限已更新為: ${newIsAdmin ? "管理員" : "普通用戶"}`
       );
@@ -161,7 +103,6 @@ const UserManagement = ({ setParentModalMessage }) => {
     }
   };
 
-  // 導航到用戶詳細頁面 (現在使用查詢參數)
   const handleViewUserDetails = (uid) => {
     router.push(`/admin/editUsers?uid=${uid}`);
   };
@@ -175,7 +116,6 @@ const UserManagement = ({ setParentModalMessage }) => {
     );
   }
 
-  // 渲染用戶表格
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
       <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">

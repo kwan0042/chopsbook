@@ -1,3 +1,4 @@
+// src/hooks/auth/useAuthOperations.js
 "use client";
 
 import { useCallback } from "react";
@@ -47,7 +48,6 @@ export const useAuthOperations = (
   );
 
   const signup = useCallback(
-    // 移除 ownedRestId 參數
     async (email, password, phoneNumber, isRestaurantOwner, ownedRest) => {
       try {
         if (!auth) {
@@ -64,16 +64,15 @@ export const useAuthOperations = (
         );
         await sendEmailVerification(userCredential.user);
 
-        const userProfileDocRef = doc(
+        // 🚨 修正點: 直接在頂層 users 集合中創建文件，並使用用戶 UID 作為文件 ID。
+        const userDocRef = doc(
           db,
-          `artifacts/${appId}/users/${userCredential.user.uid}/profile`,
-          "main"
+          `artifacts/${appId}/users/${userCredential.user.uid}`
         );
 
         const defaultUsername = email.split("@")[0];
         const isAdmin = false;
 
-        // 包含新的用戶資料
         const additionalProfileData = {
           email: email,
           createdAt: new Date().toISOString(),
@@ -86,12 +85,13 @@ export const useAuthOperations = (
           isRestaurantOwner: isRestaurantOwner || false,
         };
 
-        // 如果是餐廳擁有人，添加餐廳名稱
         if (isRestaurantOwner) {
           additionalProfileData.ownedRest = ownedRest || null;
         }
 
-        await setDoc(userProfileDocRef, additionalProfileData, { merge: true });
+        // 🚨 修正點: 使用 setDoc 將資料寫入頂層文檔。
+        await setDoc(userDocRef, additionalProfileData, { merge: true });
+
         setModalMessage(
           "註冊成功！請檢查您的電子郵件以完成驗證，然後再次登入。"
         );
