@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
  * @param {function} props.setParentModalMessage - 用於在 AdminPage 中顯示模態框訊息的回調。
  */
 const UserManagement = ({ setParentModalMessage }) => {
-  const { currentUser, db, updateUserAdminStatus, appId, formatDateTime } =
+  const { currentUser, db, appId, formatDateTime, auth } =
     useContext(AuthContext);
   const router = useRouter();
 
@@ -88,15 +88,51 @@ const UserManagement = ({ setParentModalMessage }) => {
   }, [db, appId, setParentModalMessage]);
 
   const handleUpdateAdminStatus = async (userId, newIsAdmin) => {
+    // 檢查 auth.currentUser 是否存在，這才是真正的 Firebase User 物件
+    if (!auth?.currentUser) {
+      setParentModalMessage("您尚未登入。", "error");
+      return;
+    }
+
+    // 在本地檢查用戶權限，提供更好的用戶體驗
+    if (!currentUser?.isSuperAdmin) {
+      setParentModalMessage("您沒有權限執行此操作。", "error");
+      return;
+    }
+
+    // 確保不是試圖修改自己的權限
+    if (userId === currentUser.uid) {
+      setParentModalMessage("您不能修改自己的管理員權限。", "error");
+      return;
+    }
+
+    setUpdatingUserStatus(true);
     try {
-      setUpdatingUserStatus(true);
-      await updateUserAdminStatus(userId, newIsAdmin);
+      // 修正點：從 auth.currentUser 獲取 token
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch("/api/admin/set-claims", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          targetUserUid: userId,
+          newClaims: { isAdmin: newIsAdmin, isSuperAdmin: false },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "更新權限失敗");
+      }
 
       setParentModalMessage(
-        `用戶權限已更新為: ${newIsAdmin ? "管理員" : "普通用戶"}`
+        `用戶權限已更新為: ${newIsAdmin ? "管理員" : "普通用戶"}`,
+        "success"
       );
     } catch (error) {
-      setParentModalMessage("更新失敗: " + error.message);
+      setParentModalMessage(`更新失敗: ${error.message}`, "error");
       console.error("更新管理員權限失敗:", error);
     } finally {
       setUpdatingUserStatus(false);
@@ -188,18 +224,24 @@ const UserManagement = ({ setParentModalMessage }) => {
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <span
                       className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                        user.isAdmin
+                        user.isSuperAdmin
+                          ? "bg-red-100 text-red-800"
+                          : user.isAdmin
                           ? "bg-green-100 text-green-800"
                           : "bg-indigo-100 text-indigo-800"
                       }`}
                     >
-                      {user.isAdmin ? "管理員" : "普通用戶"}
+                      {user.isSuperAdmin
+                        ? "超級管理員"
+                        : user.isAdmin
+                        ? "管理員"
+                        : "普通用戶"}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                     {user.uid === currentUser?.uid ? (
                       <span className="text-gray-400">當前用戶</span>
-                    ) : (
+                    ) : currentUser?.isSuperAdmin ? (
                       <div className="flex flex-col items-center space-y-2">
                         <button
                           onClick={() =>
@@ -228,6 +270,8 @@ const UserManagement = ({ setParentModalMessage }) => {
                           取消管理員
                         </button>
                       </div>
+                    ) : (
+                      <span className="text-gray-400">無權限</span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">

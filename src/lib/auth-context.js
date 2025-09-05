@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
     loadingUser,
     authReady, // <<< 新增：從 useAuthCore 獲取 authReady 狀態
     db,
-    auth,
+    auth, // 獲取 auth 物件
     storage,
     analytics,
     appId,
@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }) => {
     db,
     appId,
     handleGlobalModalMessage,
-    // 🚨 修正點: 新增 setCurrentUser 到 useAuthOperations 的參數中
+    // 修正點: 新增 setCurrentUser 到 useAuthOperations 的參數中
     setCurrentUser
   );
 
@@ -98,7 +98,7 @@ export const AuthProvider = ({ children }) => {
         loadingUser,
         authReady, // <<< 新增：將 authReady 狀態暴露給 Context
         db,
-        auth,
+        auth, // <<< 修正點：將 auth 物件傳遞給 Context
         storage,
         analytics,
         appId,

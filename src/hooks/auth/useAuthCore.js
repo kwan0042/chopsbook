@@ -55,6 +55,7 @@ export const useAuthCore = (setGlobalModalMessage) => {
       uid: "mock-admin-uid-kwan6d16",
       email: "kwan6d16@gmail.com",
       isAdmin: true,
+      isSuperAdmin: true, // DEV MOCK: 加入 isSuperAdmin
       username: "kwan6d16",
       rank: "1",
       publishedReviews: [],
@@ -143,7 +144,10 @@ export const useAuthCore = (setGlobalModalMessage) => {
 
           if (user) {
             try {
-              // 🚨 修正點：只讀取頂層文檔
+              // 獲取自訂聲明
+              const idTokenResult = await user.getIdTokenResult();
+              const { isAdmin, isSuperAdmin } = idTokenResult.claims;
+
               const userDocRef = doc(
                 firestoreDb,
                 `artifacts/${projectAppId}/users/${user.uid}`
@@ -155,7 +159,8 @@ export const useAuthCore = (setGlobalModalMessage) => {
                 const defaultUserData = {
                   uid: user.uid,
                   email: user.email || "",
-                  isAdmin: false,
+                  isAdmin: isAdmin === true,
+                  isSuperAdmin: isSuperAdmin === true,
                   createdAt: new Date().toISOString(),
                   lastLogin: new Date().toISOString(),
                 };
@@ -166,12 +171,17 @@ export const useAuthCore = (setGlobalModalMessage) => {
                   userDocRef.path
                 );
               } else {
-                // 如果用戶文件存在，讀取所有數據並更新最後登入時間
+                // 如果用戶文件存在，讀取所有數據並同步 Auth 聲明
                 const userData = userDocSnap.data();
+
                 const updatedUserData = {
                   ...userData,
+                  isAdmin: isAdmin === true,
+                  isSuperAdmin: isSuperAdmin === true,
                   lastLogin: new Date().toISOString(),
                 };
+
+                // 同步更新 Firestore 文檔
                 await setDoc(userDocRef, updatedUserData, { merge: true });
 
                 const userWithProfile = { ...user, ...updatedUserData };
