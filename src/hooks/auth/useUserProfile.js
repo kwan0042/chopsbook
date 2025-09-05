@@ -88,21 +88,14 @@ export const useUserProfile = (
           throw new Error("您沒有權限更新此用戶資料。");
         }
 
-        // 現在同時更新頂層和 profile/main 子文檔，確保數據同步
+        // 修正點：只更新頂層文檔，避免資料庫不一致
         const userDocRef = doc(db, `artifacts/${appId}/users/${userId}`);
-        const userProfileDocRef = doc(
-          db,
-          `artifacts/${appId}/users/${userId}/profile`,
-          "main"
-        );
-
         await updateDoc(userDocRef, updates);
-        await updateDoc(userProfileDocRef, updates);
 
         if (currentUser && currentUser.uid === userId) {
           setCurrentUser((prevUser) => ({ ...prevUser, ...updates }));
         }
-        setModalMessage("用戶資料更新成功！");
+
         return true;
       } catch (error) {
         console.error("useUserProfile: 更新用戶資料失敗:", error);
@@ -141,7 +134,7 @@ export const useUserProfile = (
         const data = await response.json();
 
         if (response.ok) {
-          setModalMessage(`已向 ${email} 發送密碼重設電郵。`);
+          setModalMessage(`已向 ${email} 發送密碼重設電郵。`, "success");
         } else {
           throw new Error(data.message || "發送重設密碼連結失敗。");
         }

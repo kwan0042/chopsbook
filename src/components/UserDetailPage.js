@@ -2,13 +2,8 @@
 "use client";
 
 import React, { useState, useEffect, useContext, useCallback } from "react";
-// 請再次確認此路徑及檔名 (auth-context.js) 在您的專案中是否完全正確 (例如：src/lib/auth-context.js)。
-// 如果 UserDetailPage.js 在 src/components，那麼 AuthContext.js 應在 src/lib。
 import { AuthContext } from "../lib/auth-context";
-import { doc, getDoc } from "firebase/firestore";
-// 請再次確認此路徑及檔名 (Modal.js) 在您的專案中是否完全正確 (例如：src/components/Modal.js)。
 import Modal from "./Modal";
-// next/navigation 是 Next.js 的內建模組。請確保您的 Next.js 專案環境已正確設定且依賴 (npm install) 已安裝。
 import { useRouter } from "next/navigation";
 
 // 圖標：用於返回按鈕
@@ -30,33 +25,29 @@ const ArrowLeftIcon = ({ className = "" }) => (
 const UserDetailPage = ({ userId }) => {
   const {
     currentUser,
-    db,
-    appId,
     loadingUser,
     updateUserProfile,
     sendPasswordResetLink,
-    formatDateTime, // 從 AuthContext 獲取格式化函數
+    formatDateTime,
   } = useContext(AuthContext);
   const router = useRouter();
 
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false); // 控制編輯模式
-  const [formData, setFormData] = useState({}); // 用於編輯時的表單數據
+  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState({});
   const [modalMessage, setModalMessage] = useState("");
-  const [modalType, setModalType] = useState(""); // "success" or "error"
-  const [favoriteRestaurantNames, setFavoriteRestaurantNames] = useState([]); // 儲存收藏餐廳的名稱
-  const [loadingFavorites, setLoadingFavorites] = useState(true); // 收藏餐廳名稱的載入狀態
-  const [isSaving, setIsSaving] = useState(false); // 儲存按鈕的載入狀態
-  const [isSendingResetLink, setIsSendingResetLink] = useState(false); // 發送重設鏈接按鈕的載入狀態
-  const [saveSuccessMessage, setSaveSuccessMessage] = useState(null); // 新增：儲存成功訊息
+  const [modalType, setModalType] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSendingResetLink, setIsSendingResetLink] = useState(false);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState(null);
 
   const rankOptions = [0, 1, 2, 3, 4, 5, 6, 7];
 
   // 獲取用戶資料
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!db || !appId || loadingUser) {
+      if (loadingUser) {
         return;
       }
 
@@ -64,7 +55,6 @@ const UserDetailPage = ({ userId }) => {
       setModalMessage("");
       setModalType("");
 
-      // 檢查用戶權限：只有管理員可以查看所有用戶資料，普通用戶只能查看自己的資料
       if (!currentUser?.isAdmin) {
         setModalMessage("您沒有權限查看此用戶資料。");
         setModalType("error");
@@ -74,64 +64,28 @@ const UserDetailPage = ({ userId }) => {
       }
 
       try {
-        const userProfileDocRef = doc(
-          db,
-          `artifacts/${appId}/users/${userId}/profile`,
-          "main"
-        );
-        const docSnap = await getDoc(userProfileDocRef);
+        // 修正點：呼叫後端 API 路由
+        const response = await fetch(`/api/user/${userId}`);
 
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setUserData(data);
-          setFormData(data); // 初始化表單數據
-
-          // --- 獲取收藏餐廳名稱的邏輯 ---
-          setLoadingFavorites(true);
-          if (data.favoriteRestaurants && data.favoriteRestaurants.length > 0) {
-            const restaurantNamesPromises = data.favoriteRestaurants.map(
-              async (restaurantId) => {
-                const restaurantDocRef = doc(
-                  db,
-                  `artifacts/${appId}/public/data/restaurants`,
-                  restaurantId
-                );
-                const restaurantDocSnap = await getDoc(restaurantDocRef);
-                if (restaurantDocSnap.exists()) {
-                  const restaurantData = restaurantDocSnap.data();
-                  return (
-                    restaurantData.restaurantNameZh ||
-                    restaurantData.restaurantNameEn ||
-                    `未知餐廳 (ID: ${restaurantId})`
-                  );
-                } else {
-                  return `已刪除餐廳 (ID: ${restaurantId})`; // 如果餐廳不存在
-                }
-              }
-            );
-            const names = await Promise.all(restaurantNamesPromises);
-            setFavoriteRestaurantNames(names);
-          } else {
-            setFavoriteRestaurantNames([]);
-          }
-          setLoadingFavorites(false);
-        } else {
-          setModalMessage("找不到該用戶的資料。");
-          setModalType("error");
-          setLoadingFavorites(false); // 確保在無用戶資料時也關閉載入狀態
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "無法載入用戶資料。");
         }
+
+        const data = await response.json();
+        setUserData(data);
+        setFormData(data); // 初始化表單數據
       } catch (error) {
         console.error("獲取用戶資料失敗:", error);
         setModalMessage(`獲取用戶資料失敗: ${error.message}`);
         setModalType("error");
-        setLoadingFavorites(false); // 確保在錯誤發生時也關閉載入狀態
       } finally {
         setLoading(false);
       }
     };
 
     fetchUserData();
-  }, [userId, db, appId, currentUser, loadingUser, router, formatDateTime]); // 添加 formatDateTime 到依賴
+  }, [userId, currentUser, loadingUser, router]);
 
   // 清除儲存成功訊息的 useEffect
   useEffect(() => {
@@ -144,7 +98,6 @@ const UserDetailPage = ({ userId }) => {
   // 處理表單欄位變化
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
-    // 將等級轉換為數字，如果不是數字則保留原值
     setFormData((prev) => ({
       ...prev,
       [name]: name === "rank" ? parseInt(value, 10) : value,
@@ -153,12 +106,11 @@ const UserDetailPage = ({ userId }) => {
 
   // 處理「儲存變更」
   const handleSaveChanges = async () => {
-    setIsSaving(true); // 開始儲存，設置載入狀態
+    setIsSaving(true);
     setModalMessage("");
     setModalType("");
-    setSaveSuccessMessage(null); // 清除之前的成功訊息
+    setSaveSuccessMessage(null);
 
-    // 權限檢查
     if (!currentUser?.isAdmin) {
       setModalMessage("您沒有權限修改此用戶資料。");
       setModalType("error");
@@ -168,12 +120,10 @@ const UserDetailPage = ({ userId }) => {
 
     try {
       const updates = {};
-      // 僅在值發生變化時才添加到 updates 物件
       if (formData.username !== userData.username)
         updates.username = formData.username;
       if (formData.phoneNumber !== userData.phoneNumber)
         updates.phoneNumber = formData.phoneNumber;
-      // 處理等級更新
       if (formData.rank !== userData.rank) {
         updates.rank = formData.rank;
       }
@@ -182,28 +132,28 @@ const UserDetailPage = ({ userId }) => {
 
       if (Object.keys(updates).length > 0) {
         await updateUserProfile(userId, updates);
-        setUserData((prev) => ({ ...prev, ...updates })); // 更新本地顯示數據
-        setModalMessage("用戶資料更新成功！");
+        setUserData((prev) => ({ ...prev, ...updates }));
+        
         setModalType("success");
-        setSaveSuccessMessage("更改已儲存！"); // 顯示儲存成功訊息
-        setEditing(false); // 儲存成功後退出編輯模式
+        setSaveSuccessMessage("更改已儲存！");
+        setEditing(false);
       } else {
         setModalMessage("沒有任何變更需要儲存。");
         setModalType("info");
-        setEditing(false); // 沒有變更也退出編輯模式
+        setEditing(false);
       }
     } catch (error) {
       console.error("更新用戶資料失敗:", error);
       setModalMessage(`更新失敗: ${error.message}`);
       setModalType("error");
     } finally {
-      setIsSaving(false); // 儲存操作結束，解除載入狀態
+      setIsSaving(false);
     }
   };
 
   // 處理「重設密碼」
   const handleSendResetPasswordLink = async () => {
-    setIsSendingResetLink(true); // 開始發送，設置載入狀態
+    setIsSendingResetLink(true);
     setModalMessage("");
     setModalType("");
 
@@ -228,7 +178,7 @@ const UserDetailPage = ({ userId }) => {
       setModalMessage(`發送失敗: ${error.message}`);
       setModalType("error");
     } finally {
-      setIsSendingResetLink(false); // 發送操作結束，解除載入狀態
+      setIsSendingResetLink(false);
     }
   };
 
@@ -271,9 +221,8 @@ const UserDetailPage = ({ userId }) => {
 
   const canEdit = currentUser?.isAdmin;
 
-  // 統一的輸入/顯示欄位樣式
   const commonFieldClass =
-    "w-full p-3 bg-gray-50 rounded-md border border-gray-200 text-gray-800 h-[48px] flex items-center"; // 固定高度
+    "w-full p-3 bg-gray-50 rounded-md border border-gray-200 text-gray-800 h-[48px] flex items-center";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 flex flex-col items-center font-inter">
@@ -295,31 +244,27 @@ const UserDetailPage = ({ userId }) => {
           </p>
         )}
 
-        {/* 編輯/儲存/取消按鈕區域 (右上角) */}
         <div className="flex justify-end mb-4 gap-4">
-          {canEdit &&
-            !editing && ( // 非編輯模式下顯示「發送重設密碼鏈接」和「編輯資料」
-              <>
-                <button
-                  onClick={handleSendResetPasswordLink}
-                  disabled={isSendingResetLink}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-md shadow-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSendingResetLink ? "發送中..." : "發送重設密碼鏈接"}
-                </button>
-                <button
-                  onClick={() => setEditing(true)}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                >
-                  編輯資料
-                </button>
-              </>
-            )}
+          {canEdit && !editing && (
+            <>
+              <button
+                onClick={handleSendResetPasswordLink}
+                disabled={isSendingResetLink}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-md shadow-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSendingResetLink ? "發送中..." : "發送重設密碼鏈接"}
+              </button>
+              <button
+                onClick={() => setEditing(true)}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              >
+                編輯資料
+              </button>
+            </>
+          )}
         </div>
 
-        {/* 主要用戶詳細資料網格 (左側和右側) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* 左側欄位 */}
           <div className="space-y-4">
             <div>
               <label className="block text-gray-700 text-sm font-bold mb-2">
@@ -357,13 +302,13 @@ const UserDetailPage = ({ userId }) => {
                 <select
                   id="rank"
                   name="rank"
-                  value={formData.rank} // 直接使用數字值
+                  value={formData.rank}
                   onChange={handleChange}
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-[48px]"
                 >
                   {rankOptions.map((option) => (
                     <option key={option} value={option}>
-                      {option} {/* 顯示文本 */}
+                      {option}
                     </option>
                   ))}
                 </select>
@@ -371,19 +316,14 @@ const UserDetailPage = ({ userId }) => {
                 <p className={commonFieldClass}>{userData.rank}</p>
               )}
             </div>
-            {/* 最愛餐廳清單 (現在位於左側欄下方，高約兩個欄位的高度) */}
             <div className="flex-grow">
               <label className="block text-gray-700 text-sm font-bold mb-2">
                 最愛餐廳清單 (按排序)
               </label>
               <div className="w-full p-3 bg-gray-50 rounded-md border border-gray-200 min-h-[104px] text-gray-800 h-full">
-                {" "}
-                {/* 調整 min-h 以適應兩個欄位高度 */}
-                {loadingFavorites ? (
-                  <p className="text-gray-500 text-sm">載入收藏餐廳中...</p>
-                ) : favoriteRestaurantNames.length > 0 ? (
+                {userData.favoriteRestaurantNames?.length > 0 ? (
                   <ol className="list-decimal pl-5 space-y-1">
-                    {favoriteRestaurantNames.map((name, index) => (
+                    {userData.favoriteRestaurantNames.map((name, index) => (
                       <li key={index} className="text-sm">
                         {name}
                       </li>
@@ -396,7 +336,6 @@ const UserDetailPage = ({ userId }) => {
             </div>
           </div>
 
-          {/* 右側欄位 */}
           <div className="space-y-4">
             <div>
               <label className="block text-gray-700 text-sm font-bold mb-2">
@@ -442,7 +381,6 @@ const UserDetailPage = ({ userId }) => {
               />
             </div>
 
-            {/* 個人相片 (URL) 現在也位於右側欄，以平衡佈局 */}
             <div>
               <label
                 htmlFor="photoURL"
@@ -473,14 +411,11 @@ const UserDetailPage = ({ userId }) => {
                 />
               )}
             </div>
-            {/* 已發佈食評清單 (現在位於右側欄下方，高約兩個欄位的高度) */}
             <div className="flex-grow">
               <label className="block text-gray-700 text-sm font-bold mb-2">
                 已發佈食評清單
               </label>
               <div className="w-full p-3 bg-gray-50 rounded-md border border-gray-200 min-h-[104px] text-gray-800 h-full">
-                {" "}
-                {/* 調整 min-h 以適應兩個欄位高度 */}
                 {userData.publishedReviews?.length > 0 ? (
                   <ul className="list-disc pl-5">
                     {userData.publishedReviews.map((review, index) => (
@@ -497,7 +432,6 @@ const UserDetailPage = ({ userId }) => {
 
         <div className="w-full border-t border-gray-200 my-8"></div>
 
-        {/* 保存資料與取消按鈕 (獨立一行，位於最下方) */}
         {canEdit && editing && (
           <div className="w-full flex justify-between mt-8 mb-4">
             <button

@@ -358,7 +358,6 @@ const EditRestaurantRequestPage = ({ requestId }) => {
             餐廳 ID:{" "}
             <span className="text-gray-900 font-bold">{restaurantId}</span>
           </h3>
-          {console.log(requestStatus)}
           {requestStatus === "reviewed" && (
             <div className="mt-4 p-3 bg-green-100 rounded-md text-gray-700">
               <p>已審核</p>

@@ -1,12 +1,12 @@
+// src/components/FilterModal.js
 "use client";
 
 import React, { useState } from "react";
-// 引入 restaurant-options.js 中的選項
 import {
   cuisineOptions,
-  facilitiesServiceOptions, // 更名為 facilitiesServiceOptions 以匹配 restaurant-options.js
+  facilitiesServiceOptions,
   provinceOptions,
-} from "../data/restaurant-options"; // 確保路徑正確
+} from "../../data/restaurant-options";
 
 /**
  * FilterModal: 允許使用者根據各種條件篩選餐廳。
@@ -16,17 +16,23 @@ import {
  * @param {function} props.onApplyFilters - 應用篩選條件的回調函數，接收一個包含篩選條件的物件。
  */
 const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
-  const [selectedCuisineType, setSelectedCuisineType] = useState(""); // 將狀態名稱更改為更清晰的 selectedCuisineType
-  const [priceRange, setPriceRange] = useState("0"); // 使用數字表示最大消費
+  const [selectedCuisineType, setSelectedCuisineType] = useState("");
+  const [priceRange, setPriceRange] = useState("0");
   const [minRating, setMinRating] = useState(0);
   const [city, setCity] = useState("");
-  const [selectedProvince, setSelectedProvince] = useState(""); // 將狀態名稱更改為更清晰的 selectedProvince
+  const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedFacilitiesServices, setSelectedFacilitiesServices] = useState(
     []
-  ); // 將狀態名稱更改為更清晰的 selectedFacilitiesServices
+  );
 
-  // Dropdown 選項 - 現在直接從導入的檔案中使用
-  // cuisineOptions (已導入)
+  // 新增狀態變數
+  const [timeOfDay, setTimeOfDay] = useState(""); // 'day' 或 'night'
+  const [minAvgSpending, setMinAvgSpending] = useState("");
+  const [maxAvgSpending, setMaxAvgSpending] = useState("");
+  const [reservationDate, setReservationDate] = useState("");
+  const [reservationTime, setReservationTime] = useState("");
+  const [partySize, setPartySize] = useState("");
+
   const priceRangeOptions = [
     { value: "0", label: "不限人均" },
     { value: "20", label: "低於 $20" },
@@ -34,7 +40,7 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
     { value: "60", label: "低於 $60" },
     { value: "80", label: "低於 $80" },
     { value: "100", label: "低於 $100" },
-    { value: "9999", label: "不限 (預設高價)" }, // 用一個很大的數字表示不限，以便於篩選邏輯處理
+    { value: "9999", label: "不限 (預設高價)" },
   ];
   const ratingOptions = [
     { value: 0, label: "不限評分" },
@@ -43,8 +49,6 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
     { value: 4, label: "4 星或以上" },
     { value: 4.5, label: "4.5 星或以上" },
   ];
-  // provinceOptions (已導入)
-  // facilitiesServiceOptions (已導入)
 
   const handleFacilitiesChange = (e) => {
     const { value, checked } = e.target;
@@ -54,39 +58,51 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
   };
 
   const handleApply = () => {
-    // 构建一个临时的 filters 对象
     const filters = {};
 
-    // 1. 菜系篩選: 確保鍵名為 'category'，且不是 "選擇菜系"
     if (selectedCuisineType && selectedCuisineType !== "選擇菜系") {
       filters.category = selectedCuisineType;
     }
 
-    // 2. 人均消費篩選: 將 priceRange 轉換為 maxAvgSpending，並處理 "不限" 情況
     const parsedPriceRange = parseInt(priceRange, 10);
-    // 只有當 parsedPriceRange 大於 0 且不是 "9999" (不限高價) 時才應用此篩選
     if (parsedPriceRange > 0 && parsedPriceRange !== 9999) {
       filters.maxAvgSpending = parsedPriceRange;
     }
 
-    // 3. 最低評分篩選: 確保鍵名為 'minRating'，且大於 0
     if (minRating > 0) {
       filters.minRating = minRating;
     }
 
-    // 4. 城市篩選
     if (city) {
       filters.city = city;
     }
 
-    // 5. 省份篩選: 確保鍵名為 'province'，且不是 "選擇省份"
     if (selectedProvince && selectedProvince !== "選擇省份") {
       filters.province = selectedProvince;
     }
 
-    // 6. 設施/服務篩選: 確保鍵名為 'facilities'
     if (selectedFacilitiesServices.length > 0) {
       filters.facilities = selectedFacilitiesServices;
+    }
+
+    // 新增篩選邏輯
+    if (timeOfDay) {
+      filters.timeOfDay = timeOfDay;
+    }
+    if (minAvgSpending) {
+      filters.minAvgSpending = parseInt(minAvgSpending, 10);
+    }
+    if (maxAvgSpending) {
+      filters.maxAvgSpending = parseInt(maxAvgSpending, 10);
+    }
+    if (reservationDate) {
+      filters.reservationDate = reservationDate;
+    }
+    if (reservationTime) {
+      filters.reservationTime = reservationTime;
+    }
+    if (partySize) {
+      filters.partySize = parseInt(partySize, 10);
     }
 
     onApplyFilters(filters);
@@ -99,7 +115,16 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
     setCity("");
     setSelectedProvince("");
     setSelectedFacilitiesServices([]);
-    onApplyFilters({}); // 清除所有篩選
+
+    // 重置新狀態
+    setTimeOfDay("");
+    setMinAvgSpending("");
+    setMaxAvgSpending("");
+    setReservationDate("");
+    setReservationTime("");
+    setPartySize("");
+
+    onApplyFilters({});
   };
 
   if (!isOpen) return null;
@@ -119,6 +144,113 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
         </h2>
 
         <div className="space-y-4">
+          {/* 日間/晚間篩選 */}
+          <div>
+            <label className="block text-gray-700 text-sm font-bold mb-2">
+              用餐時段
+            </label>
+            <div className="flex space-x-4">
+              <label className="flex items-center text-gray-700">
+                <input
+                  type="radio"
+                  name="timeOfDay"
+                  value="day"
+                  checked={timeOfDay === "day"}
+                  onChange={(e) => setTimeOfDay(e.target.value)}
+                  className="form-radio h-4 w-4 text-blue-600"
+                />
+                <span className="ml-2">日間 (11:00-17:00)</span>
+              </label>
+              <label className="flex items-center text-gray-700">
+                <input
+                  type="radio"
+                  name="timeOfDay"
+                  value="night"
+                  checked={timeOfDay === "night"}
+                  onChange={(e) => setTimeOfDay(e.target.value)}
+                  className="form-radio h-4 w-4 text-blue-600"
+                />
+                <span className="ml-2">晚間 (17:00-22:00)</span>
+              </label>
+            </div>
+          </div>
+
+          {/* 自訂預算篩選 */}
+          <div>
+            <label className="block text-gray-700 text-sm font-bold mb-2">
+              預算範圍 (人均)
+            </label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="number"
+                placeholder="最低"
+                value={minAvgSpending}
+                onChange={(e) => setMinAvgSpending(e.target.value)}
+                className="w-1/2 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span>-</span>
+              <input
+                type="number"
+                placeholder="最高"
+                value={maxAvgSpending}
+                onChange={(e) => setMaxAvgSpending(e.target.value)}
+                className="w-1/2 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* 日期、時間、人數篩選 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label
+                htmlFor="reservationDate"
+                className="block text-gray-700 text-sm font-bold mb-2"
+              >
+                預訂日期
+              </label>
+              <input
+                type="date"
+                id="reservationDate"
+                value={reservationDate}
+                onChange={(e) => setReservationDate(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="reservationTime"
+                className="block text-gray-700 text-sm font-bold mb-2"
+              >
+                預訂時間
+              </label>
+              <input
+                type="time"
+                id="reservationTime"
+                value={reservationTime}
+                onChange={(e) => setReservationTime(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="partySize"
+                className="block text-gray-700 text-sm font-bold mb-2"
+              >
+                用餐人數
+              </label>
+              <input
+                type="number"
+                id="partySize"
+                placeholder="人數"
+                min="1"
+                value={partySize}
+                onChange={(e) => setPartySize(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* 其他原有篩選器... */}
           {/* 菜系篩選 */}
           <div>
             <label
@@ -130,8 +262,8 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
             <select
               id="cuisineType"
               className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={selectedCuisineType} // 使用新的狀態變數
-              onChange={(e) => setSelectedCuisineType(e.target.value)} // 使用新的狀態變數的設置函數
+              value={selectedCuisineType}
+              onChange={(e) => setSelectedCuisineType(e.target.value)}
             >
               {cuisineOptions.map((option) => (
                 <option
@@ -144,7 +276,7 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
             </select>
           </div>
 
-          {/* 人均消費篩選 */}
+          {/* 人均消費篩選 (簡化版) */}
           <div>
             <label
               htmlFor="priceRange"
@@ -217,8 +349,8 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
             <select
               id="province"
               className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={selectedProvince} // 使用新的狀態變數
-              onChange={(e) => setSelectedProvince(e.target.value)} // 使用新的狀態變數的設置函數
+              value={selectedProvince}
+              onChange={(e) => setSelectedProvince(e.target.value)}
             >
               {provinceOptions.map((option) => (
                 <option
@@ -245,7 +377,7 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
                   <input
                     type="checkbox"
                     value={option}
-                    checked={selectedFacilitiesServices.includes(option)} // 使用新的狀態變數
+                    checked={selectedFacilitiesServices.includes(option)}
                     onChange={handleFacilitiesChange}
                     className="form-checkbox h-4 w-4 text-blue-600 rounded"
                   />
@@ -256,7 +388,6 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
           </div>
         </div>
 
-        {/* 按鈕組 */}
         <div className="flex justify-between mt-6 space-x-4">
           <button
             onClick={handleReset}

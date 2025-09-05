@@ -1,4 +1,3 @@
-// src/components/RestaurantCard.js
 "use client";
 
 import React from "react";
@@ -12,9 +11,8 @@ import { faComment } from "@fortawesome/free-solid-svg-icons";
 
 /**
  * 輔助函數：根據營業時間和自定義狀態判斷餐廳營業狀態。
- * 這是一個簡化判斷，實際應用需要更精確的營業時間解析。
  * @param {object} restaurant - 餐廳資料物件。
- * @returns {string} 營業狀態字串 (營業中, 暫時休業, 休假中, 已結業)。
+ * @returns {string} 營業狀態字串 (營業中, 暫時休業, 休假中, 已結業, 休息中)。
  */
 const getOperatingStatus = (restaurant) => {
   if (restaurant.isPermanentlyClosed) {
@@ -22,6 +20,12 @@ const getOperatingStatus = (restaurant) => {
   }
   if (restaurant.isTemporarilyClosed) {
     return "暫時休業";
+  }
+
+  // 檢查 businessHours 是否為有效的陣列
+  const businessHours = restaurant.businessHours;
+  if (!Array.isArray(businessHours) || businessHours.length === 0) {
+    return "未知狀態";
   }
 
   const today = new Date();
@@ -37,15 +41,35 @@ const getOperatingStatus = (restaurant) => {
   ];
   const currentDayName = dayNames[dayOfWeek];
 
-  if (restaurant.businessHours) {
-    if (
-      restaurant.businessHours.includes(currentDayName) ||
-      restaurant.businessHours.includes("每日")
-    ) {
+  const todayHours = businessHours.find((h) => h.day === currentDayName);
+
+  // 如果找不到今天的營業時間或今天不營業
+  if (!todayHours || !todayHours.isOpen) {
+    return "休假中";
+  }
+
+  // 判斷當前時間是否在營業時間內
+  const currentTime = today.getHours() * 60 + today.getMinutes();
+  const startTimeParts = todayHours.startTime.split(":");
+  const endTimeParts = todayHours.endTime.split(":");
+  const startTimeInMinutes =
+    parseInt(startTimeParts[0]) * 60 + parseInt(startTimeParts[1]);
+  const endTimeInMinutes =
+    parseInt(endTimeParts[0]) * 60 + parseInt(endTimeParts[1]);
+
+  // 處理跨夜營業的情況 (例如 22:00 - 02:00)
+  if (endTimeInMinutes < startTimeInMinutes) {
+    if (currentTime >= startTimeInMinutes || currentTime < endTimeInMinutes) {
+      return "營業中";
+    }
+  } else {
+    // 正常當日營業的情況
+    if (currentTime >= startTimeInMinutes && currentTime < endTimeInMinutes) {
       return "營業中";
     }
   }
-  return "休假中";
+
+  return "休息中";
 };
 
 /**
@@ -63,14 +87,20 @@ const RestaurantCard = ({
   isFavorited,
   onToggleFavorite,
 }) => {
-  const hasAnyImage =
-    restaurant.facadePhotoUrls && restaurant.facadePhotoUrls.length > 0;
+  // 檢查 facadePhotoUrls 是否為有效的陣列，並處理舊版單一圖片的情況
+  const facadePhotoUrls = Array.isArray(restaurant.facadePhotoUrls)
+    ? restaurant.facadePhotoUrls
+    : restaurant.facadePhotoUrl
+    ? [restaurant.facadePhotoUrl]
+    : [];
+
+  const hasAnyImage = facadePhotoUrls.length > 0;
 
   // 根據視圖模式調整圖片佔位符大小
-  const placeholderSize = isGridView ? "" : "400x200"; // 列表模式也固定為 400x200
+  const placeholderSize = isGridView ? "400x240" : "400x200";
 
   const displayImageUrl = hasAnyImage
-    ? restaurant.facadePhotoUrls[0]
+    ? facadePhotoUrls[0]
     : `https://placehold.co/${placeholderSize}/CCCCCC/333333?text=${encodeURIComponent(
         restaurant.restaurantNameZh || restaurant.restaurantNameEn || "餐廳圖片"
       )}`;
@@ -224,7 +254,8 @@ const RestaurantCard = ({
                     ? "text-green-600"
                     : operatingStatus === "暫時休業"
                     ? "text-orange-500"
-                    : operatingStatus === "休假中"
+                    : operatingStatus === "休假中" ||
+                      operatingStatus === "休息中"
                     ? "text-blue-500"
                     : "text-red-600"
                 }`}
@@ -245,7 +276,7 @@ const RestaurantCard = ({
         type="button" // 明確指定為按鈕類型
       >
         <FontAwesomeIcon
-          icon={isFavorited ? faSolidBookmark : faSolidBookmark}
+          icon={isFavorited ? faSolidBookmark : faRegularBookmark}
           className={`text-2xl ${
             isFavorited
               ? "text-yellow-500"

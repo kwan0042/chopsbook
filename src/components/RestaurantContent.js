@@ -1,18 +1,17 @@
+// src/components/RestaurantContent.js
 "use client";
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useContext } from "react";
 import { useSearchParams } from "next/navigation";
-import FilterSidebar from "./FilterSidebar";
+import FilterSidebar from "./filters/FilterSidebar";
 import RestaurantListPage from "./RestaurantListPage";
 import Navbar from "./Navbar";
 import Modal from "./Modal";
-import { useContext } from "react";
 import { AuthContext } from "../lib/auth-context";
 
 const RestaurantContent = () => {
   const { modalMessage, setModalMessage } = useContext(AuthContext);
   const searchParams = useSearchParams();
 
-  // 從 URL 參數中讀取初始搜尋關鍵字和篩選條件
   const initialSearchQuery = searchParams.get("search") || "";
   const initialFilters = searchParams.get("filters")
     ? JSON.parse(searchParams.get("filters"))
@@ -22,25 +21,50 @@ const RestaurantContent = () => {
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [isGridView, setIsGridView] = useState(false);
 
-  // 應用篩選器，這個函數會被 FilterSidebar 呼叫
   const handleApplyFilters = useCallback((filters) => {
     setAppliedFilters(filters);
-    setSearchQuery(""); // 應用篩選時清除搜尋關鍵字
+    setSearchQuery("");
   }, []);
 
-  // 重置篩選器
   const handleResetFilters = useCallback(() => {
     setAppliedFilters({});
     setSearchQuery("");
   }, []);
 
-  // 處理搜尋
-  const handleSearch = useCallback((query) => {
-    setSearchQuery(query);
-    setAppliedFilters({}); // 搜尋時清除篩選條件
+  // 修正後的 handleRemoveFilter 函數
+  const handleRemoveFilter = useCallback((key, valueToRemove) => {
+    setAppliedFilters((prevFilters) => {
+      const newFilters = { ...prevFilters };
+
+      if (Array.isArray(newFilters[key])) {
+        // 多選（例如菜系），從陣列中移除該值
+        newFilters[key] = newFilters[key].filter(
+          (item) => item !== valueToRemove
+        );
+        if (newFilters[key].length === 0) {
+          delete newFilters[key];
+        }
+      } else if (key.includes("AvgSpending")) {
+        // 處理人均消費範圍篩選
+        delete newFilters.minAvgSpending;
+        delete newFilters.maxAvgSpending;
+      } else if (key.includes("SeatingCapacity")) {
+        // 處理座位數範圍篩選
+        delete newFilters.minSeatingCapacity;
+        delete newFilters.maxSeatingCapacity;
+      } else {
+        // 處理單選和數值型篩選（包含 minRating）
+        delete newFilters[key];
+      }
+      return newFilters;
+    });
   }, []);
 
-  // 切換視圖模式
+  const handleSearch = useCallback((query) => {
+    setSearchQuery(query);
+    setAppliedFilters({});
+  }, []);
+
   const toggleView = useCallback(() => {
     setIsGridView((prev) => !prev);
   }, []);
@@ -54,20 +78,22 @@ const RestaurantContent = () => {
         onShowAdminPage={() => {}}
         onSearch={handleSearch}
       />
-      <main className="flex-grow bg-white">
-        <div className="max-w-screen-xl mx-auto pb-8 px-4 sm:px-6 lg:px-8 flex mt-8 gap-x-8">
-          {/* 左側篩選側邊欄 */}
-          <FilterSidebar
-            initialFilters={appliedFilters}
-            onApplyFilters={handleApplyFilters}
-            onResetFilters={handleResetFilters}
-          />
-
-          {/* 右側主要內容區域：餐廳列表 */}
-          <div className="flex-grow">
+      <main className="flex-grow pt-[140px]">
+        <div className="max-w-screen-xl mx-auto flex gap-x-8">
+          <div className="w-1/4 flex-shrink-0 relative">
+            <div className="sticky top-[140px] h-[calc(90vh-140px)]">
+              <FilterSidebar
+                initialFilters={appliedFilters}
+                onApplyFilters={handleApplyFilters}
+                onResetFilters={handleResetFilters}
+              />
+            </div>
+          </div>
+          <div className="flex-grow pb-8 px-4 sm:px-6 lg:px-8">
             <RestaurantListPage
               filters={appliedFilters}
               onClearFilters={handleResetFilters}
+              onRemoveFilter={handleRemoveFilter}
               searchQuery={searchQuery}
               isGridView={isGridView}
               toggleView={toggleView}

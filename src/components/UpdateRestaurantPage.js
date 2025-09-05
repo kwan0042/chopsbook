@@ -32,6 +32,17 @@ const ArrowLeftIcon = ({ className = "" }) => (
   </svg>
 );
 
+// 營業時間 UI 相關的輔助資料 (確保這裡也能使用)
+const DAYS_OF_WEEK = [
+  "星期日",
+  "星期一",
+  "星期二",
+  "星期三",
+  "星期四",
+  "星期五",
+  "星期六",
+];
+
 const UpdateRestaurantPage = ({ onBackToHome }) => {
   const { db, currentUser, appId } = useContext(AuthContext);
   const router = useRouter();
@@ -135,7 +146,35 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
-        const restaurantWithId = { id: restaurantId, ...data };
+
+        // **重要變動：資料正規化**
+        // 確保 facadePhotoUrls 是陣列
+        const facadePhotoUrls = Array.isArray(data.facadePhotoUrls)
+          ? data.facadePhotoUrls
+          : data.facadePhotoUrl
+          ? [data.facadePhotoUrl]
+          : [];
+
+        // 確保 businessHours 是包含所有日期的陣列
+        const businessHours = DAYS_OF_WEEK.map((day) => {
+          const existingHour = Array.isArray(data.businessHours)
+            ? data.businessHours.find((bh) => bh.day === day)
+            : null;
+
+          return {
+            day: day,
+            isOpen: existingHour?.isOpen ?? false,
+            startTime: existingHour?.startTime ?? "10:00",
+            endTime: existingHour?.endTime ?? "20:00",
+          };
+        });
+
+        const restaurantWithId = {
+          id: restaurantId,
+          ...data,
+          facadePhotoUrls,
+          businessHours,
+        };
         setSelectedRestaurantData(restaurantWithId);
         setFormData(restaurantWithId);
       } else {

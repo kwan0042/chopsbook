@@ -100,7 +100,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
                   <FontAwesomeIcon icon={faUser} className="h-5 w-5" />
                 </button>
                 <span className="text-gray-200 text-sm hidden sm:block">
-                  {currentUser.email ? currentUser.email.split("@")[0] : "用戶"}
+                  {currentUser.username }
                 </span>
                 <button
                   onClick={handleLogout}
@@ -195,7 +195,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
             onClick={() => {
               router.push("/personal/reviews");
             }}
-            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-1 m-0 text-sm"
+            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-3 m-0 text-sm"
           >
             寫食評
           </button>
@@ -203,7 +203,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
             onClick={() => {
               router.push("/merchant");
             }}
-            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-1 m-0 text-sm"
+            className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-3 m-0 text-sm"
           >
             餐廳管理專區
           </button>
@@ -212,7 +212,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
             onClick={() => {
               router.push("/admin");
             }}
-              className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-1 m-0 text-sm"
+              className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-3 m-0 text-sm"
             >
               管理員頁面
             </button>

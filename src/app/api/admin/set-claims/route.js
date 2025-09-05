@@ -1,7 +1,7 @@
 // src/app/api/admin/set-claims/route.js
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
-import { auth, app } from "../../../../lib/firebase-admin"; // 請確保此路徑正確，或使用 @/lib/firebase-admin
+import { auth, app } from "../../../../lib/firebase-admin";
 
 export async function POST(req) {
   if (req.method !== "POST") {
@@ -26,8 +26,11 @@ export async function POST(req) {
 
   try {
     const decodedToken = await auth.verifyIdToken(idToken);
-    // 檢查呼叫者是否為超級管理員
-    if (!decodedToken.isSuperAdmin) {
+    const callerIsSuperAdmin = decodedToken.isSuperAdmin === true;
+    const callerIsAdmin = decodedToken.isAdmin === true;
+
+    // 檢查呼叫者是否具備管理員權限
+    if (!callerIsAdmin && !callerIsSuperAdmin) {
       return new Response(
         JSON.stringify({ message: "Forbidden: Insufficient permissions" }),
         {
@@ -42,6 +45,37 @@ export async function POST(req) {
         JSON.stringify({ message: "Missing target user UID or claims" }),
         {
           status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // 修正點：獲取目標用戶的當前 claims
+    const targetUser = await auth.getUser(targetUserUid);
+    const targetIsSuperAdmin = targetUser.customClaims?.isSuperAdmin === true;
+
+    // 新增：如果目標用戶是超級管理員，只有超級管理員能修改他的權限
+    if (targetIsSuperAdmin && !callerIsSuperAdmin) {
+      return new Response(
+        JSON.stringify({
+          message:
+            "Forbidden: Only a super admin can manage another super admin's claims.",
+        }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // 新增：防止普通管理員試圖給任何人設定超級管理員權限
+    if (!callerIsSuperAdmin && newClaims.isSuperAdmin) {
+      return new Response(
+        JSON.stringify({
+          message: "Forbidden: Only a super admin can create a super admin.",
+        }),
+        {
+          status: 403,
           headers: { "Content-Type": "application/json" },
         }
       );

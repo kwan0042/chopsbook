@@ -1,11 +1,11 @@
 // src/components/RestaurantListPage.js
 "use client";
 
-import React, { useState, useContext, useEffect, useCallback } from "react"; // Added useCallback
+import React, { useState, useContext, useEffect, useCallback } from "react";
 import { AuthContext } from "../lib/auth-context";
-import { collection, query, onSnapshot } from "firebase/firestore"; // Ensure all necessary Firestore functions are imported
+import { collection, query, onSnapshot } from "firebase/firestore";
 import LoadingSpinner from "./LoadingSpinner";
-import RestaurantCard from "./RestaurantCard"; // Import RestaurantCard
+import RestaurantCard from "./RestaurantCard";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faThLarge,
@@ -13,32 +13,17 @@ import {
   faTimesCircle,
 } from "@fortawesome/free-solid-svg-icons";
 
-/**
- * Helper function: Normalizes a string for case-insensitive and space-agnostic searching.
- * @param {string} str - The original string.
- * @returns {string} The normalized string.
- */
+// ... (其他 Helper functions 和 mock data 保持不變) ...
 const normalizeString = (str) => {
   if (typeof str !== "string") return "";
   return str.toLowerCase().replace(/\s/g, "");
 };
 
-/**
- * Helper function: Determines the operating status of a restaurant based on business hours and custom statuses.
- * This is a simplified determination; actual applications would require more precise business hour parsing.
- * @param {object} restaurant - The restaurant data object.
- * @returns {string} The operating status string (營業中, 暫時休業, 休假中, 已結業).
- */
 const getOperatingStatus = (restaurant) => {
-  if (restaurant.isPermanentlyClosed) {
-    return "已結業";
-  }
-  if (restaurant.isTemporarilyClosed) {
-    return "暫時休業";
-  }
-
+  if (restaurant.isPermanentlyClosed) return "已結業";
+  if (restaurant.isTemporarilyClosed) return "暫時休業";
   const today = new Date();
-  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  const dayOfWeek = today.getDay();
   const dayNames = [
     "星期日",
     "星期一",
@@ -49,50 +34,45 @@ const getOperatingStatus = (restaurant) => {
     "星期六",
   ];
   const currentDayName = dayNames[dayOfWeek];
-
-  if (restaurant.businessHours) {
-    // This performs a simple string inclusion check to see if today's day of the week is mentioned in the business hours string.
-    // A more precise determination would require parsing specific time slots.
-    if (
-      restaurant.businessHours.includes(currentDayName) ||
-      restaurant.businessHours.includes("每日")
-    ) {
-      return "營業中";
-    }
+  if (
+    restaurant.businessHours?.includes(currentDayName) ||
+    restaurant.businessHours?.includes("每日")
+  ) {
+    return "營業中";
   }
-  return "休假中"; // Default if no specific hours or not open today
+  return "休假中";
 };
 
-/**
- * RestaurantListPage: Displays a list of restaurants fetched from Firestore,
- * and can be filtered based on search keywords. Now includes list/grid view toggle functionality
- * and pagination.
- * @param {object} props - Component properties.
- * @param {object} props.filters - An object containing filter conditions (e.g., region, cuisineType, priceRange, specialConditions, minRating).
- * @param {function} props.onClearFilters - Callback to clear filters and return to the home page.
- * @param {string} props.searchQuery - The search keyword used to filter restaurants.
- * @param {boolean} props.isGridView - Controls whether to display as a grid view.
- * @param {function} props.toggleView - Callback function to toggle the view.
- */
+const isWithinTimeOfDay = (restaurant, timeOfDayFilter) => {
+  if (!timeOfDayFilter || !restaurant.businessHours) return true;
+  const now = new Date();
+  const currentHour = now.getHours();
+  if (timeOfDayFilter === "day") return currentHour >= 11 && currentHour < 17;
+  if (timeOfDayFilter === "night") return currentHour >= 17 && currentHour < 22;
+  return true;
+};
+
+const hasSufficientSeating = (restaurant, partySize) => {
+  if (!partySize) return true;
+  return (restaurant.seatingCapacity || 0) >= partySize;
+};
+
 const RestaurantListPage = ({
   filters = {},
   onClearFilters,
+  onRemoveFilter,
   searchQuery = "",
   isGridView,
   toggleView,
 }) => {
   const { db, currentUser, appId, toggleFavoriteRestaurant, setModalMessage } =
     useContext(AuthContext);
-  const [restaurants, setRestaurants] = useState([]); // All fetched and filtered restaurants
+  const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --- 開發模式設定 ---
   const IS_DEVELOPMENT_MODE = process.env.NODE_ENV === "development";
-  // 將此設定為 true 以啟用模擬數據，跳過 Firebase 連接
   const ENABLE_DEV_MOCK_DATA = false;
-  // --- 開發模式設定結束 ---
 
-  // --- Mock Restaurant Data ---
   const MOCK_RESTAURANTS = [
     {
       id: "mock-res-1",
@@ -176,7 +156,7 @@ const RestaurantListPage = ({
       paymentMethods: ["現金", "信用卡"],
       facilitiesServices: ["私人包廂"],
       isPermanentlyClosed: false,
-      isTemporarilyClosed: true, // 暫時休業
+      isTemporarilyClosed: true,
     },
     {
       id: "mock-res-5",
@@ -196,314 +176,145 @@ const RestaurantListPage = ({
       reservationModes: ["線上預訂"],
       paymentMethods: ["支付寶", "微信支付"],
       facilitiesServices: ["WIFI"],
-      isPermanentlyClosed: true, // 已結業
+      isPermanentlyClosed: true,
       isTemporarilyClosed: false,
     },
   ];
-  // --- End Mock Restaurant Data ---
 
-  // --- Pagination states ---
   const itemsPerPage = 9;
   const [currentPage, setCurrentPage] = useState(1);
-  // --- End Pagination states ---
 
-  // Effect 1: Fetches all restaurant data and applies filter and search logic
-  // This effect now combines data fetching and client-side filtering.
+  const applyClientSideFilters = useCallback(
+    (fetchedRestaurants) => {
+      let filtered = [...fetchedRestaurants];
+      if (filters.province && filters.province !== "所有省份") {
+        filtered = filtered.filter((r) =>
+          normalizeString(r.province || "").includes(
+            normalizeString(filters.province)
+          )
+        );
+      }
+      if (filters.city) {
+        filtered = filtered.filter((r) =>
+          normalizeString(r.city || "").includes(normalizeString(filters.city))
+        );
+      }
+      if (filters.category && filters.category.length > 0) {
+        filtered = filtered.filter((r) =>
+          filters.category.includes(r.cuisineType)
+        );
+      }
+      if (filters.minAvgSpending !== undefined) {
+        filtered = filtered.filter(
+          (r) => (r.avgSpending || 0) >= filters.minAvgSpending
+        );
+      }
+      if (filters.maxAvgSpending !== undefined) {
+        filtered = filtered.filter(
+          (r) => (r.avgSpending || 0) <= filters.maxAvgSpending
+        );
+      }
+      if (filters.minRating > 0) {
+        filtered = filtered.filter((r) => (r.rating || 0) >= filters.minRating);
+      }
+      if (
+        filters.minSeatingCapacity !== undefined &&
+        filters.maxSeatingCapacity !== undefined
+      ) {
+        filtered = filtered.filter(
+          (r) =>
+            (r.seatingCapacity || 0) >= filters.minSeatingCapacity &&
+            (r.seatingCapacity || 0) <= filters.maxSeatingCapacity
+        );
+      }
+      if (filters.businessHours) {
+        filtered = filtered.filter(
+          (r) => getOperatingStatus(r) === filters.businessHours
+        );
+      }
+      if (filters.reservationModes && filters.reservationModes.length > 0) {
+        filtered = filtered.filter((r) =>
+          filters.reservationModes.some((mode) =>
+            r.reservationModes?.includes(mode)
+          )
+        );
+      }
+      if (filters.paymentMethods && filters.paymentMethods.length > 0) {
+        filtered = filtered.filter((r) =>
+          filters.paymentMethods.some((method) =>
+            r.paymentMethods?.includes(method)
+          )
+        );
+      }
+      if (filters.facilities && filters.facilities.length > 0) {
+        filtered = filtered.filter((r) =>
+          filters.facilities.every((facility) =>
+            r.facilitiesServices?.includes(facility)
+          )
+        );
+      }
+      if (filters.timeOfDay) {
+        filtered = filtered.filter((r) =>
+          isWithinTimeOfDay(r, filters.timeOfDay)
+        );
+      }
+      if (filters.partySize) {
+        filtered = filtered.filter((r) =>
+          hasSufficientSeating(r, filters.partySize)
+        );
+      }
+      if (searchQuery) {
+        const normalizedSearchQuery = normalizeString(searchQuery);
+        filtered = filtered.filter((r) => {
+          const nameZh = normalizeString(r.restaurantNameZh || "");
+          const nameEn = normalizeString(r.restaurantNameEn || "");
+          const cuisine = normalizeString(r.cuisineType || "");
+          const address = normalizeString(r.fullAddress || "");
+          return (
+            nameZh.includes(normalizedSearchQuery) ||
+            nameEn.includes(normalizedSearchQuery) ||
+            cuisine.includes(normalizedSearchQuery) ||
+            address.includes(normalizedSearchQuery)
+          );
+        });
+      }
+      return filtered;
+    },
+    [filters, searchQuery]
+  );
+
   useEffect(() => {
-    setLoading(true); // Set loading true at the start of fetch/filter cycle
-
-    // --- 開發模式模擬數據邏輯 ---
+    setLoading(true);
+    setCurrentPage(1);
     if (IS_DEVELOPMENT_MODE && ENABLE_DEV_MOCK_DATA) {
-      console.log(
-        "--- DEV MODE: Using mock restaurant data, bypassing Firestore ---"
-      );
-      // 使用 setTimeout 模擬網絡延遲
+      console.log("--- DEV MODE: Using mock data, bypassing Firestore ---");
       const timer = setTimeout(() => {
-        let filteredMockRestaurants = [...MOCK_RESTAURANTS];
-
-        // 應用所有的篩選和搜尋邏輯到模擬數據
-        // Province filter
-        if (filters.province && filters.province !== "所有省份") {
-          filteredMockRestaurants = filteredMockRestaurants.filter(
-            (restaurant) =>
-              normalizeString(restaurant.province || "").includes(
-                normalizeString(filters.province)
-              )
-          );
-        }
-        // City filter
-        if (filters.city) {
-          filteredMockRestaurants = filteredMockRestaurants.filter(
-            (restaurant) =>
-              normalizeString(restaurant.city || "").includes(
-                normalizeString(filters.city)
-              )
-          );
-        }
-        // Category (CuisineType) filter
-        if (filters.category && filters.category.length > 0) {
-          filteredMockRestaurants = filteredMockRestaurants.filter(
-            (restaurant) => filters.category.includes(restaurant.cuisineType)
-          );
-        }
-
-        // Min Average Spending
-        if (filters.minAvgSpending !== undefined) {
-          filteredMockRestaurants = filteredMockRestaurants.filter(
-            (restaurant) =>
-              (restaurant.avgSpending || 0) >= filters.minAvgSpending
-          );
-        }
-        // Max Average Spending
-        if (filters.maxAvgSpending !== undefined) {
-          filteredMockRestaurants = filteredMockRestaurants.filter(
-            (restaurant) =>
-              (restaurant.avgSpending || 0) <= filters.maxAvgSpending
-          );
-        }
-
-        // Min Seating Capacity
-        if (
-          filters.minSeatingCapacity !== undefined &&
-          filters.maxSeatingCapacity !== undefined
-        ) {
-          filteredMockRestaurants = filteredMockRestaurants.filter(
-            (restaurant) =>
-              (restaurant.seatingCapacity || 0) >= filters.minSeatingCapacity &&
-              (restaurant.seatingCapacity || 0) <= filters.maxSeatingCapacity
-          );
-        }
-
-        // Min Rating
-        if (filters.minRating && filters.minRating > 0) {
-          filteredMockRestaurants = filteredMockRestaurants.filter(
-            (restaurant) => (restaurant.rating || 0) >= filters.minRating
-          );
-        }
-
-        // Business Hours (Operating Status) filter
-        if (filters.businessHours) {
-          filteredMockRestaurants = filteredMockRestaurants.filter(
-            (restaurant) => {
-              const status = getOperatingStatus(restaurant);
-              // Translate the filter value if needed to match getOperatingStatus output
-              let filterStatus = filters.businessHours;
-              if (filterStatus === "營業中") filterStatus = "營業中";
-              else if (filterStatus === "休假中") filterStatus = "休假中";
-              else if (filterStatus === "暫時休業") filterStatus = "暫時休業";
-              else if (filterStatus === "已結業") filterStatus = "已結業";
-
-              return filterStatus === status;
-            }
-          );
-        }
-
-        // Reservation Modes filter (multi-select: must have at least one selected mode)
-        if (filters.reservationModes && filters.reservationModes.length > 0) {
-          filteredMockRestaurants = filteredMockRestaurants.filter(
-            (restaurant) =>
-              filters.reservationModes.some((mode) =>
-                restaurant.reservationModes?.includes(mode)
-              )
-          );
-        }
-
-        // Payment Methods filter (multi-select: must have at least one selected method)
-        if (filters.paymentMethods && filters.paymentMethods.length > 0) {
-          filteredMockRestaurants = filteredMockRestaurants.filter(
-            (restaurant) =>
-              filters.paymentMethods.some((method) =>
-                restaurant.paymentMethods?.includes(method)
-              )
-          );
-        }
-
-        // Facilities/Services filter (multi-select: must have ALL selected facilitiesServices)
-        if (filters.facilitiesServicesServices && filters.facilitiesServices.length > 0) {
-          filteredMockRestaurants = filteredMockRestaurants.filter(
-            (restaurant) =>
-              filters.facilitiesServices.every((facility) =>
-                restaurant.facilitiesServices?.includes(facility)
-              )
-          );
-        }
-
-        // Search Query filter (applies to multiple fields)
-        if (searchQuery) {
-          const normalizedSearchQuery = normalizeString(searchQuery);
-          filteredMockRestaurants = filteredMockRestaurants.filter(
-            (restaurant) => {
-              const nameZh = normalizeString(restaurant.restaurantNameZh || "");
-              const nameEn = normalizeString(restaurant.restaurantNameEn || "");
-              const cuisine = normalizeString(restaurant.cuisineType || "");
-              const address = normalizeString(restaurant.fullAddress || "");
-
-              return (
-                nameZh.includes(normalizedSearchQuery) ||
-                nameEn.includes(normalizedSearchQuery) ||
-                cuisine.includes(normalizedSearchQuery) ||
-                address.includes(normalizedSearchQuery)
-              );
-            }
-          );
-        }
-
+        const filteredMockRestaurants =
+          applyClientSideFilters(MOCK_RESTAURANTS);
         setRestaurants(filteredMockRestaurants);
         setLoading(false);
-        setCurrentPage(1); // Reset to first page when filters/search change
-      }, 500); // 模擬 500ms 的網絡延遲
-
-      return () => clearTimeout(timer); // 清理定時器
+      }, 500);
+      return () => clearTimeout(timer);
     }
-    // --- 開發模式模擬數據邏輯結束 ---
-
-    // --- 正常 Firebase 數據獲取邏輯 (當ENABLE_DEV_MOCK_DATA為false或非開發模式時執行) ---
-    if (!db) {
-      if (!appId || !db) {
-        console.warn(
-          "Firestore DB or App ID not available. Cannot fetch restaurants."
-        );
-        // setModalMessage("未能連接到數據庫。請檢查設定。"); // AuthContext 已經處理了 db 為 null 的情況，避免重複顯示
-        setLoading(false);
-      }
+    if (!db || !appId) {
+      console.warn("Firestore DB or App ID not available.");
+      setLoading(false);
       return;
     }
-
-    let q = collection(db, `artifacts/${appId}/public/data/restaurants`);
-
+    const collectionPath = `artifacts/${appId}/public/data/restaurants`;
+    const q = query(collection(db, collectionPath));
     const unsubscribe = onSnapshot(
       q,
-      async (snapshot) => {
-        let fetchedRestaurants = snapshot.docs.map((doc) => ({
+      (snapshot) => {
+        const fetchedRestaurants = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-          // Ensure reviewCount is present, default to 0 if not
           reviewCount: doc.data().reviewCount || 0,
-          // Ensure rating is present, default to 0 if not
           rating: doc.data().rating || 0,
         }));
-
-        // --- Client-side in-memory filtering logic (unchanged) ---
-        // Province filter
-        if (filters.province && filters.province !== "所有省份") {
-          fetchedRestaurants = fetchedRestaurants.filter((restaurant) =>
-            normalizeString(restaurant.province || "").includes(
-              normalizeString(filters.province)
-            )
-          );
-        }
-        // City filter
-        if (filters.city) {
-          fetchedRestaurants = fetchedRestaurants.filter((restaurant) =>
-            normalizeString(restaurant.city || "").includes(
-              normalizeString(filters.city)
-            )
-          );
-        }
-        // Category (CuisineType) filter
-        if (filters.category && filters.category.length > 0) {
-          fetchedRestaurants = fetchedRestaurants.filter((restaurant) =>
-            filters.category.includes(restaurant.cuisineType)
-          );
-        }
-
-        // Min Average Spending
-        if (filters.minAvgSpending !== undefined) {
-          fetchedRestaurants = fetchedRestaurants.filter(
-            (restaurant) =>
-              (restaurant.avgSpending || 0) >= filters.minAvgSpending
-          );
-        }
-        // Max Average Spending
-        if (filters.maxAvgSpending !== undefined) {
-          fetchedRestaurants = fetchedRestaurants.filter(
-            (restaurant) =>
-              (restaurant.avgSpending || 0) <= filters.maxAvgSpending
-          );
-        }
-
-        // Min Seating Capacity
-        if (
-          filters.minSeatingCapacity !== undefined &&
-          filters.maxSeatingCapacity !== undefined
-        ) {
-          fetchedRestaurants = fetchedRestaurants.filter(
-            (restaurant) =>
-              (restaurant.seatingCapacity || 0) >= filters.minSeatingCapacity &&
-              (restaurant.seatingCapacity || 0) <= filters.maxSeatingCapacity
-          );
-        }
-
-        // Min Rating
-        if (filters.minRating && filters.minRating > 0) {
-          fetchedRestaurants = fetchedRestaurants.filter(
-            (restaurant) => (restaurant.rating || 0) >= filters.minRating
-          );
-        }
-
-        // Business Hours (Operating Status) filter
-        if (filters.businessHours) {
-          fetchedRestaurants = fetchedRestaurants.filter((restaurant) => {
-            const status = getOperatingStatus(restaurant);
-            // Translate the filter value if needed to match getOperatingStatus output
-            let filterStatus = filters.businessHours;
-            if (filterStatus === "營業中") filterStatus = "營業中";
-            else if (filterStatus === "休假中") filterStatus = "休假中";
-            else if (filterStatus === "暫時休業") filterStatus = "暫時休業";
-            else if (filterStatus === "已結業") filterStatus = "已結業";
-
-            return filterStatus === status;
-          });
-        }
-
-        // Reservation Modes filter (multi-select: must have at least one selected mode)
-        if (filters.reservationModes && filters.reservationModes.length > 0) {
-          fetchedRestaurants = fetchedRestaurants.filter((restaurant) =>
-            filters.reservationModes.some((mode) =>
-              restaurant.reservationModes?.includes(mode)
-            )
-          );
-        }
-
-        // Payment Methods filter (multi-select: must have at least one selected method)
-        if (filters.paymentMethods && filters.paymentMethods.length > 0) {
-          fetchedRestaurants = fetchedRestaurants.filter((restaurant) =>
-            filters.paymentMethods.some((method) =>
-              restaurant.paymentMethods?.includes(method)
-            )
-          );
-        }
-
-        // Facilities/Services filter (multi-select: must have ALL selected facilitiesServices)
-        if (filters.facilitiesServices && filters.facilitiesServices.length > 0) {
-          fetchedRestaurants = fetchedRestaurants.filter((restaurant) =>
-            filters.facilitiesServices.every((facility) =>
-              restaurant.facilitiesServices?.includes(facility)
-            )
-          );
-        }
-
-        // Search Query filter (applies to multiple fields)
-        if (searchQuery) {
-          const normalizedSearchQuery = normalizeString(searchQuery);
-          fetchedRestaurants = fetchedRestaurants.filter((restaurant) => {
-            const nameZh = normalizeString(restaurant.restaurantNameZh || "");
-            const nameEn = normalizeString(restaurant.restaurantNameEn || "");
-            const cuisine = normalizeString(restaurant.cuisineType || "");
-            const address = normalizeString(restaurant.fullAddress || "");
-
-            return (
-              nameZh.includes(normalizedSearchQuery) ||
-              nameEn.includes(normalizedSearchQuery) ||
-              cuisine.includes(normalizedSearchQuery) ||
-              address.includes(normalizedSearchQuery)
-            );
-          });
-        }
-
-        setRestaurants(fetchedRestaurants);
+        const filteredRestaurants = applyClientSideFilters(fetchedRestaurants);
+        setRestaurants(filteredRestaurants);
         setLoading(false);
-        setCurrentPage(1); // Reset to first page when filters/search change
       },
       (error) => {
         console.error("Failed to fetch restaurant data:", error);
@@ -511,66 +322,218 @@ const RestaurantListPage = ({
         setLoading(false);
       }
     );
-
     return () => unsubscribe();
   }, [
     db,
     appId,
-    JSON.stringify(filters),
-    searchQuery,
     setModalMessage,
     IS_DEVELOPMENT_MODE,
     ENABLE_DEV_MOCK_DATA,
-  ]); // 添加新的依賴項
+    applyClientSideFilters,
+  ]);
 
-  /**
-   * Handles the logic for favoriting/unfavoriting a restaurant.
-   * Now directly calls the toggleFavoriteRestaurant function provided by AuthContext.
-   * @param {string} restaurantId - The ID of the restaurant to favorite or unfavorite.
-   */
   const handleToggleFavorite = async (restaurantId) => {
-    // 在模擬模式下，可以選擇性地模擬收藏行為，或者簡單地不執行任何操作。
-    // 這裡我們選擇在模擬模式下直接返回，不嘗試連接 Firebase。
     if (IS_DEVELOPMENT_MODE && ENABLE_DEV_MOCK_DATA) {
       console.log(
-        `--- DEV MODE: Mocking toggle favorite for ${restaurantId} (no Firebase interaction) ---`
+        `--- DEV MODE: Mocking toggle favorite for ${restaurantId} ---`
       );
-      // 可選：在這裡添加模擬的狀態更新邏輯，以在 UI 上反映收藏狀態
-      // 例如：
-      // setCurrentUser(prevUser => {
-      //     const isCurrentlyFavorited = prevUser?.favoriteRestaurants?.includes(restaurantId);
-      //     if (isCurrentlyFavorited) {
-      //         return { ...prevUser, favoriteRestaurants: prevUser.favoriteRestaurants.filter(id => id !== restaurantId) };
-      //     } else {
-      //         return { ...prevUser, favoriteRestaurants: [...(prevUser?.favoriteRestaurants || []), restaurantId] };
-      //     }
-      // });
       return;
     }
-
     try {
       await toggleFavoriteRestaurant(restaurantId);
     } catch (error) {
-      // Error message is already handled by AuthContext's setModalMessage
-      console.error("Failed to toggle favorite:", error); // Log error for debugging
+      console.error("Failed to toggle favorite:", error);
     }
   };
 
-  // Check if any filters or search query are active for the "Clear All" button
   const hasFiltersOrSearch =
     Object.values(filters).some(
       (value) =>
         (Array.isArray(value) && value.length > 0) ||
-        (!Array.isArray(value) &&
-          value &&
-          value !== "0" && // For number inputs, 0 might be a valid filter
-          value !== "所有省份" && // Specific default for province
+        (typeof value === "object" &&
+          value !== null &&
+          Object.keys(value).length > 0) ||
+        (typeof value === "string" &&
           value !== "" &&
-          value !== null && // Handle null values
-          value !== undefined) // Handle undefined values
+          value !== "0" &&
+          value !== "所有省份") ||
+        (typeof value === "number" && value > 0)
     ) || searchQuery.length > 0;
 
-  // --- Pagination Logic ---
+  // 輔助函數：將篩選器鍵名轉換為中文標籤
+  const getFilterLabel = (key) => {
+    const labels = {
+      province: "省份",
+      city: "城市",
+      category: "菜系",
+      minAvgSpending: "人均消費",
+      maxAvgSpending: "人均消費",
+      minRating: "最低評分",
+      minSeatingCapacity: "座位數",
+      maxSeatingCapacity: "座位數",
+      businessHours: "營業狀態",
+      reservationModes: "訂座模式",
+      paymentMethods: "付款方式",
+      facilities: "設施",
+      timeOfDay: "時段",
+      partySize: "用餐人數",
+    };
+    return labels[key] || key;
+  };
+
+  // 輔助函數：獲取篩選器值的顯示文本
+  const getFilterValueText = (key, value) => {
+    if (key === "minRating") {
+      return `${value} 星以上`;
+    }
+    if (key === "businessHours") {
+      return `${value}`;
+    }
+    if (key === "timeOfDay") {
+      return value === "day" ? "日間" : "晚間";
+    }
+    if (key === "partySize") {
+      return `${value} 人`;
+    }
+    // 處理座位數範圍顯示
+    if (key === "minSeatingCapacity" && filters.maxSeatingCapacity) {
+      if (filters.maxSeatingCapacity === 9999) {
+        return `${value}+ 人`;
+      }
+      return `${value}-${filters.maxSeatingCapacity} 人`;
+    }
+    return value;
+  };
+
+  // 修正後的篩選標籤列表
+  const renderFilterTags = () => {
+    const tags = [];
+    const processedKeys = new Set();
+
+    // 處理搜尋關鍵字
+    if (searchQuery) {
+      tags.push(
+        <span
+          key="search-query"
+          className="flex items-center bg-gray-300 text-gray-800 px-3 py-1 rounded-full whitespace-nowrap"
+        >
+          搜尋: &quot{searchQuery}&quot
+          <button
+            onClick={onClearFilters}
+            className="ml-2 text-gray-600 hover:text-gray-900"
+          >
+            <FontAwesomeIcon icon={faTimesCircle} />
+          </button>
+        </span>
+      );
+    }
+
+    // 迭代處理篩選器
+    for (const [key, value] of Object.entries(filters)) {
+      if (processedKeys.has(key)) continue;
+
+      // 處理人均價錢範圍
+      if (key === "minAvgSpending" || key === "maxAvgSpending") {
+        const min = filters.minAvgSpending;
+        const max = filters.maxAvgSpending;
+        let text = "";
+        if (min && max) {
+          text = `$${min} - $${max}`;
+        } else if (min) {
+          text = `最低 $${min}`;
+        } else if (max) {
+          text = `最高 $${max}`;
+        }
+        if (text) {
+          tags.push(
+            <span
+              key="avg-spending"
+              className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full whitespace-nowrap"
+            >
+              人均消費: {text}
+              <button
+                onClick={() => onRemoveFilter("minAvgSpending")}
+                className="ml-2 text-blue-600 hover:text-blue-900"
+              >
+                <FontAwesomeIcon icon={faTimesCircle} />
+              </button>
+            </span>
+          );
+        }
+        processedKeys.add("minAvgSpending");
+        processedKeys.add("maxAvgSpending");
+      }
+      // 處理座位數範圍
+      else if (key === "minSeatingCapacity" || key === "maxSeatingCapacity") {
+        const min = filters.minSeatingCapacity;
+        const max = filters.maxSeatingCapacity;
+        let text = "";
+        if (min && max) {
+          text = max === 9999 ? `${min}+ 人` : `${min}-${max} 人`;
+        } else if (min) {
+          text = `${min}+ 人`;
+        } else if (max) {
+          text = `最多 ${max} 人`;
+        }
+        if (text) {
+          tags.push(
+            <span
+              key="seating-capacity"
+              className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full whitespace-nowrap"
+            >
+              座位數: {text}
+              <button
+                onClick={() => onRemoveFilter("minSeatingCapacity")}
+                className="ml-2 text-blue-600 hover:text-blue-900"
+              >
+                <FontAwesomeIcon icon={faTimesCircle} />
+              </button>
+            </span>
+          );
+        }
+        processedKeys.add("minSeatingCapacity");
+        processedKeys.add("maxSeatingCapacity");
+      }
+      // 處理多選
+      else if (Array.isArray(value) && value.length > 0) {
+        value.forEach((val) => {
+          tags.push(
+            <span
+              key={`${key}-${val}`}
+              className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full whitespace-nowrap"
+            >
+              {`${getFilterLabel(key)}: ${val}`}
+              <button
+                onClick={() => onRemoveFilter(key, val)}
+                className="ml-2 text-blue-600 hover:text-blue-900"
+              >
+                <FontAwesomeIcon icon={faTimesCircle} />
+              </button>
+            </span>
+          );
+        });
+      }
+      // 處理單選（包括最低評分）
+      else if (value && typeof value !== "object") {
+        tags.push(
+          <span
+            key={key}
+            className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full whitespace-nowrap"
+          >
+            {`${getFilterLabel(key)}: ${getFilterValueText(key, value)}`}
+            <button
+              onClick={() => onRemoveFilter(key)}
+              className="ml-2 text-blue-600 hover:text-blue-900"
+            >
+              <FontAwesomeIcon icon={faTimesCircle} />
+            </button>
+          </span>
+        );
+      }
+    }
+    return tags;
+  };
+
   const totalPages = Math.ceil(restaurants.length / itemsPerPage);
   const indexOfLastRestaurant = currentPage * itemsPerPage;
   const indexOfFirstRestaurant = indexOfLastRestaurant - itemsPerPage;
@@ -586,18 +549,15 @@ const RestaurantListPage = ({
   const handlePrevPage = useCallback(() => {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
   }, []);
-  // --- End Pagination Logic ---
 
   return (
-    <div className="py-6 flex-1">
+    <div className="flex-grow">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-gray-800">
           {hasFiltersOrSearch ? "搜尋/篩選結果" : "所有餐廳"}
-          {restaurants.length > 0 && ` (${restaurants.length} 間)`}{" "}
-          {/* Display count */}
+          {restaurants.length > 0 && ` (${restaurants.length} 間)`}
         </h2>
         <div className="flex items-center space-x-4">
-          {/* Clear Filter/Search button, only shown if filters or search are active */}
           {hasFiltersOrSearch && onClearFilters && (
             <button
               onClick={onClearFilters}
@@ -607,7 +567,6 @@ const RestaurantListPage = ({
               清除所有篩選/搜尋
             </button>
           )}
-          {/* Toggle View button, always shown */}
           {toggleView && (
             <button
               onClick={toggleView}
@@ -621,6 +580,10 @@ const RestaurantListPage = ({
             </button>
           )}
         </div>
+      </div>
+      {/* 呼叫 renderFilterTags 函數來顯示標籤 */}
+      <div className="flex flex-wrap items-center gap-2 mb-6 text-sm">
+        {renderFilterTags()}
       </div>
 
       {loading ? (
@@ -636,7 +599,7 @@ const RestaurantListPage = ({
           <div
             className={
               isGridView
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6" // 修改為 xl:grid-cols-3
+                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6"
                 : "flex flex-col space-y-4"
             }
           >
@@ -648,13 +611,11 @@ const RestaurantListPage = ({
                 isFavorited={
                   currentUser?.favoriteRestaurants?.includes(restaurant.id) ||
                   false
-                } // Get favorite status from currentUser
-                onToggleFavorite={handleToggleFavorite} // Pass favorite toggle function
+                }
+                onToggleFavorite={handleToggleFavorite}
               />
             ))}
           </div>
-
-          {/* Pagination Controls */}
           {totalPages > 1 && (
             <div className="flex justify-center items-center space-x-4 mt-8">
               <button

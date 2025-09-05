@@ -91,14 +91,27 @@ const RestaurantForm = ({
     }
   };
 
-  // 處理營業時間的變動
-  const handleBusinessHoursChange = (day, field, value) => {
-    const newBusinessHours = {
-      ...formData.businessHours,
-      [day]: {
-        ...formData.businessHours[day],
-        [field]: value,
-      },
+  // 處理營業時間的變動（已修改為基於陣列索引）
+  const handleBusinessHoursChange = (index, field, value) => {
+    // 檢查 formData.businessHours 是否為陣列，如果不是則創建一個新陣列
+    const currentBusinessHours = Array.isArray(formData.businessHours)
+      ? [...formData.businessHours]
+      : [];
+
+    // 如果陣列的長度不足，則補齊
+    while (currentBusinessHours.length <= index) {
+      currentBusinessHours.push({
+        day: DAYS_OF_WEEK[currentBusinessHours.length],
+        isOpen: false,
+        startTime: "",
+        endTime: "",
+      });
+    }
+
+    const newBusinessHours = [...currentBusinessHours];
+    newBusinessHours[index] = {
+      ...newBusinessHours[index],
+      [field]: value,
     };
 
     handleChange({
@@ -551,14 +564,14 @@ const RestaurantForm = ({
             )}
           </label>
           <div className="space-y-2">
-            {DAYS_OF_WEEK.map((day) => (
+            {DAYS_OF_WEEK.map((day, index) => (
               <div key={day} className="flex items-center space-x-2 h-8">
                 <input
                   type="checkbox"
                   id={`day-${day}`}
-                  checked={formData.businessHours?.[day]?.isOpen || false}
+                  checked={formData.businessHours?.[index]?.isOpen || false}
                   onChange={(e) =>
-                    handleBusinessHoursChange(day, "isOpen", e.target.checked)
+                    handleBusinessHoursChange(index, "isOpen", e.target.checked)
                   }
                   className="form-checkbox h-5 w-5 text-blue-600 rounded"
                   disabled={isBusinessHoursLocked}
@@ -569,14 +582,14 @@ const RestaurantForm = ({
                 >
                   {day}
                 </label>
-                {formData.businessHours?.[day]?.isOpen ? (
+                {formData.businessHours?.[index]?.isOpen ? (
                   <>
                     <span className="text-gray-700">由</span>
                     <select
-                      value={formData.businessHours?.[day]?.startTime || ""}
+                      value={formData.businessHours?.[index]?.startTime || ""}
                       onChange={(e) =>
                         handleBusinessHoursChange(
-                          day,
+                          index,
                           "startTime",
                           e.target.value
                         )
@@ -596,10 +609,10 @@ const RestaurantForm = ({
                     </select>
                     <span className="text-gray-700">到</span>
                     <select
-                      value={formData.businessHours?.[day]?.endTime || ""}
+                      value={formData.businessHours?.[index]?.endTime || ""}
                       onChange={(e) =>
                         handleBusinessHoursChange(
-                          day,
+                          index,
                           "endTime",
                           e.target.value
                         )

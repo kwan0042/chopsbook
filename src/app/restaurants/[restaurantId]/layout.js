@@ -45,6 +45,19 @@ const getOperatingStatus = (restaurant) => {
   ];
   const currentDayName = dayNames[dayOfWeek];
 
+  // 檢查 businessHours 是否為陣列
+  if (Array.isArray(restaurant.businessHours)) {
+    const todayHours = restaurant.businessHours.find(
+      (h) => h.day === currentDayName
+    );
+    if (todayHours?.isOpen) {
+      // 這裡可以進一步判斷當前時間是否在營業時間內，但目前先簡化處理
+      return "營業中";
+    }
+    return "休假中";
+  }
+
+  // 保留舊版邏輯以防萬一
   if (restaurant.businessHours) {
     if (
       restaurant.businessHours.includes(currentDayName) ||
@@ -53,7 +66,8 @@ const getOperatingStatus = (restaurant) => {
       return "營業中";
     }
   }
-  return "休假中";
+
+  return "未知狀態";
 };
 
 // Layout 元件
@@ -86,7 +100,29 @@ export default function RestaurantDetailLayout({ children }) {
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
-          setRestaurant({ id: docSnap.id, ...docSnap.data() });
+          const fetchedData = docSnap.data();
+          // **關鍵修改：資料正規化**
+          // 確保 businessHours 始終是陣列
+          const normalizedBusinessHours = Array.isArray(
+            fetchedData.businessHours
+          )
+            ? fetchedData.businessHours
+            : [];
+          // 確保 facadePhotoUrls 始終是陣列
+          const normalizedFacadePhotoUrls = Array.isArray(
+            fetchedData.facadePhotoUrls
+          )
+            ? fetchedData.facadePhotoUrls
+            : fetchedData.facadePhotoUrl // 處理舊版單一字串
+            ? [fetchedData.facadePhotoUrl]
+            : [];
+
+          setRestaurant({
+            id: docSnap.id,
+            ...fetchedData,
+            businessHours: normalizedBusinessHours,
+            facadePhotoUrls: normalizedFacadePhotoUrls,
+          });
         } else {
           setError("找不到該餐廳的詳細資訊。");
         }
@@ -131,6 +167,27 @@ export default function RestaurantDetailLayout({ children }) {
       </span>
     </div>
   );
+
+  // 輔助函數：將 businessHours 陣列格式化成可讀字串
+  const formatBusinessHours = (hoursArray) => {
+    if (!Array.isArray(hoursArray) || hoursArray.length === 0) {
+      return "N/A";
+    }
+
+    const formattedHours = hoursArray
+      .filter((h) => h.isOpen) // 只顯示營業的日子
+      .map((h) => `${h.day}: ${h.startTime} - ${h.endTime}`);
+
+    return formattedHours.length > 0 ? (
+      <>
+        {formattedHours.map((line, index) => (
+          <div key={index}>{line}</div>
+        ))}
+      </>
+    ) : (
+      "本日休息"
+    );
+  };
 
   if (loading) {
     return (
@@ -329,13 +386,17 @@ export default function RestaurantDetailLayout({ children }) {
                           />
                           電話: {restaurant.phone || "N/A"}
                         </p>
-                        <p>
+                        {/* **關鍵修改：使用 formatBusinessHours 函數渲染** */}
+                        <div className="flex items-start">
                           <FontAwesomeIcon
                             icon={faClock}
-                            className="mr-2 text-gray-500"
+                            className="mr-2 text-gray-500 mt-1"
                           />
-                          營業時間: {restaurant.businessHours || "N/A"}
-                        </p>
+                          <div className="flex-1">
+                            <span className="font-bold">營業時間:</span>
+                            {formatBusinessHours(restaurant.businessHours)}
+                          </div>
+                        </div>
                         <p>
                           <FontAwesomeIcon
                             icon={faGlobe}

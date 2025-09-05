@@ -25,6 +25,17 @@ const ArrowLeftIcon = ({ className = "" }) => (
   </svg>
 );
 
+// 營業時間 UI 相關的輔助資料 (從 RestaurantForm 複製過來，確保這裡也能使用)
+const DAYS_OF_WEEK = [
+  "星期日",
+  "星期一",
+  "星期二",
+  "星期三",
+  "星期四",
+  "星期五",
+  "星期六",
+];
+
 /**
  * AddRestaurantPage: 用於新增餐廳的表單頁面。
  *
@@ -35,7 +46,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
   const { db, currentUser, appId } = useContext(AuthContext);
   const router = useRouter();
 
-  // 初始表單數據
+  // 初始表單數據 - 已修改為陣列結構
   const initialFormData = {
     restaurantNameZh: "",
     restaurantNameEn: "",
@@ -47,9 +58,15 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     cuisineType: "",
     restaurantType: "",
     avgSpending: "",
-    facadePhotoUrl: "",
+    facadePhotoUrls: [], // 確保這裡使用陣列，因為 RestaurantForm 期望如此
     seatingCapacity: "",
-    businessHours: "",
+    businessHours: DAYS_OF_WEEK.map((day) => ({
+      // 關鍵變動：初始化為陣列
+      day,
+      isOpen: false,
+      startTime: "10:00",
+      endTime: "20:00",
+    })),
     reservationModes: [],
     paymentMethods: [],
     facilitiesServices: [],
@@ -76,10 +93,18 @@ const AddRestaurantPage = ({ onBackToHome }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    // 這裡處理 facadePhotoUrl 的特殊情況
+    if (name === "facadePhotoUrl") {
+      setFormData((prev) => ({
+        ...prev,
+        facadePhotoUrls: value ? [value] : [],
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: type === "checkbox" ? checked : value,
+      }));
+    }
   };
 
   const handleCheckboxChange = (e) => {

@@ -3,8 +3,7 @@
 
 import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../lib/auth-context";
-import { doc, collection, getDocs, getDoc, query } from "firebase/firestore";
-import { onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query } from "firebase/firestore";
 import LoadingSpinner from "../LoadingSpinner";
 import { useRouter } from "next/navigation";
 
@@ -51,14 +50,14 @@ const UserManagement = ({ setParentModalMessage }) => {
           return;
         }
 
-        // 直接從 querySnapshot.docs 獲取所有用戶資料，無需額外請求
         querySnapshot.forEach((userDoc) => {
           const userData = userDoc.data();
           fetchedUsersData.push({
             uid: userDoc.id,
-            ...userData, // 展開所有頂層文檔資料
+            ...userData,
             email: userData.email || `未知郵箱`,
             isAdmin: userData.isAdmin || false,
+            isSuperAdmin: userData.isSuperAdmin || false, // 確保從 Firestore 獲取此權限
             username:
               userData.username ||
               (userData.email ? userData.email.split("@")[0] : "N/A"),
@@ -83,32 +82,29 @@ const UserManagement = ({ setParentModalMessage }) => {
       }
     );
 
-    // 清理函數：組件卸載時取消訂閱
     return () => unsubscribe();
   }, [db, appId, setParentModalMessage]);
 
-  const handleUpdateAdminStatus = async (userId, newIsAdmin) => {
-    // 檢查 auth.currentUser 是否存在，這才是真正的 Firebase User 物件
+  const handleUpdateAdminStatus = async (user, newIsAdmin) => {
     if (!auth?.currentUser) {
       setParentModalMessage("您尚未登入。", "error");
       return;
     }
 
-    // 在本地檢查用戶權限，提供更好的用戶體驗
-    if (!currentUser?.isSuperAdmin) {
-      setParentModalMessage("您沒有權限執行此操作。", "error");
+    // 前端權限檢查：如果你不是超級管理員，不能修改超級管理員
+    if (user.isSuperAdmin && !currentUser?.isSuperAdmin) {
+      setParentModalMessage("您沒有權限修改超級管理員的權限。", "error");
       return;
     }
 
     // 確保不是試圖修改自己的權限
-    if (userId === currentUser.uid) {
+    if (user.uid === currentUser.uid) {
       setParentModalMessage("您不能修改自己的管理員權限。", "error");
       return;
     }
 
     setUpdatingUserStatus(true);
     try {
-      // 修正點：從 auth.currentUser 獲取 token
       const token = await auth.currentUser.getIdToken();
       const response = await fetch("/api/admin/set-claims", {
         method: "POST",
@@ -117,8 +113,9 @@ const UserManagement = ({ setParentModalMessage }) => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          targetUserUid: userId,
-          newClaims: { isAdmin: newIsAdmin, isSuperAdmin: false },
+          targetUserUid: user.uid,
+          // 修正點：保留目標用戶的 isSuperAdmin 權限
+          newClaims: { isAdmin: newIsAdmin, isSuperAdmin: user.isSuperAdmin },
         }),
       });
 
@@ -241,12 +238,11 @@ const UserManagement = ({ setParentModalMessage }) => {
                   <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                     {user.uid === currentUser?.uid ? (
                       <span className="text-gray-400">當前用戶</span>
-                    ) : currentUser?.isSuperAdmin ? (
+                    ) : // 修正點：如果當前用戶是超級管理員，或目標用戶不是超級管理員，則顯示按鈕
+                    currentUser?.isSuperAdmin || !user.isSuperAdmin ? (
                       <div className="flex flex-col items-center space-y-2">
                         <button
-                          onClick={() =>
-                            handleUpdateAdminStatus(user.uid, true)
-                          }
+                          onClick={() => handleUpdateAdminStatus(user, true)}
                           disabled={updatingUserStatus || user.isAdmin}
                           className={`w-28 px-3 py-1 text-xs rounded-md transition-colors duration-200 ${
                             user.isAdmin
@@ -257,9 +253,7 @@ const UserManagement = ({ setParentModalMessage }) => {
                           設為管理員
                         </button>
                         <button
-                          onClick={() =>
-                            handleUpdateAdminStatus(user.uid, false)
-                          }
+                          onClick={() => handleUpdateAdminStatus(user, false)}
                           disabled={updatingUserStatus || !user.isAdmin}
                           className={`w-28 px-3 py-1 text-xs rounded-md transition-colors duration-200 ${
                             !user.isAdmin
