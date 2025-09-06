@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useContext, useState, useCallback } from "react";
-import { AuthContext } from "../lib/auth-context";
+import { AuthContext } from "@/lib/auth-context";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser, faBookmark } from "@fortawesome/free-solid-svg-icons";
 import { useRouter, usePathname } from "next/navigation";
@@ -70,8 +70,6 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
     router.push("/restaurants");
   }, [router]);
 
-  
-
   return (
     <nav className="bg-gray-900 text-white sticky top-0 z-50 shadow-md">
       <div className="flex flex-col lg:flex-row items-center w-full p-3 px-4 sm:px-6 lg:px-8 lg:justify-between">
@@ -100,7 +98,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
                   <FontAwesomeIcon icon={faUser} className="h-5 w-5" />
                 </button>
                 <span className="text-gray-200 text-sm hidden sm:block">
-                  {currentUser.username }
+                  {currentUser.username}
                 </span>
                 <button
                   onClick={handleLogout}
@@ -209,9 +207,9 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
           </button>
           {isAdmin && (
             <button
-            onClick={() => {
-              router.push("/admin");
-            }}
+              onClick={() => {
+                router.push("/admin");
+              }}
               className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-3 m-0 text-sm"
             >
               管理員頁面

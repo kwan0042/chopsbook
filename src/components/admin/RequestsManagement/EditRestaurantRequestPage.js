@@ -1,4 +1,4 @@
-//v3-src/components/admin/EditRestaurantRequestPage.js
+//v3-src/components/admin/RequestsManagement/EditRestaurantRequestPage.js
 "use client";
 
 import React, { useState, useContext, useEffect, useRef } from "react";
@@ -321,11 +321,18 @@ const EditRestaurantRequestPage = ({ requestId }) => {
     return "bg-yellow-100";
   };
 
+  // 新增：對用戶提交的變更進行排序，確保渲染順序穩定
+  const sortedChanges = dataToDisplay
+    ? Object.entries(dataToDisplay).sort(([keyA], [keyB]) =>
+        keyA.localeCompare(keyB)
+      )
+    : [];
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
       <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-semibold text-gray-800">
+          <h2 className="text-lg font-semibold text-gray-800">
             審批餐廳更新請求
           </h2>
           <p className="text-sm text-gray-600 mt-1">
@@ -354,7 +361,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
 
       <div className="px-6 py-3">
         <div className=" bg-gray-100 p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-gray-700">
+          <h3 className="text-base font-semibold text-gray-700">
             餐廳 ID:{" "}
             <span className="text-gray-900 font-bold">{restaurantId}</span>
           </h3>
@@ -401,7 +408,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* 左側：現有餐廳資料（分區顯示） */}
           <div className="border border-gray-200 rounded-lg overflow-hidden h-full">
-            <h3 className="px-6 py-3 bg-gray-50 text-xl font-semibold text-gray-800 border-b border-gray-200">
+            <h3 className="px-6 py-3 bg-gray-50 text-lg font-semibold text-gray-800 border-b border-gray-200">
               現有餐廳資料
             </h3>
             <div className="p-4 space-y-6">
@@ -415,7 +422,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
 
                     return (
                       <div key={sectionKey} className="space-y-2">
-                        <h4 className="text-lg font-bold text-gray-700 border-b border-gray-200 pb-1">
+                        <h4 className="text-base font-bold text-gray-700 border-b border-gray-200 pb-1">
                           {sectionData.zh}
                         </h4>
                         {sectionFields.map((field) => (
@@ -450,7 +457,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
             className="border border-yellow-400 rounded-lg overflow-hidden h-full"
             ref={changesSectionRef}
           >
-            <div className="px-6 py-3 bg-yellow-50 text-xl font-semibold text-gray-800 border-b border-yellow-400 flex justify-between items-center">
+            <div className="px-6 py-3 bg-yellow-50 text-lg font-semibold text-gray-800 border-b border-yellow-400 flex justify-between items-center">
               <h3>用戶提交的變更</h3>
               {showIncompleteWarning && (
                 <span className="text-red-500 text-sm font-semibold">
@@ -473,13 +480,14 @@ const EditRestaurantRequestPage = ({ requestId }) => {
                   </span>
                 </span>
               </div>
-              {dataToDisplay && Object.keys(dataToDisplay).length > 0 ? (
-                Object.entries(dataToDisplay).map(([key, valueObject]) => (
+              {/* 修正：使用排序後的陣列進行 map */}
+              {sortedChanges.length > 0 ? (
+                sortedChanges.map(([key, valueObject]) => (
                   <div
                     key={key}
                     className={`p-4 bg-white rounded-lg shadow-sm transition-all duration-300 border border-gray-200`}
                   >
-                    <p className="font-bold text-gray-700 text-lg mb-2">
+                    <p className="font-bold text-gray-700 text-base mb-2">
                       {restaurantFields[key]?.zh || key}
                     </p>
                     <div className="grid grid-cols-2 gap-4 items-start">
@@ -556,6 +564,11 @@ const EditRestaurantRequestPage = ({ requestId }) => {
           <p className="text-center mt-4 text-gray-500">正在處理請求...</p>
         )}
       </div>
+      <Modal
+        message={modalMessage}
+        type={modalType}
+        onClose={() => setLocalModalMessage("")}
+      />
     </div>
   );
 };

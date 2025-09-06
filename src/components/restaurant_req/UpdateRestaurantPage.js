@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useContext, useEffect } from "react";
-import { AuthContext } from "../lib/auth-context";
+import { AuthContext } from "../../lib/auth-context";
 import {
   collection,
   query,
@@ -11,9 +11,9 @@ import {
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import Modal from "../components/Modal";
-import LoadingSpinner from "../components/LoadingSpinner";
-import RestaurantForm from "../components/RestaurantForm";
+import Modal from "../Modal";
+import LoadingSpinner from "../LoadingSpinner";
+import RestaurantForm from "./RestaurantForm";
 import { useRouter, useSearchParams } from "next/navigation";
 
 // 圖標：用於返回按鈕

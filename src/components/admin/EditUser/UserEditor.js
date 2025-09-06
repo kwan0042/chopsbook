@@ -4,7 +4,7 @@
 import React, { useContext, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthContext } from "../../../lib/auth-context";
-import UserDetailPage from "../../UserDetailPage";
+import UserDetailPage from "./UserDetailPage";
 import LoadingSpinner from "../../LoadingSpinner";
 
 export default function UserEditor() {

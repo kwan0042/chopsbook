@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useContext } from "react";
-import { AuthContext } from "../lib/auth-context"; // 確保路徑正確
+import { AuthContext } from "../../lib/auth-context"; // 確保路徑正確
 
 /**
  * ReviewModerationCheck: 用於檢查食評內容是否包含敏感字眼的組件。

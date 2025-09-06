@@ -1,3 +1,4 @@
+// src/app/login/page.js
 "use client";
 
 import React, { useContext, useState, useCallback, useEffect } from "react";
@@ -5,9 +6,12 @@ import { AuthContext } from "../../lib/auth-context";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getAuth, signOut } from "firebase/auth";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faGoogle } from "@fortawesome/free-brands-svg-icons"; // 導入 Google 品牌圖標
 
 export default function LoginPage() {
-  const { login, loadingUser, currentUser } = useContext(AuthContext);
+  const { login, signupWithGoogle, loadingUser, currentUser } =
+    useContext(AuthContext); // 引入 signupWithGoogle
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,7 +20,6 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (currentUser && !loginResult) {
-      // 檢查 emailVerified 狀態，如果未驗證則登出並顯示錯誤
       if (!currentUser.emailVerified) {
         const auth = getAuth();
         signOut(auth)
@@ -64,7 +67,6 @@ export default function LoginPage() {
 
       try {
         await login(email, password);
-        // 登入成功後，useEffect 會處理 emailVerified 檢查
       } catch (error) {
         let errorMessage = "登入失敗，請檢查您的帳號密碼";
         if (error.code === "auth/user-not-found") {
@@ -85,7 +87,6 @@ export default function LoginPage() {
         } else if (error.message) {
           errorMessage = error.message;
         }
-
         setLoginResult({
           success: false,
           message: errorMessage,
@@ -97,6 +98,31 @@ export default function LoginPage() {
     },
     [email, password, login]
   );
+
+  const handleGoogleLogin = useCallback(async () => {
+    setLocalLoading(true);
+    setLoginResult(null);
+    try {
+      await signupWithGoogle(); // 呼叫共用的 Google 登入/註冊函數
+      // 成功後，由 useEffect 處理跳轉
+    } catch (error) {
+      console.error("Google 登入失敗:", error);
+      let errorMessage = "Google 登入失敗，請稍後再試。";
+      if (error.code === "auth/popup-closed-by-user") {
+        errorMessage = "Google 登入視窗已被關閉。";
+      } else if (error.code === "auth/cancelled-popup-request") {
+        errorMessage = "已有一個進行中的登入視窗。";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      setLoginResult({
+        success: false,
+        message: errorMessage,
+      });
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [signupWithGoogle]);
 
   const handleBackToLogin = () => {
     setLoginResult(null);
@@ -255,6 +281,30 @@ export default function LoginPage() {
             )}
           </button>
         </form>
+
+        {/* --- 分隔線和 Google 登入按鈕 --- */}
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-white px-2 text-gray-500">
+                或使用第三方服務
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleGoogleLogin}
+            className="w-full mt-4 flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            disabled={loadingUser || localLoading}
+          >
+            <FontAwesomeIcon icon={faGoogle} className="mr-2" />
+            使用 Google 登入
+          </button>
+        </div>
+        {/* --- 分隔線和 Google 登入按鈕結束 --- */}
 
         <p className="mt-6 text-center text-sm text-gray-600">
           還沒有帳戶？

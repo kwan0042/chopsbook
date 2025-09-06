@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Modal from "./Modal"; // 確保 Modal 組件已導入
+import Modal from "../Modal"; // 確保 Modal 組件已導入
 import { useRouter } from "next/navigation"; // 導入 useRouter
 
 // 導入 FontAwesome 相關組件和圖示

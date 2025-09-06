@@ -2,9 +2,9 @@
 "use client";
 
 import React, { useState, useContext, useEffect, useCallback } from "react";
-import { AuthContext } from "../lib/auth-context";
+import { AuthContext } from "../../lib/auth-context";
 import { collection, query, onSnapshot } from "firebase/firestore";
-import LoadingSpinner from "./LoadingSpinner";
+import LoadingSpinner from "../LoadingSpinner";
 import RestaurantCard from "./RestaurantCard";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -13,7 +13,7 @@ import {
   faTimesCircle,
 } from "@fortawesome/free-solid-svg-icons";
 
-// ... (其他 Helper functions 和 mock data 保持不變) ...
+// Helper functions
 const normalizeString = (str) => {
   if (typeof str !== "string") return "";
   return str.toLowerCase().replace(/\s/g, "");
@@ -22,6 +22,7 @@ const normalizeString = (str) => {
 const getOperatingStatus = (restaurant) => {
   if (restaurant.isPermanentlyClosed) return "已結業";
   if (restaurant.isTemporarilyClosed) return "暫時休業";
+
   const today = new Date();
   const dayOfWeek = today.getDay();
   const dayNames = [
@@ -34,28 +35,151 @@ const getOperatingStatus = (restaurant) => {
     "星期六",
   ];
   const currentDayName = dayNames[dayOfWeek];
-  if (
-    restaurant.businessHours?.includes(currentDayName) ||
-    restaurant.businessHours?.includes("每日")
-  ) {
-    return "營業中";
+
+  const businessHoursArray = Array.isArray(restaurant.businessHours)
+    ? restaurant.businessHours
+    : [];
+
+  const todayHours = businessHoursArray.find(
+    (item) => item.day === currentDayName
+  );
+
+  if (todayHours?.isOpen) {
+    const now = new Date();
+    let currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const [startHour, startMinute] = todayHours.startTime
+      .split(":")
+      .map(Number);
+    const [endHour, endMinute] = todayHours.endTime.split(":").map(Number);
+    const startMinutes = startHour * 60 + startMinute;
+    let endMinutes = endHour * 60 + endMinute;
+
+    if (endMinutes < startMinutes) {
+      endMinutes += 24 * 60;
+      if (currentMinutes < startMinutes) {
+        currentMinutes += 24 * 60;
+      }
+    }
+
+    if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+      return "營業中";
+    }
   }
+
   return "休假中";
 };
 
-const isWithinTimeOfDay = (restaurant, timeOfDayFilter) => {
-  if (!timeOfDayFilter || !restaurant.businessHours) return true;
-  const now = new Date();
-  const currentHour = now.getHours();
-  if (timeOfDayFilter === "day") return currentHour >= 11 && currentHour < 17;
-  if (timeOfDayFilter === "night") return currentHour >= 17 && currentHour < 22;
-  return true;
+// 修正後的用餐日期篩選邏輯，處理時區問題
+const isDateWithinOperatingDays = (restaurant, reservationDate) => {
+  if (!reservationDate) return true;
+  if (restaurant.isPermanentlyClosed || restaurant.isTemporarilyClosed) {
+    return false;
+  }
+
+  // 創建日期物件時，將其設為當日開始，以避免時區偏移
+  const date = new Date(reservationDate + "T00:00:00");
+  const dayOfWeek = date.getDay();
+  const dayNames = [
+    "星期日",
+    "星期一",
+    "星期二",
+    "星期三",
+    "星期四",
+    "星期五",
+    "星期六",
+  ];
+  const dayName = dayNames[dayOfWeek];
+
+  const businessHoursArray = Array.isArray(restaurant.businessHours)
+    ? restaurant.businessHours
+    : [];
+
+  const operatingDay = businessHoursArray.find((item) => item.day === dayName);
+
+  return operatingDay?.isOpen || false;
+};
+
+const isTimeWithinOperatingHours = (
+  restaurant,
+  reservationTime,
+  reservationDate
+) => {
+  if (!reservationTime || !reservationDate) return true;
+
+  const date = new Date(reservationDate + "T00:00:00");
+  const dayOfWeek = date.getDay();
+  const dayNames = [
+    "星期日",
+    "星期一",
+    "星期二",
+    "星期三",
+    "星期四",
+    "星期五",
+    "星期六",
+  ];
+  const dayName = dayNames[dayOfWeek];
+
+  const businessHoursArray = Array.isArray(restaurant.businessHours)
+    ? restaurant.businessHours
+    : [];
+
+  const operatingDay = businessHoursArray.find((item) => item.day === dayName);
+
+  if (!operatingDay || !operatingDay.isOpen) return false;
+
+  let requestedMinutes =
+    parseInt(reservationTime.split(":")[0], 10) * 60 +
+    parseInt(reservationTime.split(":")[1], 10);
+
+  const [startHour, startMinute] = operatingDay.startTime
+    .split(":")
+    .map(Number);
+  const [endHour, endMinute] = operatingDay.endTime.split(":").map(Number);
+
+  const startMinutes = startHour * 60 + startMinute;
+  let endMinutes = endHour * 60 + endMinute;
+
+  if (endMinutes < startMinutes) {
+    endMinutes += 24 * 60;
+    if (requestedMinutes < startMinutes) {
+      requestedMinutes += 24 * 60;
+    }
+  }
+
+  return requestedMinutes >= startMinutes && requestedMinutes <= endMinutes;
 };
 
 const hasSufficientSeating = (restaurant, partySize) => {
-  if (!partySize) return true;
-  return (restaurant.seatingCapacity || 0) >= partySize;
+  if (!partySize || isNaN(partySize)) return true; // 如果沒有輸入或輸入無效，則不過濾
+
+  // 檢查餐廳的 seatingCapacity 屬性是否存在
+  if (!restaurant.seatingCapacity) {
+    return false; // 如果沒有座位數資訊，則不符合
+  }
+
+  const capacityStr = restaurant.seatingCapacity;
+  let min = 0;
+  let max = Infinity;
+
+  if (capacityStr.includes("+")) {
+    min = parseInt(capacityStr.replace("+", ""), 10);
+    max = Infinity; // 表示無上限
+  } else if (capacityStr.includes("-")) {
+    const parts = capacityStr.split("-");
+    min = parseInt(parts[0], 10);
+    max = parseInt(parts[1], 10);
+  } else {
+    // 處理單一數字的情況，例如 "20"
+    min = parseInt(capacityStr, 10);
+    max = min;
+  }
+
+  // 檢查使用者輸入的人數是否在餐廳的座位範圍內
+  return partySize >= min && partySize <= max;
 };
+
+// -----------------------------------------------------------------------------
 
 const RestaurantListPage = ({
   filters = {},
@@ -69,117 +193,6 @@ const RestaurantListPage = ({
     useContext(AuthContext);
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const IS_DEVELOPMENT_MODE = process.env.NODE_ENV === "development";
-  const ENABLE_DEV_MOCK_DATA = false;
-
-  const MOCK_RESTAURANTS = [
-    {
-      id: "mock-res-1",
-      restaurantNameZh: "模擬餐廳一號",
-      restaurantNameEn: "Mock Restaurant One",
-      cuisineType: "中式",
-      rating: 4.5,
-      reviewCount: 120,
-      province: "廣東省",
-      city: "廣州市",
-      fullAddress: "廣州市天河區模擬大道100號",
-      description: "這是一個提供美味中餐的模擬餐廳。",
-      imageUrl: "https://placehold.co/400x300/e0e0e0/333?text=Mock+Res+1",
-      avgSpending: 150,
-      seatingCapacity: 50,
-      businessHours: "每日 11:00-22:00",
-      reservationModes: ["線上預訂", "電話預訂"],
-      paymentMethods: ["現金", "支付寶", "微信支付"],
-      facilitiesServices: ["WIFI", "空調", "兒童椅"],
-      isPermanentlyClosed: false,
-      isTemporarilyClosed: false,
-    },
-    {
-      id: "mock-res-2",
-      restaurantNameZh: "模擬餐廳二號",
-      restaurantNameEn: "Mock Restaurant Two",
-      cuisineType: "西式",
-      rating: 3.8,
-      reviewCount: 75,
-      province: "廣東省",
-      city: "深圳市",
-      fullAddress: "深圳市南山區模擬路200號",
-      description: "提供精緻西餐和舒適環境的模擬餐廳。",
-      imageUrl: "https://placehold.co/400x300/d0d0d0/444?text=Mock+Res+2",
-      avgSpending: 280,
-      seatingCapacity: 80,
-      businessHours: "星期一至五 10:00-21:00",
-      reservationModes: ["線上預訂"],
-      paymentMethods: ["信用卡", "現金"],
-      facilitiesServices: ["WIFI", "停車場"],
-      isPermanentlyClosed: false,
-      isTemporarilyClosed: false,
-    },
-    {
-      id: "mock-res-3",
-      restaurantNameZh: "模擬咖啡店",
-      restaurantNameEn: "Mock Coffee Shop",
-      cuisineType: "咖啡甜點",
-      rating: 4.2,
-      reviewCount: 200,
-      province: "廣東省",
-      city: "珠海市",
-      fullAddress: "珠海市香洲區模擬街300號",
-      description: "悠閒的咖啡時光。",
-      imageUrl: "https://placehold.co/400x300/c0c0c0/555?text=Mock+Coffee",
-      avgSpending: 80,
-      seatingCapacity: 30,
-      businessHours: "每日 08:00-23:00",
-      reservationModes: [],
-      paymentMethods: ["現金", "微信支付"],
-      facilitiesServices: ["WIFI"],
-      isPermanentlyClosed: false,
-      isTemporarilyClosed: false,
-    },
-    {
-      id: "mock-res-4",
-      restaurantNameZh: "模擬日本料理",
-      restaurantNameEn: "Mock Japanese Cuisine",
-      cuisineType: "日式",
-      rating: 4.8,
-      reviewCount: 300,
-      province: "廣東省",
-      city: "廣州市",
-      fullAddress: "廣州市越秀區模擬巷400號",
-      description: "正宗日式料理體驗。",
-      imageUrl: "https://placehold.co/400x300/b0b0b0/666?text=Mock+JP+Food",
-      avgSpending: 350,
-      seatingCapacity: 60,
-      businessHours: "星期二至日 17:00-22:00",
-      reservationModes: ["電話預訂"],
-      paymentMethods: ["現金", "信用卡"],
-      facilitiesServices: ["私人包廂"],
-      isPermanentlyClosed: false,
-      isTemporarilyClosed: true,
-    },
-    {
-      id: "mock-res-5",
-      restaurantNameZh: "模擬火鍋店",
-      restaurantNameEn: "Mock Hotpot Place",
-      cuisineType: "火鍋",
-      rating: 4.0,
-      reviewCount: 150,
-      province: "四川省",
-      city: "成都市",
-      fullAddress: "成都市錦江區模擬街500號",
-      description: "麻辣鮮香的火鍋。",
-      imageUrl: "https://placehold.co/400x300/a0a0a0/777?text=Mock+Hotpot",
-      avgSpending: 180,
-      seatingCapacity: 100,
-      businessHours: "每日 10:00-02:00",
-      reservationModes: ["線上預訂"],
-      paymentMethods: ["支付寶", "微信支付"],
-      facilitiesServices: ["WIFI"],
-      isPermanentlyClosed: true,
-      isTemporarilyClosed: false,
-    },
-  ];
 
   const itemsPerPage = 9;
   const [currentPage, setCurrentPage] = useState(1);
@@ -253,16 +266,28 @@ const RestaurantListPage = ({
           )
         );
       }
-      if (filters.timeOfDay) {
+
+      if (filters.reservationDate) {
         filtered = filtered.filter((r) =>
-          isWithinTimeOfDay(r, filters.timeOfDay)
+          isDateWithinOperatingDays(r, filters.reservationDate)
+        );
+      }
+      if (filters.reservationTime && filters.reservationDate) {
+        filtered = filtered.filter((r) =>
+          isTimeWithinOperatingHours(
+            r,
+            filters.reservationTime,
+            filters.reservationDate
+          )
         );
       }
       if (filters.partySize) {
-        filtered = filtered.filter((r) =>
-          hasSufficientSeating(r, filters.partySize)
-        );
+        const partySize = parseInt(filters.partySize, 10);
+        if (!isNaN(partySize) && partySize > 0) {
+          filtered = filtered.filter((r) => hasSufficientSeating(r, partySize));
+        }
       }
+
       if (searchQuery) {
         const normalizedSearchQuery = normalizeString(searchQuery);
         filtered = filtered.filter((r) => {
@@ -286,16 +311,6 @@ const RestaurantListPage = ({
   useEffect(() => {
     setLoading(true);
     setCurrentPage(1);
-    if (IS_DEVELOPMENT_MODE && ENABLE_DEV_MOCK_DATA) {
-      console.log("--- DEV MODE: Using mock data, bypassing Firestore ---");
-      const timer = setTimeout(() => {
-        const filteredMockRestaurants =
-          applyClientSideFilters(MOCK_RESTAURANTS);
-        setRestaurants(filteredMockRestaurants);
-        setLoading(false);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
     if (!db || !appId) {
       console.warn("Firestore DB or App ID not available.");
       setLoading(false);
@@ -323,22 +338,9 @@ const RestaurantListPage = ({
       }
     );
     return () => unsubscribe();
-  }, [
-    db,
-    appId,
-    setModalMessage,
-    IS_DEVELOPMENT_MODE,
-    ENABLE_DEV_MOCK_DATA,
-    applyClientSideFilters,
-  ]);
+  }, [db, appId, setModalMessage, applyClientSideFilters]);
 
   const handleToggleFavorite = async (restaurantId) => {
-    if (IS_DEVELOPMENT_MODE && ENABLE_DEV_MOCK_DATA) {
-      console.log(
-        `--- DEV MODE: Mocking toggle favorite for ${restaurantId} ---`
-      );
-      return;
-    }
     try {
       await toggleFavoriteRestaurant(restaurantId);
     } catch (error) {
@@ -360,7 +362,6 @@ const RestaurantListPage = ({
         (typeof value === "number" && value > 0)
     ) || searchQuery.length > 0;
 
-  // 輔助函數：將篩選器鍵名轉換為中文標籤
   const getFilterLabel = (key) => {
     const labels = {
       province: "省份",
@@ -375,13 +376,13 @@ const RestaurantListPage = ({
       reservationModes: "訂座模式",
       paymentMethods: "付款方式",
       facilities: "設施",
-      timeOfDay: "時段",
+      reservationDate: "用餐日期",
+      reservationTime: "用餐時間",
       partySize: "用餐人數",
     };
     return labels[key] || key;
   };
 
-  // 輔助函數：獲取篩選器值的顯示文本
   const getFilterValueText = (key, value) => {
     if (key === "minRating") {
       return `${value} 星以上`;
@@ -395,7 +396,12 @@ const RestaurantListPage = ({
     if (key === "partySize") {
       return `${value} 人`;
     }
-    // 處理座位數範圍顯示
+    if (key === "reservationDate") {
+      return value;
+    }
+    if (key === "reservationTime") {
+      return value;
+    }
     if (key === "minSeatingCapacity" && filters.maxSeatingCapacity) {
       if (filters.maxSeatingCapacity === 9999) {
         return `${value}+ 人`;
@@ -405,19 +411,17 @@ const RestaurantListPage = ({
     return value;
   };
 
-  // 修正後的篩選標籤列表
-  const renderFilterTags = () => {
+  const renderFilterTags = useCallback(() => {
     const tags = [];
     const processedKeys = new Set();
 
-    // 處理搜尋關鍵字
     if (searchQuery) {
       tags.push(
         <span
           key="search-query"
           className="flex items-center bg-gray-300 text-gray-800 px-3 py-1 rounded-full whitespace-nowrap"
         >
-          搜尋: &quot{searchQuery}&quot
+          搜尋: &quot;{searchQuery}&quot;
           <button
             onClick={onClearFilters}
             className="ml-2 text-gray-600 hover:text-gray-900"
@@ -428,20 +432,18 @@ const RestaurantListPage = ({
       );
     }
 
-    // 迭代處理篩選器
     for (const [key, value] of Object.entries(filters)) {
       if (processedKeys.has(key)) continue;
 
-      // 處理人均價錢範圍
       if (key === "minAvgSpending" || key === "maxAvgSpending") {
         const min = filters.minAvgSpending;
         const max = filters.maxAvgSpending;
         let text = "";
-        if (min && max) {
+        if (min !== undefined && max !== undefined) {
           text = `$${min} - $${max}`;
-        } else if (min) {
+        } else if (min !== undefined) {
           text = `最低 $${min}`;
-        } else if (max) {
+        } else if (max !== undefined) {
           text = `最高 $${max}`;
         }
         if (text) {
@@ -462,17 +464,15 @@ const RestaurantListPage = ({
         }
         processedKeys.add("minAvgSpending");
         processedKeys.add("maxAvgSpending");
-      }
-      // 處理座位數範圍
-      else if (key === "minSeatingCapacity" || key === "maxSeatingCapacity") {
+      } else if (key === "minSeatingCapacity" || key === "maxSeatingCapacity") {
         const min = filters.minSeatingCapacity;
         const max = filters.maxSeatingCapacity;
         let text = "";
-        if (min && max) {
+        if (min !== undefined && max !== undefined) {
           text = max === 9999 ? `${min}+ 人` : `${min}-${max} 人`;
-        } else if (min) {
+        } else if (min !== undefined) {
           text = `${min}+ 人`;
-        } else if (max) {
+        } else if (max !== undefined) {
           text = `最多 ${max} 人`;
         }
         if (text) {
@@ -483,7 +483,10 @@ const RestaurantListPage = ({
             >
               座位數: {text}
               <button
-                onClick={() => onRemoveFilter("minSeatingCapacity")}
+                onClick={() => {
+                  onRemoveFilter("minSeatingCapacity");
+                  onRemoveFilter("maxSeatingCapacity");
+                }}
                 className="ml-2 text-blue-600 hover:text-blue-900"
               >
                 <FontAwesomeIcon icon={faTimesCircle} />
@@ -493,9 +496,7 @@ const RestaurantListPage = ({
         }
         processedKeys.add("minSeatingCapacity");
         processedKeys.add("maxSeatingCapacity");
-      }
-      // 處理多選
-      else if (Array.isArray(value) && value.length > 0) {
+      } else if (Array.isArray(value) && value.length > 0) {
         value.forEach((val) => {
           tags.push(
             <span
@@ -512,9 +513,12 @@ const RestaurantListPage = ({
             </span>
           );
         });
-      }
-      // 處理單選（包括最低評分）
-      else if (value && typeof value !== "object") {
+      } else if (
+        value !== undefined &&
+        value !== null &&
+        value !== "" &&
+        typeof value !== "object"
+      ) {
         tags.push(
           <span
             key={key}
@@ -532,7 +536,7 @@ const RestaurantListPage = ({
       }
     }
     return tags;
-  };
+  }, [filters, searchQuery, onClearFilters, onRemoveFilter]);
 
   const totalPages = Math.ceil(restaurants.length / itemsPerPage);
   const indexOfLastRestaurant = currentPage * itemsPerPage;
@@ -552,8 +556,8 @@ const RestaurantListPage = ({
 
   return (
     <div className="flex-grow">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-gray-800">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-xl px-3 font-bold text-gray-800">
           {hasFiltersOrSearch ? "搜尋/篩選結果" : "所有餐廳"}
           {restaurants.length > 0 && ` (${restaurants.length} 間)`}
         </h2>
@@ -581,8 +585,7 @@ const RestaurantListPage = ({
           )}
         </div>
       </div>
-      {/* 呼叫 renderFilterTags 函數來顯示標籤 */}
-      <div className="flex flex-wrap items-center gap-2 mb-6 text-sm">
+      <div className="flex flex-wrap items-center gap-2 mb-3 text-sm">
         {renderFilterTags()}
       </div>
 

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useContext, useEffect, useState, useCallback } from "react";
-import { AuthContext } from "../lib/auth-context";
+import { AuthContext } from "../../lib/auth-context";
 import {
   collection,
   query,
@@ -14,7 +14,7 @@ import {
   doc,
   deleteDoc,
 } from "firebase/firestore";
-import LoadingSpinner from "./LoadingSpinner";
+import LoadingSpinner from "../LoadingSpinner";
 import { useRouter } from "next/navigation";
 
 // 圖標：用於編輯和刪除草稿

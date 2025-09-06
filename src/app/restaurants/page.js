@@ -1,6 +1,6 @@
 "use client";
 import { Suspense } from "react";
-import RestaurantContent from "../../components/RestaurantContent";
+import RestaurantContent from "../../components/restaurant_list/RestaurantContent";
 import LoadingSpinner from "../../components/LoadingSpinner";
 
 // 將實際的頁面內容移到 RestaurantContent 元件中，

@@ -144,7 +144,6 @@ export const useAuthCore = (setGlobalModalMessage) => {
 
           if (user) {
             try {
-              // 獲取自訂聲明
               const idTokenResult = await user.getIdTokenResult();
               const { isAdmin, isSuperAdmin } = idTokenResult.claims;
 
@@ -153,44 +152,33 @@ export const useAuthCore = (setGlobalModalMessage) => {
                 `artifacts/${projectAppId}/users/${user.uid}`
               );
               const userDocSnap = await getDoc(userDocRef);
+              let userData = userDocSnap.exists() ? userDocSnap.data() : {};
 
-              if (!userDocSnap.exists()) {
-                // 如果用戶文件不存在，則創建一個基本的
-                const defaultUserData = {
-                  uid: user.uid,
-                  email: user.email || "",
-                  isAdmin: isAdmin === true,
-                  isSuperAdmin: isSuperAdmin === true,
-                  createdAt: new Date().toISOString(),
-                  lastLogin: new Date().toISOString(),
-                };
-                await setDoc(userDocRef, defaultUserData, { merge: true });
-                setCurrentUser({ ...user, ...defaultUserData });
-                console.log(
-                  "useAuthCore: 新用戶文件已創建並處理。",
-                  userDocRef.path
-                );
-              } else {
-                // 如果用戶文件存在，讀取所有數據並同步 Auth 聲明
-                const userData = userDocSnap.data();
+              const updatedUserData = {
+                ...userData,
+                email: user.email || userData.email || "",
+                isAdmin: isAdmin === true,
+                isSuperAdmin: isSuperAdmin === true,
+                lastLogin: new Date().toISOString(),
+                // 如果 Firestore 中沒有 username，則使用 Firebase Auth 的 displayName 或從 email 中提取
+                username:
+                  userData.username ||
+                  user.displayName ||
+                  user.email.split("@")[0],
+              };
 
-                const updatedUserData = {
-                  ...userData,
-                  isAdmin: isAdmin === true,
-                  isSuperAdmin: isSuperAdmin === true,
-                  lastLogin: new Date().toISOString(),
-                };
+              // 非同步更新 Firestore 文件，確保資料同步，但不阻塞 UI 渲染
+              setDoc(userDocRef, updatedUserData, { merge: true })
+                .then(() => {
+                  console.log("Firestore 用戶資料已非同步更新。");
+                })
+                .catch((dbError) => {
+                  console.error("Firestore 用戶資料非同步更新失敗:", dbError);
+                });
 
-                // 同步更新 Firestore 文檔
-                await setDoc(userDocRef, updatedUserData, { merge: true });
-
-                const userWithProfile = { ...user, ...updatedUserData };
-                setCurrentUser(userWithProfile);
-                console.log(
-                  "useAuthCore: 現有用戶資料已處理:",
-                  userWithProfile
-                );
-              }
+              const userWithProfile = { ...user, ...updatedUserData };
+              setCurrentUser(userWithProfile);
+              console.log("useAuthCore: 現有用戶資料已處理:", userWithProfile);
             } catch (dbError) {
               console.error(
                 "useAuthCore: 從 Firestore 獲取或創建用戶資料失敗:",

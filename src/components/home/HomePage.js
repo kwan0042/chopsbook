@@ -2,15 +2,15 @@
 "use client";
 
 import React, { useState, useContext, useCallback } from "react";
-import { AuthContext } from "../lib/auth-context";
+import { AuthContext } from "../../lib/auth-context";
 import { useRouter } from "next/navigation"; // 導入 useRouter
 
 // 導入所有現在獨立的組件
-import Navbar from "../components/Navbar";
-import FilterModal from "./filters/FilterModal";
-import HeroSection from "../components/HeroSection";
-import PromotionsSection from "../components/PromotionsSection";
-import Modal from "../components/Modal";
+import Navbar from "../Navbar";
+import FilterModal from "../filters/FilterModal";
+import HeroSection from "./HeroSection";
+import PromotionsSection from "./PromotionsSection";
+import Modal from "../Modal";
 
 /**
  * HomePage: ChopsBook 的主登陸頁面。

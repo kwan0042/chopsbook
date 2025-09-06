@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 // 導入所有獨立的組件
 import LoadingSpinner from "../components/LoadingSpinner";
-import HomePage from "../components/HomePage";
+import HomePage from "../components/home/HomePage";
 import Modal from "../components/Modal";
 
 /**

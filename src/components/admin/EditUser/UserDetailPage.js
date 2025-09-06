@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useEffect, useContext, useCallback } from "react";
-import { AuthContext } from "../lib/auth-context";
-import Modal from "./Modal";
+import { AuthContext } from "../../../lib/auth-context";
+import Modal from "../../Modal";
 import { useRouter } from "next/navigation";
 
 // 圖標：用於返回按鈕
@@ -133,7 +133,7 @@ const UserDetailPage = ({ userId }) => {
       if (Object.keys(updates).length > 0) {
         await updateUserProfile(userId, updates);
         setUserData((prev) => ({ ...prev, ...updates }));
-        
+
         setModalType("success");
         setSaveSuccessMessage("更改已儲存！");
         setEditing(false);

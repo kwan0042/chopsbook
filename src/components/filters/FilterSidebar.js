@@ -63,7 +63,7 @@ const FilterSidebar = ({
   const [isSeatingCapacityCollapsed, setIsSeatingCapacityCollapsed] =
     useState(true);
 
-  const [isTimeAndPartyCollapsed, setIsTimeAndPartyCollapsed] = useState(true);
+  const [isTimeAndPartyCollapsed, setIsTimeAndPartyCollapsed] = useState(false);
 
   useEffect(() => {
     setLocalFilters(initialFilters);
@@ -132,12 +132,10 @@ const FilterSidebar = ({
   const isFiltersActive = hasFiltersApplied();
 
   return (
-    // 使用絕對定位方案時，最外層仍需有明確高度
     <div className="relative bg-white p-6 shadow-lg rounded-2xl w-full flex flex-col h-full">
       <h3 className="text-xl font-bold text-gray-900 mb-6">篩選餐廳</h3>
 
-      {/* 內容區域：設定高度並滾動 */}
-      <div className="h-full overflow-y-auto pr-2 -mr-2 ">
+      <div className="h-full overflow-y-auto pr-2 -mr-2">
         <div className="space-y-4 flex-grow overflow-y-auto pr-2 -mr-2">
           {/* 新增：日期、時間、人數及時段篩選 */}
           <div className="border-b pb-4 border-gray-200">
@@ -148,7 +146,7 @@ const FilterSidebar = ({
               }
             >
               <h4 className="text-base font-semibold text-gray-800">
-                預訂詳情
+                預計用餐時間
               </h4>
               <FontAwesomeIcon
                 icon={isTimeAndPartyCollapsed ? faChevronDown : faChevronUp}
@@ -162,7 +160,7 @@ const FilterSidebar = ({
                     htmlFor="reservationDate"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    預訂日期
+                    用餐日期
                   </label>
                   <input
                     type="date"
@@ -179,7 +177,7 @@ const FilterSidebar = ({
                     htmlFor="reservationTime"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    預訂時間
+                    用餐時間
                   </label>
                   <input
                     type="time"
@@ -213,62 +211,6 @@ const FilterSidebar = ({
                     placeholder="人數"
                     className="w-full p-2 border border-gray-300 rounded-lg"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    用餐時段
-                  </label>
-                  <div className="flex space-x-2 text-sm">
-                    <div className="flex items-center">
-                      <input
-                        type="radio"
-                        id="time-day"
-                        name="timeOfDay"
-                        value="day"
-                        checked={localFilters.timeOfDay === "day"}
-                        onChange={(e) =>
-                          handleFilterChange("timeOfDay", e.target.value)
-                        }
-                        className="h-4 w-4 text-blue-600 border-gray-300"
-                      />
-                      <label htmlFor="time-day" className="ml-1 text-gray-700">
-                        日間
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="radio"
-                        id="time-night"
-                        name="timeOfDay"
-                        value="night"
-                        checked={localFilters.timeOfDay === "night"}
-                        onChange={(e) =>
-                          handleFilterChange("timeOfDay", e.target.value)
-                        }
-                        className="h-4 w-4 text-blue-600 border-gray-300"
-                      />
-                      <label
-                        htmlFor="time-night"
-                        className="ml-1 text-gray-700"
-                      >
-                        晚間
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="radio"
-                        id="time-any"
-                        name="timeOfDay"
-                        value=""
-                        checked={!localFilters.timeOfDay}
-                        onChange={() => handleFilterChange("timeOfDay", "")}
-                        className="h-4 w-4 text-blue-600 border-gray-300"
-                      />
-                      <label htmlFor="time-any" className="ml-1 text-gray-700">
-                        不限
-                      </label>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -339,7 +281,7 @@ const FilterSidebar = ({
           {/* 菜系類別篩選 (多選) */}
           <div className="border-b pb-4 border-gray-200">
             <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
+              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
               onClick={() => setIsCategoryCollapsed(!isCategoryCollapsed)}
             >
               <h4 className="text-base font-semibold text-gray-800">
@@ -378,7 +320,7 @@ const FilterSidebar = ({
           {/* 人均價錢篩選 (改為自訂範圍) */}
           <div className="border-b pb-4 border-gray-200">
             <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
+              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
               onClick={() => setIsAvgSpendingCollapsed(!isAvgSpendingCollapsed)}
             >
               <h4 className="text-base font-semibold text-gray-800">
@@ -444,7 +386,7 @@ const FilterSidebar = ({
           {/* 最低評分篩選 */}
           <div className="border-b pb-4 border-gray-200">
             <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
+              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
               onClick={() => setIsMinRatingCollapsed(!isMinRatingCollapsed)}
             >
               <h4 className="text-base font-semibold text-gray-800">
@@ -478,7 +420,7 @@ const FilterSidebar = ({
           {/* 座位數篩選 */}
           <div className="border-b pb-4 border-gray-200">
             <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
+              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
               onClick={() =>
                 setIsSeatingCapacityCollapsed(!isSeatingCapacityCollapsed)
               }
@@ -544,7 +486,7 @@ const FilterSidebar = ({
           {/* 營業狀態篩選 */}
           <div className="border-b pb-4 border-gray-200">
             <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
+              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
               onClick={() =>
                 setIsBusinessHoursCollapsed(!isBusinessHoursCollapsed)
               }
@@ -621,7 +563,7 @@ const FilterSidebar = ({
           {/* 訂座模式篩選 (多選) */}
           <div className="border-b pb-4 border-gray-200">
             <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
+              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
               onClick={() =>
                 setIsReservationModesCollapsed(!isReservationModesCollapsed)
               }
@@ -664,7 +606,7 @@ const FilterSidebar = ({
           {/* 付款方式篩選 (多選) */}
           <div className="border-b pb-4 border-gray-200">
             <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
+              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
               onClick={() =>
                 setIsPaymentMethodsCollapsed(!isPaymentMethodsCollapsed)
               }
@@ -707,7 +649,7 @@ const FilterSidebar = ({
           {/* 設施/服務篩選 (多選) */}
           <div className="pb-4">
             <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-500 transition-colors duration-200"
+              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
               onClick={() => setIsFacilitiesCollapsed(!isFacilitiesCollapsed)}
             >
               <h4 className="text-base font-semibold text-gray-800">

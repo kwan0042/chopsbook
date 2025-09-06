@@ -2,11 +2,11 @@
 "use client";
 import React, { useState, useCallback, useEffect, useContext } from "react";
 import { useSearchParams } from "next/navigation";
-import FilterSidebar from "./filters/FilterSidebar";
+import FilterSidebar from "../filters/FilterSidebar";
 import RestaurantListPage from "./RestaurantListPage";
-import Navbar from "./Navbar";
-import Modal from "./Modal";
-import { AuthContext } from "../lib/auth-context";
+import Navbar from "@/components/Navbar";
+import Modal from "../Modal";
+import { AuthContext } from "../../lib/auth-context";
 
 const RestaurantContent = () => {
   const { modalMessage, setModalMessage } = useContext(AuthContext);

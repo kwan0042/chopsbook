@@ -2,7 +2,7 @@
 
 import React, { useContext, useState, useRef, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { AuthContext } from "../lib/auth-context";
+import { AuthContext } from "../../lib/auth-context";
 import {
   cuisineOptions,
   restaurantTypeOptions,
@@ -11,7 +11,7 @@ import {
   paymentMethodOptions,
   facilitiesServiceOptions,
   provinceOptions,
-} from "../data/restaurant-options";
+} from "../../data/restaurant-options";
 
 // 營業時間 UI 相關的輔助資料
 const DAYS_OF_WEEK = [

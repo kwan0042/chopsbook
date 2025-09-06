@@ -4,7 +4,7 @@
 import React, { useContext, useCallback } from "react";
 import { useRouter } from "next/navigation"; // 導入 useRouter 鉤子
 import { AuthContext } from "../../lib/auth-context"; // 確保路徑正確
-import PersonalPageContent from "../../components/PersonalPage"; // 導入 PersonalPage 的內容組件
+import PersonalPageContent from "../../components/personal/PersonalPage"; // 導入 PersonalPage 的內容組件
 import LoadingSpinner from "../../components/LoadingSpinner"; // 導入 LoadingSpinner
 
 /**

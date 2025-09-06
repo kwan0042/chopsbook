@@ -84,13 +84,12 @@ export const useReviewManagement = (
         const docRef = await addDoc(reviewsCollectionRef, newReview);
         const reviewId = docRef.id;
 
-        // 2. 更新用戶的 publishedReviews 列表
-        const userProfileDocRef = doc(
+        // 2. 修正：更新用戶的 publishedReviews 列表，並使用統一的用戶文件路徑
+        const userDocRef = doc(
           db,
-          `artifacts/${appId}/users/${currentUser.uid}/profile`,
-          "main"
+          `artifacts/${appId}/users/${currentUser.uid}`
         );
-        await updateDoc(userProfileDocRef, {
+        await updateDoc(userDocRef, {
           publishedReviews: [...(currentUser.publishedReviews || []), reviewId],
         });
         setCurrentUser((prevUser) => ({

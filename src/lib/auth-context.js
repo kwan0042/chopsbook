@@ -2,15 +2,12 @@
 "use client";
 
 import React, { useState, useEffect, createContext, useCallback } from "react";
-// 導入新的 Custom Hooks
 import { useAuthCore } from "../hooks/auth/useAuthCore";
 import { useAuthOperations } from "../hooks/auth/useAuthOperations";
 import { useUserProfile } from "../hooks/auth/useUserProfile";
 import { useRestaurantFavorites } from "../hooks/auth/useRestaurantFavorites";
 import { useReviewManagement } from "../hooks/auth/useReviewManagement";
-import { formatDateTime } from "../hooks/auth/useUtils"; // 從 useUtils 導入格式化函數
-
-// 您不需要在 AuthContext.js 中再次導入 Modal，因為它已經在下面定義
+import { formatDateTime } from "../hooks/auth/useUtils";
 import Modal from "../components/Modal"; // 模態框組件
 
 export const AuthContext = createContext(null);
@@ -31,9 +28,9 @@ export const AuthProvider = ({ children }) => {
   const {
     currentUser,
     loadingUser,
-    authReady, // <<< 新增：從 useAuthCore 獲取 authReady 狀態
+    authReady,
     db,
-    auth, // 獲取 auth 物件
+    auth,
     storage,
     analytics,
     appId,
@@ -42,14 +39,14 @@ export const AuthProvider = ({ children }) => {
   } = useAuthCore(handleGlobalModalMessage);
 
   // 認證操作 (登入、註冊、登出、重設密碼)
-  const { login, signup, logout, sendPasswordReset } = useAuthOperations(
-    auth,
-    db,
-    appId,
-    handleGlobalModalMessage,
-    // 修正點: 新增 setCurrentUser 到 useAuthOperations 的參數中
-    setCurrentUser
-  );
+  const { login, signup, logout, sendPasswordReset, signupWithGoogle } =
+    useAuthOperations(
+      auth,
+      db,
+      appId,
+      handleGlobalModalMessage,
+      setCurrentUser
+    );
 
   // 用戶個人資料管理 (更新資料、管理員權限、管理員發送重設密碼鏈接)
   const { updateUserAdminStatus, updateUserProfile, sendPasswordResetLink } =
@@ -62,7 +59,7 @@ export const AuthProvider = ({ children }) => {
       handleGlobalModalMessage
     );
 
-  // 餐廳收藏管理，現在也從 useRestaurantFavorites 獲取 `favoriteRestaurantsCount`
+  // 餐廳收藏管理
   const { toggleFavoriteRestaurant, favoriteRestaurantsCount } =
     useRestaurantFavorites(
       db,
@@ -96,9 +93,9 @@ export const AuthProvider = ({ children }) => {
       value={{
         currentUser,
         loadingUser,
-        authReady, // <<< 新增：將 authReady 狀態暴露給 Context
+        authReady,
         db,
-        auth, // <<< 修正點：將 auth 物件傳遞給 Context
+        auth,
         storage,
         analytics,
         appId,
@@ -107,10 +104,11 @@ export const AuthProvider = ({ children }) => {
         login,
         signup,
         logout,
+        signupWithGoogle, // 將 signupWithGoogle 暴露給 Context
         isAdmin,
         updateUserAdminStatus,
-        sendPasswordReset,
         updateUserProfile,
+        sendPasswordReset,
         sendPasswordResetLink,
         toggleFavoriteRestaurant,
         favoriteRestaurantsCount,
@@ -129,14 +127,14 @@ export const AuthProvider = ({ children }) => {
           } ${modalType === "error" ? "bg-red-100 bg-opacity-75" : ""} ${
             modalType === "info" ? "bg-blue-100 bg-opacity-75" : ""
           }`}
-          onClick={closeMessageModal} // 點擊背景關閉
+          onClick={closeMessageModal}
         >
           <div
             className={`bg-white rounded-lg shadow-xl p-6 max-w-sm w-full relative transform transition-all duration-300 scale-100 opacity-100
             ${modalType === "success" ? "border-green-400 border-2" : ""}
             ${modalType === "error" ? "border-red-400 border-2" : ""}
             ${modalType === "info" ? "border-blue-400 border-2" : ""}`}
-            onClick={(e) => e.stopPropagation()} // 阻止事件冒泡到背景
+            onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={closeMessageModal}

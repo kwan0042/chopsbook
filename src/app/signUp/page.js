@@ -1,18 +1,18 @@
+// src/app/register/page.js
 "use client";
 
-import React, {
-  useContext,
-  useState,
-  useCallback,
-  useMemo,
-  useEffect,
-} from "react";
+import React, { useContext, useState, useCallback } from "react";
 import { AuthContext } from "../../lib/auth-context";
 import { useRouter } from "next/navigation";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faGoogle } from "@fortawesome/free-brands-svg-icons"; // 導入 Google 品牌圖標
 
 export default function RegisterPage() {
-  const { signup, loadingUser, db, appId } = useContext(AuthContext);
+  const {
+    signup,
+    signupWithGoogle, // 從 AuthContext 取得 Google 註冊函數
+    loadingUser,
+  } = useContext(AuthContext);
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,10 +22,6 @@ export default function RegisterPage() {
   const [localLoading, setLocalLoading] = useState(false);
   const [localMessage, setLocalMessage] = useState("");
 
-  // 移除所有與 Firestore 搜尋相關的狀態和 hooks
-  const searchResults = []; // 為了避免錯誤，保留並設為空陣列
-  const isSearching = false; // 同樣為了避免錯誤
-
   const handleSubmit = useCallback(
     async (e) => {
       e.preventDefault();
@@ -33,8 +29,6 @@ export default function RegisterPage() {
       setLocalMessage("");
 
       try {
-        // 更新 signup 函數以傳遞聯絡電話和餐廳擁有人狀態
-        // 移除 ownedRestId，現在只傳遞 ownedRest
         await signup(
           email,
           password,
@@ -42,10 +36,13 @@ export default function RegisterPage() {
           isRestaurantOwner,
           ownedRest
         );
-        // 註冊成功後，直接導航到登入頁面
-        router.push("/login");
+        setLocalMessage("註冊成功！正在導向登入頁面...");
+        // 延遲導航，讓用戶看到成功訊息
+        setTimeout(() => {
+          router.push("/login");
+        }, 1500);
       } catch (error) {
-        let errorMessage = "註冊失敗，請稍後再試";
+        let errorMessage = "註冊失敗，請稍後再試。";
         if (error.code === "auth/email-already-in-use") {
           errorMessage = "此電子郵件已被使用。請使用其他電子郵件或嘗試登入。";
         } else if (error.code === "auth/weak-password") {
@@ -54,10 +51,6 @@ export default function RegisterPage() {
           errorMessage = "無效的電子郵件格式。請輸入有效的電子郵件。";
         } else if (error.code === "auth/too-many-requests") {
           errorMessage = "嘗試次數過多。請稍後再試。";
-        } else if (error.code === "auth/user-disabled") {
-          errorMessage = "此帳戶已被停用。請聯繫管理員。";
-        } else if (error.message) {
-          errorMessage = error.message;
         }
         setLocalMessage(errorMessage);
       } finally {
@@ -66,6 +59,29 @@ export default function RegisterPage() {
     },
     [email, password, phoneNumber, isRestaurantOwner, ownedRest, signup, router]
   );
+
+  const handleGoogleSignup = useCallback(async () => {
+    setLocalLoading(true);
+    setLocalMessage("");
+    try {
+      await signupWithGoogle();
+      setLocalMessage("Google 註冊/登入成功！正在導向首頁...");
+      // 成功後導航到首頁
+      setTimeout(() => {
+        router.push("/");
+      }, 1500);
+    } catch (error) {
+      let errorMessage = "Google 註冊/登入失敗，請稍後再試。";
+      if (error.code === "auth/popup-closed-by-user") {
+        errorMessage = "Google 登入視窗已被關閉。";
+      } else if (error.code === "auth/cancelled-popup-request") {
+        errorMessage = "已有一個進行中的登入視窗。";
+      }
+      setLocalMessage(errorMessage);
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [router, signupWithGoogle]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-inter">
@@ -201,6 +217,31 @@ export default function RegisterPage() {
             )}
           </button>
         </form>
+
+        {/* --- 分隔線和 Google 註冊按鈕 --- */}
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-white px-2 text-gray-500">
+                或使用第三方服務
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleGoogleSignup}
+            className="w-full mt-4 flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            disabled={loadingUser || localLoading}
+          >
+            <FontAwesomeIcon icon={faGoogle} className="mr-2" />
+            使用 Google 註冊
+          </button>
+        </div>
+        {/* --- 分隔線和 Google 註冊按鈕結束 --- */}
+
         <p className="mt-6 text-center text-sm text-gray-600">
           已經有帳戶了？
           <button

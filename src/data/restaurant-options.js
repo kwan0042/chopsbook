@@ -75,7 +75,8 @@ export const restaurantTypeOptions = [
 
 export const seatingCapacityOptions = [
   "選擇座位數",
-  "1-20",
+  "1-10",
+  "10-20",
   "21-50",
   "51-100",
   "101-200",
@@ -91,8 +92,10 @@ export const reservationModeOptions = [
 
 export const paymentMethodOptions = [
   "現金",
-  "信用卡",
-  "借記卡",
+  "信用卡 - AMEX",
+  "信用卡 - Mastercard",
+  "信用卡 - Visa",
+  "借記卡 - Debit Card",
   "微信支付",
   "支付寶",
   "Apple Pay",
@@ -101,6 +104,7 @@ export const paymentMethodOptions = [
 ];
 
 export const facilitiesServiceOptions = [
+  "現金支付折扣",
   "室外座位",
   "電視播放",
   "酒精飲品",
@@ -115,17 +119,17 @@ export const facilitiesServiceOptions = [
 
 export const provinceOptions = [
   "選擇省份",
-  "安大略省",
-  "魁北克省",
-  "卑詩省",
-  "亞伯達省",
-  "曼尼托巴省",
-  "薩斯喀徹溫省",
-  "新斯科細亞省",
-  "新不倫瑞克省",
-  "紐芬蘭與拉布拉多省",
-  "愛德華王子島省",
-  "西北地區",
-  "育空地區",
-  "努納武特地區",
+  "安大略省(ON)",
+  "魁北克省(QC)",
+  "卑詩省(BC)",
+  "亞伯達省(AB)",
+  "曼尼托巴省(MB)",
+  "薩斯喀徹溫省(SK)",
+  "新斯科細亞省(NS)",
+  "新不倫瑞克省(NB)",
+  "紐芬蘭與拉布拉多省(NL)",
+  "愛德華王子島省(PE)",
+  "西北地區(NT)",
+  "育空地區(YK)",
+  "努納武特地區(NU)",
 ];

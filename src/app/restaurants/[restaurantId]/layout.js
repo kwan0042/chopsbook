@@ -25,7 +25,7 @@ import { AuthContext } from "../../../lib/auth-context";
 import { RestaurantContext } from "../../../lib/restaurant-context";
 import Link from "next/link";
 import LoadingSpinner from "../../../components/LoadingSpinner";
-import Navbar from "../../../components/Navbar"; // 引入 Navbar 元件
+import Navbar from "@/components/Navbar"; // 引入 Navbar 元件
 
 // 輔助函數：根據營業時間和自定義狀態判斷餐廳營業狀態。
 const getOperatingStatus = (restaurant) => {
