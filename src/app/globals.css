@@ -21,3 +21,13 @@
 body {
   font-family: 'Inter', sans-serif;
 }
+
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* 適用於 Firefox 瀏覽器 */
+.scrollbar-hide {
+  scrollbar-width: none;
+}

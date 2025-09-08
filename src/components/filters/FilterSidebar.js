@@ -1,7 +1,7 @@
 // src/components/FilterSidebar.js
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChevronUp,
@@ -48,6 +48,13 @@ const FilterSidebar = ({
   onResetFilters,
 }) => {
   const [localFilters, setLocalFilters] = useState(initialFilters);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
+
+  // 新增狀態來控制頂部遮罩的顯示
+  const [showTopMask, setShowTopMask] = useState(false);
+
+  // 參考 div 的引用，用來監聽滾動事件
+  const scrollContainerRef = useRef(null);
 
   const [isRegionCollapsed, setIsRegionCollapsed] = useState(true);
   const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(true);
@@ -68,6 +75,36 @@ const FilterSidebar = ({
   useEffect(() => {
     setLocalFilters(initialFilters);
   }, [initialFilters]);
+
+  // 處理滾動事件的邏輯
+  const handleScroll = useCallback(() => {
+    if (scrollContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } =
+        scrollContainerRef.current;
+
+      // 判斷是否滾動到底部
+      const atBottom = scrollTop + clientHeight >= scrollHeight - 5;
+      setIsScrolledToBottom(atBottom);
+
+      // 只要滾動條不在最頂端，就顯示遮罩
+      if (scrollTop > 10) {
+        setShowTopMask(true);
+      } else {
+        setShowTopMask(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      // 初始檢查滾動條狀態
+      handleScroll();
+      container.addEventListener("scroll", handleScroll);
+      // 清除事件監聽器
+      return () => container.removeEventListener("scroll", handleScroll);
+    }
+  }, [handleScroll]);
 
   const handleFilterChange = useCallback((key, value) => {
     setLocalFilters((prevFilters) => ({
@@ -135,8 +172,20 @@ const FilterSidebar = ({
     <div className="relative bg-white p-6 shadow-lg rounded-2xl w-full flex flex-col h-full">
       <h3 className="text-xl font-bold text-gray-900 mb-6">篩選餐廳</h3>
 
-      <div className="h-full overflow-y-auto pr-2 -mr-2">
-        <div className="space-y-4 flex-grow overflow-y-auto pr-2 -mr-2">
+      {/* 頂部漸變遮罩，根據滾動條位置顯示或隱藏 */}
+      <div
+        className={`absolute left-0 right-0 h-[50px] pointer-events-none bg-gradient-to-b from-white to-white/0 z-10 transition-opacity duration-300 ${
+          showTopMask ? "opacity-100" : "opacity-0"
+        }`}
+        style={{ top: "70px" }}
+      ></div>
+
+      {/* 滾動內容容器，隱藏滾動條 */}
+      <div
+        ref={scrollContainerRef}
+        className="h-full overflow-y-auto pr-2 -mr-2 scrollbar-hide"
+      >
+        <div className="space-y-4 flex-grow">
           {/* 新增：日期、時間、人數及時段篩選 */}
           <div className="border-b pb-4 border-gray-200">
             <div
@@ -689,8 +738,16 @@ const FilterSidebar = ({
         </div>
       </div>
 
-      {/* 按鈕區域：使用絕對定位，將其固定在最底部 */}
-      <div className="flex flex-col space-y-4 pt-6 mt-auto flex-shrink-0">
+      {/* 底部漸變遮罩 */}
+      <div
+        className="absolute left-0 right-0 h-[50px] pointer-events-none bg-gradient-to-t from-white to-white/0 "
+        style={{ bottom: "70px" }}
+      ></div>
+
+      {/* 按鈕區域 */}
+      <div
+        className={`absolute inset-x-0 bottom-0 flex flex-col space-y-4 pt-6 mb-6 px-6 transition-colors duration-100 bg-white`}
+      >
         <button
           onClick={handleApply}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"

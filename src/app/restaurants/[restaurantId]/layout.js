@@ -1,3 +1,4 @@
+// src/app/restaurants/[restaurantId]/RestaurantDetailLayout.js
 "use client";
 
 import React, { useState, useEffect, useCallback, useContext } from "react";
@@ -16,6 +17,10 @@ import {
   faLink,
   faPhone,
   faGlobe,
+  faCreditCard,
+  faInfoCircle,
+  faBuilding,
+  faChair,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   faStar as faRegularStar,
@@ -25,50 +30,10 @@ import { AuthContext } from "../../../lib/auth-context";
 import { RestaurantContext } from "../../../lib/restaurant-context";
 import Link from "next/link";
 import LoadingSpinner from "../../../components/LoadingSpinner";
-import Navbar from "@/components/Navbar"; // 引入 Navbar 元件
+import Navbar from "@/components/Navbar";
 
-// 輔助函數：根據營業時間和自定義狀態判斷餐廳營業狀態。
-const getOperatingStatus = (restaurant) => {
-  if (restaurant.isPermanentlyClosed) return "已結業";
-  if (restaurant.isTemporarilyClosed) return "暫時休業";
-
-  const today = new Date();
-  const dayOfWeek = today.getDay(); // 0 = 星期日, 1 = 星期一, ..., 6 = 星期六
-  const dayNames = [
-    "星期日",
-    "星期一",
-    "星期二",
-    "星期三",
-    "星期四",
-    "星期五",
-    "星期六",
-  ];
-  const currentDayName = dayNames[dayOfWeek];
-
-  // 檢查 businessHours 是否為陣列
-  if (Array.isArray(restaurant.businessHours)) {
-    const todayHours = restaurant.businessHours.find(
-      (h) => h.day === currentDayName
-    );
-    if (todayHours?.isOpen) {
-      // 這裡可以進一步判斷當前時間是否在營業時間內，但目前先簡化處理
-      return "營業中";
-    }
-    return "休假中";
-  }
-
-  // 保留舊版邏輯以防萬一
-  if (restaurant.businessHours) {
-    if (
-      restaurant.businessHours.includes(currentDayName) ||
-      restaurant.businessHours.includes("每日")
-    ) {
-      return "營業中";
-    }
-  }
-
-  return "未知狀態";
-};
+// 導入新的 Hook
+import useRestaurantStatus from "@/hooks/useRestaurantStatus";
 
 // Layout 元件
 export default function RestaurantDetailLayout({ children }) {
@@ -80,6 +45,11 @@ export default function RestaurantDetailLayout({ children }) {
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // 修正：將 Hook 呼叫移到所有條件式渲染之前
+  // 新的 Hook 會回傳一個物件，包含 text 和 color
+  const { text: operatingStatus, color: operatingStatusColor } =
+    useRestaurantStatus(restaurant);
 
   const isFavorited =
     currentUser?.favoriteRestaurants?.includes(restaurantId) || false;
@@ -101,25 +71,24 @@ export default function RestaurantDetailLayout({ children }) {
 
         if (docSnap.exists()) {
           const fetchedData = docSnap.data();
-          // **關鍵修改：資料正規化**
-          // 確保 businessHours 始終是陣列
           const normalizedBusinessHours = Array.isArray(
             fetchedData.businessHours
           )
             ? fetchedData.businessHours
             : [];
-          // 確保 facadePhotoUrls 始終是陣列
           const normalizedFacadePhotoUrls = Array.isArray(
             fetchedData.facadePhotoUrls
           )
             ? fetchedData.facadePhotoUrls
-            : fetchedData.facadePhotoUrl // 處理舊版單一字串
+            : fetchedData.facadePhotoUrl
             ? [fetchedData.facadePhotoUrl]
             : [];
+          const avgSpending = parseFloat(fetchedData.avgSpending);
 
           setRestaurant({
             id: docSnap.id,
             ...fetchedData,
+            avgSpending: isNaN(avgSpending) ? null : avgSpending,
             businessHours: normalizedBusinessHours,
             facadePhotoUrls: normalizedFacadePhotoUrls,
           });
@@ -168,24 +137,30 @@ export default function RestaurantDetailLayout({ children }) {
     </div>
   );
 
-  // 輔助函數：將 businessHours 陣列格式化成可讀字串
   const formatBusinessHours = (hoursArray) => {
     if (!Array.isArray(hoursArray) || hoursArray.length === 0) {
-      return "N/A";
+      return <div>N/A</div>;
     }
 
-    const formattedHours = hoursArray
-      .filter((h) => h.isOpen) // 只顯示營業的日子
-      .map((h) => `${h.day}: ${h.startTime} - ${h.endTime}`);
+    const sortedHours = [
+      "星期日",
+      "星期一",
+      "星期二",
+      "星期三",
+      "星期四",
+      "星期五",
+      "星期六",
+    ].map((dayName) => hoursArray.find((h) => h.day === dayName));
 
-    return formattedHours.length > 0 ? (
-      <>
-        {formattedHours.map((line, index) => (
-          <div key={index}>{line}</div>
+    return (
+      <div className="space-y-1">
+        {sortedHours.map((h, index) => (
+          <div key={index}>
+            <span className="font-bold">{h.day}:</span>{" "}
+            {h?.isOpen ? `${h.startTime} - ${h.endTime}` : "休息"}
+          </div>
         ))}
-      </>
-    ) : (
-      "本日休息"
+      </div>
     );
   };
 
@@ -212,8 +187,6 @@ export default function RestaurantDetailLayout({ children }) {
       </div>
     );
   }
-
-  const operatingStatus = getOperatingStatus(restaurant);
 
   return (
     <RestaurantContext.Provider value={{ restaurant }}>
@@ -268,24 +241,17 @@ export default function RestaurantDetailLayout({ children }) {
                     icon={faWallet}
                     className="mr-2 text-gray-500"
                   />
-                  人均: ${restaurant.avgSpending || "N/A"}
+                  人均:{" "}
+                  {restaurant.avgSpending
+                    ? `$${restaurant.avgSpending}`
+                    : "N/A"}
                 </p>
                 <p className="mt-1 text-base">
                   <FontAwesomeIcon
                     icon={faClock}
                     className="mr-2 text-gray-500"
                   />
-                  <span
-                    className={`font-bold ${
-                      operatingStatus === "營業中"
-                        ? "text-green-600"
-                        : operatingStatus === "暫時休業"
-                        ? "text-orange-500"
-                        : operatingStatus === "休假中"
-                        ? "text-blue-500"
-                        : "text-red-600"
-                    }`}
-                  >
+                  <span className={`font-bold ${operatingStatusColor}`}>
                     {operatingStatus}
                   </span>
                 </p>
@@ -368,42 +334,105 @@ export default function RestaurantDetailLayout({ children }) {
             <div className="p-6">
               <div className="flex flex-col md:flex-row mt-4 gap-4">
                 <div className="flex-1">
-                  <div className="bg-white shadow-md rounded-xl">
+                  <div className="bg-white shadow-md rounded-xl p-6">
                     {children}
                   </div>
                 </div>
                 <div className="md:w-1/3 flex-shrink-0">
                   <div className="bg-white rounded-xl shadow-xl sticky top-8">
-                    <section className="bg-gray-50 p-4 rounded-lg shadow-sm">
+                    <section className="bg-gray-50 p-4 rounded-lg shadow-sm space-y-4">
                       <h2 className="text-base font-bold text-gray-800 mb-4">
-                        餐廳資訊
+                        餐廳詳細資訊
                       </h2>
-                      <div className="space-y-2 text-gray-700">
-                        <p>
-                          <FontAwesomeIcon
-                            icon={faPhone}
-                            className="mr-2 text-gray-500"
-                          />
-                          電話: {restaurant.phone || "N/A"}
-                        </p>
-                        {/* **關鍵修改：使用 formatBusinessHours 函數渲染** */}
-                        <div className="flex items-start">
-                          <FontAwesomeIcon
-                            icon={faClock}
-                            className="mr-2 text-gray-500 mt-1"
-                          />
-                          <div className="flex-1">
+                      <div className="space-y-3 text-gray-700">
+                        {/* 營業時間 */}
+                        <div>
+                          <p className="flex items-start">
+                            <FontAwesomeIcon
+                              icon={faClock}
+                              className="mr-2 text-gray-500 mt-1"
+                            />
                             <span className="font-bold">營業時間:</span>
+                          </p>
+                          <div className="mt-2 pl-6">
                             {formatBusinessHours(restaurant.businessHours)}
                           </div>
                         </div>
-                        <p>
-                          <FontAwesomeIcon
-                            icon={faGlobe}
-                            className="mr-2 text-gray-500"
-                          />
-                          網站:{" "}
-                          {restaurant.website ? (
+
+                        {/* 設施/服務 */}
+                        {restaurant.facilitiesServices &&
+                          restaurant.facilitiesServices.length > 0 && (
+                            <div>
+                              <p>
+                                <FontAwesomeIcon
+                                  icon={faBuilding}
+                                  className="mr-2 text-gray-500"
+                                />
+                                <span className="font-bold">設施與服務:</span>{" "}
+                              </p>
+                              <ul className="mt-1 ml-6 list-disc list-inside">
+                                {restaurant.facilitiesServices.map(
+                                  (service, index) => (
+                                    <li key={index}>{service}</li>
+                                  )
+                                )}
+                              </ul>
+                            </div>
+                          )}
+
+                        {/* 付款方式 */}
+                        {restaurant.paymentMethods &&
+                          restaurant.paymentMethods.length > 0 && (
+                            <div>
+                              <p>
+                                <FontAwesomeIcon
+                                  icon={faCreditCard}
+                                  className="mr-2 text-gray-500"
+                                />
+                                <span className="font-bold">付款方式:</span>{" "}
+                              </p>
+                              <ul className="mt-1 ml-6 list-disc list-inside">
+                                {restaurant.paymentMethods.map(
+                                  (method, index) => (
+                                    <li key={index}>{method}</li>
+                                  )
+                                )}
+                              </ul>
+                            </div>
+                          )}
+
+                        {/* 座位數 */}
+                        {restaurant.seatingCapacity && (
+                          <p>
+                            <FontAwesomeIcon
+                              icon={faChair}
+                              className="mr-2 text-gray-500"
+                            />
+                            <span className="font-bold">座位數:</span>{" "}
+                            {restaurant.seatingCapacity}
+                          </p>
+                        )}
+
+                        {/* 電話 */}
+                        {restaurant.phone && (
+                          <p>
+                            <FontAwesomeIcon
+                              icon={faPhone}
+                              className="mr-2 text-gray-500"
+                            />
+                            <span className="font-bold">電話:</span>{" "}
+                            {restaurant.phone}
+                          </p>
+                        )}
+
+                        {/* 網站 */}
+                        {restaurant.website && (
+                          <p>
+                            <FontAwesomeIcon
+                              icon={faGlobe}
+                              className="mr-2 text-gray-500"
+                            />
+                            <span className="font-bold">網站:</span>{" "}
                             <a
                               href={restaurant.website}
                               target="_blank"
@@ -412,12 +441,21 @@ export default function RestaurantDetailLayout({ children }) {
                             >
                               {restaurant.website}
                             </a>
-                          ) : (
-                            "N/A"
-                          )}
-                        </p>
-                        {restaurant.description && (
-                          <p className="pt-2">{restaurant.description}</p>
+                          </p>
+                        )}
+
+                        {/* 其他資訊 */}
+                        {restaurant.otherInfo && (
+                          <div className="pt-2">
+                            <p className="flex items-start">
+                              <FontAwesomeIcon
+                                icon={faInfoCircle}
+                                className="mr-2 text-gray-500 mt-1"
+                              />
+                              <span className="font-bold">其他資訊:</span>
+                            </p>
+                            <p className="mt-1 ml-6">{restaurant.otherInfo}</p>
+                          </div>
                         )}
                       </div>
                     </section>

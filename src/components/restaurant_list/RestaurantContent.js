@@ -81,7 +81,7 @@ const RestaurantContent = () => {
       <main className="flex-grow pt-[140px]">
         <div className="max-w-screen-xl mx-auto flex gap-x-8">
           <div className="w-1/4 flex-shrink-0 relative">
-            <div className="sticky top-[140px] h-[calc(90vh-140px)]">
+            <div className="sticky top-[140px] h-[calc(-155px+100vh)]">
               <FilterSidebar
                 initialFilters={appliedFilters}
                 onApplyFilters={handleApplyFilters}
@@ -101,7 +101,7 @@ const RestaurantContent = () => {
           </div>
         </div>
       </main>
-      <footer className="bg-gray-800 text-white text-center py-6 text-sm font-light">
+      <footer className="mt-5 bg-gray-800 text-white text-center py-6 text-sm font-light">
         &copy; {new Date().getFullYear()} ChopsBook. 版權所有.
       </footer>
       {modalMessage && (
