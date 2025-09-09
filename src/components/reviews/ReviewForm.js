@@ -2,20 +2,26 @@
 
 import React, { useState, useEffect, useContext, useCallback } from "react";
 import { AuthContext } from "../../lib/auth-context";
-import {
-  collection,
-  query,
-  getDocs,
-  doc,
-  getDoc,
-  where,
-} from "firebase/firestore";
+import { collection, query, getDocs, doc, getDoc } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import LoadingSpinner from "../LoadingSpinner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import ReviewModerationCheck from "./ReviewModerationCheck"; // 導入新的審核組件
+import ReviewModerationCheck from "./ReviewModerationCheck";
+import StarRating from "./StarRating";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPlus, faXmark,  } from "@fortawesome/free-solid-svg-icons";
+import {
+  IconCoffee,
+  IconSunset2,
+  IconMoon,
+  IconBuildingStore,
+  IconMoped,
+  IconPaperBag,
+  IconSun,
+} from "@tabler/icons-react";
 
-// 圖標：用於返回按鈕
+// Back button icon
 const ArrowLeftIcon = ({ className = "" }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -31,23 +37,15 @@ const ArrowLeftIcon = ({ className = "" }) => (
   </svg>
 );
 
-// 評分項目配置
 const ratingCategories = [
   { key: "taste", label: "味道" },
   { key: "environment", label: "環境" },
   { key: "service", label: "服務" },
   { key: "hygiene", label: "衛生" },
-  { key: "value", label: "抵食" },
+  { key: "cp", label: "抵食" },
+  { key: "drinks", label: "酒/飲料" },
 ];
 
-/**
- * ReviewForm: 用於撰寫食評的表單組件。
- * 允許用戶選擇餐廳、評分多個項目並輸入食評內容。
- * 支援儲存草稿和提交食評功能。
- * @param {object} props - 組件屬性。
- * @param {function} props.onBack - 返回上一頁的回調函數。
- * @param {string} [props.draftId] - 要載入的草稿食評 ID (選填)。
- */
 const ReviewForm = ({ onBack, draftId }) => {
   const {
     db,
@@ -56,7 +54,6 @@ const ReviewForm = ({ onBack, draftId }) => {
     submitReview,
     saveReviewDraft,
     setModalMessage,
-    checkModeration,
   } = useContext(AuthContext);
   const router = useRouter();
 
@@ -64,7 +61,16 @@ const ReviewForm = ({ onBack, draftId }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredRestaurants, setFilteredRestaurants] = useState([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+
+  const [reviewTitle, setReviewTitle] = useState("");
+  const [overallRating, setOverallRating] = useState(0);
+  const [showDetailedRatings, setShowDetailedRatings] = useState(false);
   const [reviewContent, setReviewContent] = useState("");
+  const [costPerPerson, setCostPerPerson] = useState("");
+  const [timeOfDay, setTimeOfDay] = useState("");
+  const [serviceType, setServiceType] = useState("");
+  const [uploadedImages, setUploadedImages] = useState([]);
+
   const [ratings, setRatings] = useState(() => {
     const initialRatings = {};
     ratingCategories.forEach((cat) => {
@@ -72,8 +78,6 @@ const ReviewForm = ({ onBack, draftId }) => {
     });
     return initialRatings;
   });
-  const [includeDrinks, setIncludeDrinks] = useState(false);
-  const [drinksRating, setDrinksRating] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -83,20 +87,31 @@ const ReviewForm = ({ onBack, draftId }) => {
   const [lastSubmittedRestaurantId, setLastSubmittedRestaurantId] =
     useState(null);
 
-  // 計算最終評級
-  const calculateFinalRating = useCallback(() => {
-    const allRatings = [
-      ...Object.values(ratings),
-      ...(includeDrinks ? [drinksRating] : []),
-    ];
-    if (allRatings.length === 0) return 0;
-    const total = allRatings.reduce((sum, current) => sum + current, 0);
-    return (total / allRatings.length).toFixed(1);
-  }, [ratings, drinksRating, includeDrinks]);
+  // 計算並更新總體評級
+  useEffect(() => {
+    let sumOfRatings = 0;
+    let count = 0;
+    const coreRatings = ["taste", "environment", "service", "hygiene", "cp"];
 
-  const finalRating = calculateFinalRating();
+    coreRatings.forEach((key) => {
+      if (ratings[key] > 0) {
+        sumOfRatings += ratings[key];
+        count++;
+      }
+    });
 
-  // 獲取所有餐廳列表
+    if (ratings.drinks > 0) {
+      sumOfRatings += ratings.drinks;
+      count++;
+    }
+
+    if (count > 0) {
+      setOverallRating(sumOfRatings / count);
+    } else {
+      setOverallRating(0);
+    }
+  }, [ratings]);
+
   useEffect(() => {
     const fetchRestaurants = async () => {
       if (!db || !appId) {
@@ -123,7 +138,6 @@ const ReviewForm = ({ onBack, draftId }) => {
     fetchRestaurants();
   }, [db, appId, setModalMessage]);
 
-  // 根據搜尋關鍵字篩選餐廳建議
   useEffect(() => {
     if (searchQuery) {
       const normalizedQuery = searchQuery.toLowerCase();
@@ -139,42 +153,39 @@ const ReviewForm = ({ onBack, draftId }) => {
     }
   }, [searchQuery, restaurants]);
 
-  // 延時自動儲存
   useEffect(() => {
     if (!selectedRestaurant || !currentUser) return;
-
-    // 使用 debounce 技術避免頻繁儲存
     const timer = setTimeout(() => {
       const draftData = {
         restaurantId: selectedRestaurant.id,
         restaurantName:
           selectedRestaurant.restaurantNameZh ||
           selectedRestaurant.restaurantNameEn,
+        reviewTitle,
         reviewContent,
+        overallRating,
+        costPerPerson,
+        timeOfDay,
+        serviceType,
         ratings,
       };
-
-      // 只有當 includeDrinks 為 true 時才添加 drinksRating
-      if (includeDrinks) {
-        draftData.drinksRating = drinksRating;
-      }
-
       saveReviewDraft(draftData, draftId);
-    }, 1500); // 延時 1.5 秒
-
-    return () => clearTimeout(timer); // 清理定時器
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [
     selectedRestaurant,
+    reviewTitle,
     reviewContent,
+    overallRating,
+    costPerPerson,
+    timeOfDay,
+    serviceType,
     ratings,
-    drinksRating,
-    includeDrinks,
     currentUser,
     draftId,
     saveReviewDraft,
   ]);
 
-  // 載入草稿 (如果提供了 draftId)
   useEffect(() => {
     const loadDraft = async () => {
       if (draftId && db && currentUser && !loading && !isDraftLoaded) {
@@ -191,14 +202,23 @@ const ReviewForm = ({ onBack, draftId }) => {
             setSelectedRestaurant(
               restaurants.find((r) => r.id === draft.restaurantId)
             );
+            setReviewTitle(draft.reviewTitle || "");
+            setOverallRating(draft.overallRating || 0);
             setReviewContent(draft.reviewContent || "");
-            setRatings(draft.ratings || ratings);
-            if (draft.drinksRating !== undefined) {
-              setIncludeDrinks(true);
-              setDrinksRating(draft.drinksRating);
-            }
+
+            // 合併草稿與預設評分，確保所有細項都存在
+            const mergedRatings = ratingCategories.reduce((acc, cat) => {
+              acc[cat.key] = draft.ratings?.[cat.key] || 0;
+              return acc;
+            }, {});
+            setRatings(mergedRatings);
+
+            setCostPerPerson(draft.costPerPerson || "");
+            setTimeOfDay(draft.timeOfDay || "");
+            setServiceType(draft.serviceType || "");
+            if (draft.ratings && Object.keys(draft.ratings).length > 0)
+              setShowDetailedRatings(true);
             setIsDraftLoaded(true);
-            setModalMessage("草稿已載入！");
           } else {
             setModalMessage("找不到該草稿。");
             router.replace("/personal/reviews");
@@ -211,16 +231,14 @@ const ReviewForm = ({ onBack, draftId }) => {
         }
       }
     };
-
     if (
       !loading &&
       restaurants.length > 0 &&
       currentUser &&
       draftId &&
       !isDraftLoaded
-    ) {
+    )
       loadDraft();
-    }
   }, [
     draftId,
     db,
@@ -235,26 +253,43 @@ const ReviewForm = ({ onBack, draftId }) => {
   ]);
 
   const handleRatingChange = useCallback((categoryKey, value) => {
-    setRatings((prev) => ({
-      ...prev,
-      [categoryKey]: parseFloat(value),
-    }));
+    setRatings((prev) => ({ ...prev, [categoryKey]: parseFloat(value) }));
   }, []);
-
-  const handleDrinksRatingChange = useCallback((value) => {
-    setDrinksRating(parseFloat(value));
+  const handleOverallRatingChange = useCallback((value) => {
+    setOverallRating(parseFloat(value));
+    setShowDetailedRatings(false);
   }, []);
-
   const handleSelectRestaurant = useCallback((restaurant) => {
     setSelectedRestaurant(restaurant);
     setSearchQuery("");
     setFilteredRestaurants([]);
   }, []);
-
   const handleRemoveSelectedRestaurant = useCallback(() => {
     setSelectedRestaurant(null);
   }, []);
-
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const newImages = files
+      .filter((file) => file.type === "image/jpeg")
+      .slice(0, 5 - uploadedImages.length);
+    if (newImages.length + uploadedImages.length > 5)
+      setModalMessage("最多只能上傳 5 張圖片。");
+    const newImagePreviews = newImages.map((file) => ({
+      file,
+      description: "",
+      url: URL.createObjectURL(file),
+      id: Date.now() + Math.random(),
+    }));
+    setUploadedImages((prev) => [...prev, ...newImagePreviews]);
+  };
+  const handleImageDescriptionChange = (id, description) => {
+    setUploadedImages((prev) =>
+      prev.map((img) => (img.id === id ? { ...img, description } : img))
+    );
+  };
+  const handleRemoveImage = (id) => {
+    setUploadedImages((prev) => prev.filter((img) => img.id !== id));
+  };
   const handleSaveDraft = async () => {
     if (!currentUser) {
       setModalMessage("請先登入才能儲存草稿。");
@@ -264,7 +299,6 @@ const ReviewForm = ({ onBack, draftId }) => {
       setModalMessage("請選擇要評價的餐廳。");
       return;
     }
-
     setSubmitting(true);
     try {
       const draftData = {
@@ -272,18 +306,16 @@ const ReviewForm = ({ onBack, draftId }) => {
         restaurantName:
           selectedRestaurant.restaurantNameZh ||
           selectedRestaurant.restaurantNameEn,
+        reviewTitle,
         reviewContent,
+        overallRating,
+        costPerPerson,
+        timeOfDay,
+        serviceType,
         ratings,
       };
-
-      if (includeDrinks) {
-        draftData.drinksRating = drinksRating;
-      }
-
       const newDraftId = await saveReviewDraft(draftData, draftId);
-      if (!draftId) {
-        router.replace(`/personal/reviews?draftId=${newDraftId}`);
-      }
+      if (!draftId) router.replace(`/personal/reviews?draftId=${newDraftId}`);
     } catch (error) {
       setModalMessage(`儲存草稿失敗: ${error.message}`);
       console.error("儲存草稿失敗:", error);
@@ -302,8 +334,20 @@ const ReviewForm = ({ onBack, draftId }) => {
       setModalMessage("請選擇要評價的餐廳。");
       return;
     }
-    if (!reviewContent.trim()) {
-      setModalMessage("食評內容不能為空。");
+    if (!reviewTitle.trim() || !reviewContent.trim()) {
+      setModalMessage("評論標題和內容都不能為空。");
+      return;
+    }
+    if (overallRating === 0) {
+      setModalMessage("請給出一個總體評級。");
+      return;
+    }
+    if (!timeOfDay) {
+      setModalMessage("請選擇用餐時間。");
+      return;
+    }
+    if (!serviceType) {
+      setModalMessage("請選擇服務類型。");
       return;
     }
     if (moderationWarning) {
@@ -313,20 +357,36 @@ const ReviewForm = ({ onBack, draftId }) => {
 
     setSubmitting(true);
     try {
-      // 在清空狀態之前儲存餐廳 ID
+      const storage = getStorage();
+      const uploadedImageUrls = await Promise.all(
+        uploadedImages.map(async (image) => {
+          const storageRef = ref(
+            storage,
+            `public/users/${currentUser.uid}/reviews/${selectedRestaurant.id}/${image.file.name}`
+          );
+          const snapshot = await uploadBytes(storageRef, image.file);
+          const url = await getDownloadURL(snapshot.ref);
+          return { url, description: image.description };
+        })
+      );
       const submittedRestaurantId = selectedRestaurant.id;
-
       await submitReview(
-        selectedRestaurant.id,
-        ratings,
+        submittedRestaurantId,
+        reviewTitle,
+        overallRating,
         reviewContent,
-        finalRating,
-        draftId,
-        includeDrinks ? drinksRating : undefined
+        ratings,
+        costPerPerson,
+        timeOfDay,
+        serviceType,
+        uploadedImageUrls,
+        draftId
       );
 
-      // 清空表單
       setSelectedRestaurant(null);
+      setReviewTitle("");
+      setOverallRating(0);
+      setShowDetailedRatings(false);
       setReviewContent("");
       setRatings(() => {
         const initialRatings = {};
@@ -335,16 +395,13 @@ const ReviewForm = ({ onBack, draftId }) => {
         });
         return initialRatings;
       });
-      setIncludeDrinks(false);
-      setDrinksRating(0);
+      setCostPerPerson("");
+      setTimeOfDay("");
+      setServiceType("");
+      setUploadedImages([]);
       setModerationWarning(null);
-
-      // 設定最後提交的餐廳 ID，以便在顯示提示時使用
       setLastSubmittedRestaurantId(submittedRestaurantId);
-
-      if (draftId) {
-        router.replace("/personal/reviews");
-      }
+      if (draftId) router.replace("/personal/reviews");
       setShowUpdatePrompt(true);
     } catch (error) {
       setModalMessage(`提交食評失敗: ${error.message}`);
@@ -358,10 +415,7 @@ const ReviewForm = ({ onBack, draftId }) => {
     setModerationWarning(warning);
   }, []);
 
-  if (!currentUser) {
-    return null;
-  }
-
+  if (!currentUser) return null;
   if (loading || (draftId && submitting && !isDraftLoaded)) {
     return (
       <div className="flex items-center justify-center min-h-[500px] bg-gray-50 rounded-xl shadow-md p-8 w-full max-w-4xl">
@@ -381,13 +435,12 @@ const ReviewForm = ({ onBack, draftId }) => {
         <ArrowLeftIcon className="mr-2" />
         返回
       </button>
-      <h2 className="text-4xl font-extrabold text-gray-900 mb-8 text-center">
+      <h2 className="text-2xl font-extrabold text-gray-900 mb-8 text-center">
         撰寫食評
       </h2>
-
       {showUpdatePrompt ? (
         <div className="text-center p-8">
-          <h3 className="text-2xl font-bold text-green-600 mb-4">
+          <h3 className="text-xl font-bold text-green-600 mb-4">
             感謝您的貢獻！
           </h3>
           <p className="text-gray-700 mb-4">您的食評已成功提交。</p>
@@ -409,14 +462,13 @@ const ReviewForm = ({ onBack, draftId }) => {
         </div>
       ) : (
         <form onSubmit={handleSubmitReview} className="space-y-6">
-          {/* 選擇餐廳 */}
           <div>
-            <label className="block text-gray-700 text-sm font-bold mb-2">
+            <label className="block text-gray-700 text-base font-bold mb-2">
               選擇餐廳 <span className="text-red-500">*</span>
             </label>
             {selectedRestaurant ? (
               <div className="flex items-center justify-between p-3 border border-gray-300 rounded-md bg-indigo-50 text-indigo-800">
-                <span className="font-semibold">
+                <span className="font-semibold text-base">
                   {selectedRestaurant.restaurantNameZh ||
                     selectedRestaurant.restaurantNameEn}
                 </span>
@@ -451,99 +503,266 @@ const ReviewForm = ({ onBack, draftId }) => {
                   </ul>
                 )}
                 {searchQuery && filteredRestaurants.length === 0 && (
-                  <p className="mt-2 text-sm text-gray-500">
+                  <p className="mt-2 text-base text-red-500">
                     沒有找到匹配的餐廳。
+                    <a href="/merchant/add" className="text-blue-500">
+                      新增餐廳？
+                    </a>
                   </p>
                 )}
               </>
             )}
           </div>
 
-          {/* 評分項目 */}
-          <div>
-            <label className="block text-gray-700 text-sm font-bold mb-2">
-              評分 <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ratingCategories.map((category) => (
-                <div key={category.key} className="flex items-center">
-                  <span className="w-24 text-gray-800">{category.label}：</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="5"
-                    step="0.5"
-                    value={ratings[category.key]}
-                    onChange={(e) =>
-                      handleRatingChange(category.key, e.target.value)
-                    }
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="ml-3 font-semibold text-gray-800 min-w-[30px]">
-                    {ratings[category.key].toFixed(1)}
-                  </span>
-                </div>
-              ))}
-              {/* 酒/飲料評分 */}
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="includeDrinks"
-                  checked={includeDrinks}
-                  onChange={(e) => setIncludeDrinks(e.target.checked)}
-                  className="mr-2"
-                />
-                <label htmlFor="includeDrinks" className="text-gray-800 w-24">
-                  酒/飲料：
-                </label>
-                {includeDrinks && (
-                  <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label
+                htmlFor="costPerPerson"
+                className="block text-gray-700 text-sm font-bold mb-2"
+              >
+                每人消費金額
+              </label>
+              <input
+                id="costPerPerson"
+                type="number"
+                min="0"
+                value={costPerPerson}
+                onChange={(e) => setCostPerPerson(e.target.value)}
+                className="text-sm w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="例如: 150"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-gray-700 text-base font-bold mb-2">
+                用餐時間 <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  {
+                    value: "morning",
+                    label: "早上",
+                    icon: <IconCoffee stroke={2} className="text-2xl" />,
+                  },
+                  {
+                    value: "noon",
+                    label: "中午",
+                    icon: <IconSun stroke={2}  className="text-2xl" />,
+                  },
+                  {
+                    value: "afternoon",
+                    label: "下午",
+                    icon: <IconSunset2 stroke={2} className="text-2xl" />,
+                  },
+                  {
+                    value: "night",
+                    label: "晚上",
+                    icon: <IconMoon stroke={2} className="text-2xl" />,
+                  },
+                ].map((item) => (
+                  <label
+                    key={item.value}
+                    className={`flex flex-col items-center justify-center p-4 rounded-lg cursor-pointer transition-all duration-200 ${
+                      timeOfDay === item.value
+                        ? "bg-blue-100 border-2 border-blue-500 shadow-md"
+                        : "bg-gray-50 border border-gray-300 hover:bg-gray-100"
+                    }`}
+                  >
                     <input
-                      type="range"
-                      min="0"
-                      max="5"
-                      step="0.5"
-                      value={drinksRating}
-                      onChange={(e) => handleDrinksRatingChange(e.target.value)}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      type="radio"
+                      name="timeOfDay"
+                      value={item.value}
+                      checked={timeOfDay === item.value}
+                      onChange={(e) => setTimeOfDay(e.target.value)}
+                      className="hidden"
                     />
-                    <span className="ml-3 font-semibold text-gray-800 min-w-[30px]">
-                      {drinksRating.toFixed(1)}
+                    {item.icon}
+                    <span className="mt-2 text-sm font-medium text-gray-800">
+                      {item.label}
                     </span>
-                  </>
-                )}
+                  </label>
+                ))}
               </div>
             </div>
-            <div className="text-right mt-4 text-xl font-bold text-gray-900">
-              最終評級：{finalRating}
+          </div>
+          <div>
+            <label className="block text-gray-700 text-base font-bold mb-2">
+              服務類型 <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {[
+                {
+                  value: "dine-in",
+                  label: "堂食",
+                  icon: <IconBuildingStore stroke={2} className="text-xl" />,
+                },
+                {
+                  value: "delivery",
+                  label: "外賣",
+                  icon: <IconMoped stroke={2} className="text-xl" />,
+                },
+                {
+                  value: "pickup",
+                  label: "自取",
+                  icon: <IconPaperBag stroke={2} className="text-xl" />,
+                },
+              ].map((item) => (
+                <label
+                  key={item.value}
+                  className={`flex flex-col items-center justify-center p-4 rounded-lg cursor-pointer transition-all duration-200 ${
+                    serviceType === item.value
+                      ? "bg-blue-100 border-2 border-blue-500 shadow-md"
+                      : "bg-gray-50 border border-gray-300 hover:bg-gray-100"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="serviceType"
+                    value={item.value}
+                    checked={serviceType === item.value}
+                    onChange={(e) => setServiceType(e.target.value)}
+                    className="hidden"
+                  />
+                  {item.icon}
+                  <span className="mt-2 text-sm font-medium text-gray-800">
+                    {item.label}
+                  </span>
+                </label>
+              ))}
             </div>
           </div>
-
-          {/* 食評內容 */}
+          <div>
+            <label
+              htmlFor="reviewTitle"
+              className="block text-gray-700 text-base font-bold mb-2"
+            >
+              評論標題 <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="reviewTitle"
+              type="text"
+              value={reviewTitle}
+              onChange={(e) => setReviewTitle(e.target.value)}
+              className="text-sm w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="給評論一個簡短的標題..."
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 text-base font-bold mb-2">
+              總體評級 <span className="text-red-500">*</span>
+            </label>
+            <div className="flex items-center space-x-3">
+              <StarRating
+                value={overallRating}
+                onValueChange={handleOverallRatingChange}
+              />
+              <span className="font-semibold text-gray-800">
+                {overallRating.toFixed(1)} / 5
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowDetailedRatings(!showDetailedRatings)}
+                className="text-sm ml-auto px-4 py-2 text-blue-600 font-semibold rounded-md border border-blue-600 hover:bg-blue-50 transition-colors"
+              >
+                {showDetailedRatings ? "隱藏細項" : "詳細評分"}
+              </button>
+            </div>
+          </div>
+          {showDetailedRatings && (
+            <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+              <h4 className="text-base font-bold text-gray-800">細項評分</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {ratingCategories.map((category) => (
+                  <div key={category.key} className="flex items-center ">
+                    <span className="text-sm w-fit text-gray-800 ">
+                      {category.label}：
+                    </span>
+                    <div className=" text-sm flex-1 flex items-center justify-end space-x-3 mr-11">
+                      <StarRating
+                        value={ratings[category.key]}
+                        onValueChange={(val) =>
+                          handleRatingChange(category.key, val)
+                        }
+                      />
+                      <span className="font-semibold text-gray-800">
+                        {(ratings[category.key] || 0).toFixed(1)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div>
             <label
               htmlFor="reviewContent"
-              className="block text-gray-700 text-sm font-bold mb-2"
+              className="block text-gray-700 text-base font-bold mb-2"
             >
-              食評內容 <span className="text-red-500">*</span>
+              評論詳情 <span className="text-red-500">*</span>
             </label>
             <textarea
               id="reviewContent"
               rows="6"
               value={reviewContent}
               onChange={(e) => setReviewContent(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+              className="text-sm w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
               placeholder="分享您的用餐體驗..."
               required
             ></textarea>
-            {/* 整合 ReviewModerationCheck 組件 */}
             <ReviewModerationCheck
               content={reviewContent}
               onModerationResult={handleModerationResult}
             />
           </div>
-
-          {/* 按鈕組 */}
+          <div>
+            <label className="block text-gray-700 text-sm font-bold mb-2">
+              上傳圖片 (最多 5 張，僅限 .jpg)
+            </label>
+            <div className="flex items-center space-x-4">
+              <label className="text-sm flex-shrink-0 cursor-pointer bg-blue-500 text-white font-bold py-2 px-4 rounded-md shadow-md hover:bg-blue-600 transition-colors">
+                <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                選擇圖片
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg"
+                  multiple
+                  onChange={handleImageUpload}
+                  disabled={uploadedImages.length >= 5}
+                  className="hidden"
+                />
+              </label>
+              <span className="text-gray-600 text-sm">
+                已選擇 {uploadedImages.length} / 5 張
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+              {uploadedImages.map((image) => (
+                <div key={image.id} className="relative group">
+                  <img
+                    src={image.url}
+                    alt="Uploaded preview"
+                    className="w-full h-32 object-cover rounded-md"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(image.id)}
+                    className="absolute top-1 right-1 p-1 text-gray-500 hover:text-gray-700 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <FontAwesomeIcon icon={faXmark} />
+                  </button>
+                  <input
+                    type="text"
+                    value={image.description}
+                    onChange={(e) =>
+                      handleImageDescriptionChange(image.id, e.target.value)
+                    }
+                    className="w-full mt-2 p-1 text-sm border border-gray-300 rounded-md"
+                    placeholder="菜式名 (選填)"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="flex justify-end space-x-4 mt-6">
             <button
               type="button"
@@ -558,7 +777,11 @@ const ReviewForm = ({ onBack, draftId }) => {
               disabled={
                 submitting ||
                 !selectedRestaurant ||
+                !reviewTitle.trim() ||
                 !reviewContent.trim() ||
+                overallRating === 0 ||
+                !timeOfDay ||
+                !serviceType ||
                 moderationWarning
               }
               className="px-6 py-3 bg-green-600 text-white font-bold rounded-md shadow-md hover:bg-green-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"

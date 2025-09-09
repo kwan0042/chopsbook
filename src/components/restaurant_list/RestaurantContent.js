@@ -1,4 +1,3 @@
-// src/components/RestaurantContent.js
 "use client";
 import React, { useState, useCallback, useEffect, useContext } from "react";
 import { useSearchParams } from "next/navigation";
@@ -20,6 +19,56 @@ const RestaurantContent = () => {
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [isGridView, setIsGridView] = useState(false);
+  const [restaurants, setRestaurants] = useState([]); // 新增：管理餐廳列表狀態
+  const [loading, setLoading] = useState(true); // 新增：管理載入狀態
+
+  // 新增：根據 filters 和 searchQuery 取得餐廳資料的函數
+  const fetchRestaurants = useCallback(async (filters, searchQuery) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      // Tag: 收藏餐廳篩選
+      if (
+        filters.favoriteRestaurantIds &&
+        filters.favoriteRestaurantIds.length > 0
+      ) {
+        filters.favoriteRestaurantIds.forEach((id) =>
+          params.append("favoriteRestaurantIds[]", id)
+        );
+      }
+
+      if (searchQuery) {
+        params.append("search", searchQuery);
+      } else {
+        for (const key in filters) {
+          const value = filters[key];
+          if (key === "favoriteRestaurantIds") continue; // 已經處理過，跳過
+          if (Array.isArray(value)) {
+            value.forEach((item) => params.append(`${key}[]`, item));
+          } else if (value !== "" && value !== undefined && value !== null) {
+            params.append(key, value);
+          }
+        }
+      }
+
+      const response = await fetch(`/api/filter?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setRestaurants(data.restaurants);
+    } catch (error) {
+      console.error("Failed to fetch restaurants:", error);
+      setRestaurants([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // 新增：當 filters 或 searchQuery 改變時，重新載入餐廳資料
+  useEffect(() => {
+    fetchRestaurants(appliedFilters, searchQuery);
+  }, [appliedFilters, searchQuery, fetchRestaurants]);
 
   const handleApplyFilters = useCallback((filters) => {
     setAppliedFilters(filters);
@@ -31,29 +80,26 @@ const RestaurantContent = () => {
     setSearchQuery("");
   }, []);
 
-  // 修正後的 handleRemoveFilter 函數
   const handleRemoveFilter = useCallback((key, valueToRemove) => {
     setAppliedFilters((prevFilters) => {
       const newFilters = { ...prevFilters };
 
-      if (Array.isArray(newFilters[key])) {
-        // 多選（例如菜系），從陣列中移除該值
+      if (key === "favoriteRestaurantIds") {
+        delete newFilters.favoriteRestaurantIds;
+      } else if (Array.isArray(newFilters[key])) {
         newFilters[key] = newFilters[key].filter(
           (item) => item !== valueToRemove
         );
         if (newFilters[key].length === 0) {
           delete newFilters[key];
         }
-      } else if (key.includes("AvgSpending")) {
-        // 處理人均消費範圍篩選
+      } else if (key === "minAvgSpending" || key === "maxAvgSpending") {
         delete newFilters.minAvgSpending;
         delete newFilters.maxAvgSpending;
-      } else if (key.includes("SeatingCapacity")) {
-        // 處理座位數範圍篩選
+      } else if (key === "minSeatingCapacity" || key === "maxSeatingCapacity") {
         delete newFilters.minSeatingCapacity;
         delete newFilters.maxSeatingCapacity;
       } else {
-        // 處理單選和數值型篩選（包含 minRating）
         delete newFilters[key];
       }
       return newFilters;
@@ -70,6 +116,11 @@ const RestaurantContent = () => {
   }, []);
 
   const closeModal = () => setModalMessage("");
+
+  // 判斷收藏篩選是否啟用
+  const isFavoritesFilterActive =
+    appliedFilters.favoriteRestaurantIds &&
+    appliedFilters.favoriteRestaurantIds.length > 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100 font-inter">
@@ -97,6 +148,9 @@ const RestaurantContent = () => {
               searchQuery={searchQuery}
               isGridView={isGridView}
               toggleView={toggleView}
+              restaurants={restaurants} // 傳遞 restaurants 列表給子組件
+              loading={loading} // 傳遞 loading 狀態給子組件
+              isFavoritesFilterActive={isFavoritesFilterActive} // 新增：傳遞收藏篩選狀態
             />
           </div>
         </div>

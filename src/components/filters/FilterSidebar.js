@@ -1,7 +1,12 @@
-// src/components/FilterSidebar.js
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useContext,
+} from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChevronUp,
@@ -18,6 +23,15 @@ import {
   seatingCapacityOptions,
 } from "../../data/restaurant-options";
 
+import {
+  CheckboxesFilter,
+  RadioGroupFilter,
+  DateTimeFilter,
+} from "./FilterComponents";
+
+// 引入 AuthContext 以獲取使用者資料
+import { AuthContext } from "@/lib/auth-context";
+
 const parseSeatingCapacityOptions = (options) => {
   return options
     .filter((option) => option !== "選擇座位數")
@@ -26,6 +40,7 @@ const parseSeatingCapacityOptions = (options) => {
         const [minStr, maxStr] = option.split("-");
         return {
           label: `${option}人`,
+          value: `${minStr}-${maxStr}`,
           min: parseInt(minStr, 10),
           max: parseInt(maxStr, 10),
         };
@@ -33,6 +48,7 @@ const parseSeatingCapacityOptions = (options) => {
         const minStr = option.replace("+", "");
         return {
           label: `${minStr}+ 人`,
+          value: `${minStr}+`,
           min: parseInt(minStr, 10),
           max: 9999,
         };
@@ -42,24 +58,38 @@ const parseSeatingCapacityOptions = (options) => {
     .filter(Boolean);
 };
 
+const FilterGroup = ({ title, isCollapsed, onToggle, children }) => {
+  return (
+    <div className="border-b pb-4 border-gray-200">
+      <div
+        className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+        onClick={onToggle}
+      >
+        <h4 className="text-base font-semibold text-gray-800">{title}</h4>
+        <FontAwesomeIcon
+          icon={isCollapsed ? faChevronDown : faChevronUp}
+          className="text-gray-500 transition-transform duration-200"
+        />
+      </div>
+      {!isCollapsed && <div className="mt-3">{children}</div>}
+    </div>
+  );
+};
+
 const FilterSidebar = ({
   initialFilters = {},
   onApplyFilters,
   onResetFilters,
+  onClose,
 }) => {
   const [localFilters, setLocalFilters] = useState(initialFilters);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
-
-  // 新增狀態來控制頂部遮罩的顯示
   const [showTopMask, setShowTopMask] = useState(false);
-
-  // 參考 div 的引用，用來監聽滾動事件
   const scrollContainerRef = useRef(null);
 
   const [isRegionCollapsed, setIsRegionCollapsed] = useState(true);
   const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(true);
   const [isAvgSpendingCollapsed, setIsAvgSpendingCollapsed] = useState(true);
-  const [isMinRatingCollapsed, setIsMinRatingCollapsed] = useState(true);
   const [isBusinessHoursCollapsed, setIsBusinessHoursCollapsed] =
     useState(true);
   const [isReservationModesCollapsed, setIsReservationModesCollapsed] =
@@ -69,39 +99,31 @@ const FilterSidebar = ({
   const [isFacilitiesCollapsed, setIsFacilitiesCollapsed] = useState(true);
   const [isSeatingCapacityCollapsed, setIsSeatingCapacityCollapsed] =
     useState(true);
+  const [isTimeAndPartyCollapsed, setIsTimeAndPartyCollapsed] = useState(true);
 
-  const [isTimeAndPartyCollapsed, setIsTimeAndPartyCollapsed] = useState(false);
+  // 新增狀態來處理收藏餐廳篩選
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const { currentUser } = useContext(AuthContext);
 
   useEffect(() => {
     setLocalFilters(initialFilters);
   }, [initialFilters]);
 
-  // 處理滾動事件的邏輯
   const handleScroll = useCallback(() => {
     if (scrollContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } =
         scrollContainerRef.current;
-
-      // 判斷是否滾動到底部
       const atBottom = scrollTop + clientHeight >= scrollHeight - 5;
       setIsScrolledToBottom(atBottom);
-
-      // 只要滾動條不在最頂端，就顯示遮罩
-      if (scrollTop > 10) {
-        setShowTopMask(true);
-      } else {
-        setShowTopMask(false);
-      }
+      setShowTopMask(scrollTop > 10);
     }
   }, []);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (container) {
-      // 初始檢查滾動條狀態
       handleScroll();
       container.addEventListener("scroll", handleScroll);
-      // 清除事件監聽器
       return () => container.removeEventListener("scroll", handleScroll);
     }
   }, [handleScroll]);
@@ -126,14 +148,21 @@ const FilterSidebar = ({
     });
   }, []);
 
-  const handleApply = useCallback(() => {
-    onApplyFilters(localFilters);
-  }, [localFilters, onApplyFilters]);
+  const handleApply = useCallback(async () => {
+    const newFilters = { ...localFilters };
+    if (showFavoritesOnly && currentUser && currentUser.favoriteRestaurants) {
+      newFilters.favoriteRestaurantIds = currentUser.favoriteRestaurants;
+    }
+    onApplyFilters(newFilters);
+    if (onClose) onClose();
+  }, [localFilters, showFavoritesOnly, currentUser, onApplyFilters, onClose]);
 
   const handleReset = useCallback(() => {
     setLocalFilters({});
+    setShowFavoritesOnly(false);
     onResetFilters();
-  }, [onResetFilters]);
+    if (onClose) onClose();
+  }, [onResetFilters, onClose]);
 
   const displayCuisineTypes = cuisineOptions.filter(
     (option) => option !== "選擇菜系"
@@ -144,625 +173,325 @@ const FilterSidebar = ({
   const displayProvinces = provinceOptions.filter(
     (option) => option !== "選擇省份"
   );
-
   const parsedSeatingCapacities = parseSeatingCapacityOptions(
     seatingCapacityOptions
   );
 
-  const hasFiltersApplied = () => {
-    for (const key in localFilters) {
-      const value = localFilters[key];
-      if (
-        (Array.isArray(value) && value.length > 0) ||
-        (typeof value === "string" && value !== "" && value !== "所有省份") ||
-        (typeof value === "number" && value !== 0 && !isNaN(value)) ||
-        (typeof value === "object" &&
-          value !== null &&
-          Object.keys(value).length > 0)
-      ) {
-        return true;
-      }
-    }
-    return false;
-  };
+  const businessHoursOptions = [
+    { label: "營業中", value: "營業中" },
+    { label: "休假中 (含暫時休業)", value: "休假中" },
+    { label: "不限", value: "" },
+  ];
 
+  const hasFiltersApplied = () => {
+    const defaultFilters = {};
+    return (
+      JSON.stringify(localFilters) !== JSON.stringify(defaultFilters) ||
+      showFavoritesOnly
+    );
+  };
   const isFiltersActive = hasFiltersApplied();
 
   return (
     <div className="relative bg-white p-6 shadow-lg rounded-2xl w-full flex flex-col h-full">
       <h3 className="text-xl font-bold text-gray-900 mb-6">篩選餐廳</h3>
-
-      {/* 頂部漸變遮罩，根據滾動條位置顯示或隱藏 */}
       <div
-        className={`absolute left-0 right-0 h-[50px] pointer-events-none bg-gradient-to-b from-white to-white/0 z-10 transition-opacity duration-300 ${
+        className={`absolute inset-x-0 h-[50px] pointer-events-none bg-gradient-to-b from-white to-white/0 z-10 transition-opacity duration-300 ${
           showTopMask ? "opacity-100" : "opacity-0"
         }`}
         style={{ top: "70px" }}
       ></div>
-
-      {/* 滾動內容容器，隱藏滾動條 */}
       <div
         ref={scrollContainerRef}
-        className="h-full overflow-y-auto pr-2 -mr-2 scrollbar-hide"
+        className="flex-grow h-full overflow-y-auto pr-2 -mr-2 scrollbar-hide"
       >
-        <div className="space-y-4 flex-grow">
-          {/* 新增：日期、時間、人數及時段篩選 */}
-          <div className="border-b pb-4 border-gray-200">
-            <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              onClick={() =>
-                setIsTimeAndPartyCollapsed(!isTimeAndPartyCollapsed)
-              }
-            >
-              <h4 className="text-base font-semibold text-gray-800">
-                預計用餐時間
-              </h4>
-              <FontAwesomeIcon
-                icon={isTimeAndPartyCollapsed ? faChevronDown : faChevronUp}
-                className="text-gray-500"
-              />
-            </div>
-            {!isTimeAndPartyCollapsed && (
-              <div className="mt-3 space-y-3">
-                <div>
-                  <label
-                    htmlFor="reservationDate"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    用餐日期
-                  </label>
-                  <input
-                    type="date"
-                    id="reservationDate"
-                    value={localFilters.reservationDate || ""}
-                    onChange={(e) =>
-                      handleFilterChange("reservationDate", e.target.value)
-                    }
-                    className="w-full p-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="reservationTime"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    用餐時間
-                  </label>
-                  <input
-                    type="time"
-                    id="reservationTime"
-                    value={localFilters.reservationTime || ""}
-                    onChange={(e) =>
-                      handleFilterChange("reservationTime", e.target.value)
-                    }
-                    className="w-full p-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="partySize"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    用餐人數
-                  </label>
-                  <input
-                    type="number"
-                    id="partySize"
-                    value={localFilters.partySize || ""}
-                    onChange={(e) =>
-                      handleFilterChange(
-                        "partySize",
-                        e.target.value
-                          ? parseInt(e.target.value, 10)
-                          : undefined
-                      )
-                    }
-                    placeholder="人數"
-                    className="w-full p-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-          {/* 地區篩選 */}
-          <div className="border-b pb-4 border-gray-200">
-            <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              onClick={() => setIsRegionCollapsed(!isRegionCollapsed)}
-            >
-              <h4 className="text-base font-semibold text-gray-800">地區</h4>
-              <FontAwesomeIcon
-                icon={isRegionCollapsed ? faChevronDown : faChevronUp}
-                className="text-gray-500"
-              />
-            </div>
-            {!isRegionCollapsed && (
-              <div className="mt-3 space-y-3">
-                <div>
-                  <label
-                    htmlFor="province"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    省份
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="province"
-                      value={localFilters.province || ""}
-                      onChange={(e) =>
-                        handleFilterChange("province", e.target.value)
-                      }
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8"
-                    >
-                      <option value="">所有省份</option>
-                      {displayProvinces.map((province) => (
-                        <option key={province} value={province}>
-                          {province}
-                        </option>
-                      ))}
-                    </select>
-                    <FontAwesomeIcon
-                      icon={faChevronDown}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label
-                    htmlFor="city"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    城市
-                  </label>
-                  <input
-                    type="text"
-                    id="city"
-                    placeholder="輸入城市名稱"
-                    value={localFilters.city || ""}
-                    onChange={(e) => handleFilterChange("city", e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 菜系類別篩選 (多選) */}
-          <div className="border-b pb-4 border-gray-200">
-            <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              onClick={() => setIsCategoryCollapsed(!isCategoryCollapsed)}
-            >
-              <h4 className="text-base font-semibold text-gray-800">
-                菜系類別
-              </h4>
-              <FontAwesomeIcon
-                icon={isCategoryCollapsed ? faChevronDown : faChevronUp}
-                className="text-gray-500"
-              />
-            </div>
-            {!isCategoryCollapsed && (
-              <div className="mt-3 space-y-2">
-                {displayCuisineTypes.map((type) => (
-                  <div key={type} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id={`cuisine-${type}`}
-                      checked={(localFilters.category || []).includes(type)}
-                      onChange={() =>
-                        handleMultiSelectFilterChange("category", type)
-                      }
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <label
-                      htmlFor={`cuisine-${type}`}
-                      className="ml-2 text-sm text-gray-700"
-                    >
-                      {type}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* 人均價錢篩選 (改為自訂範圍) */}
-          <div className="border-b pb-4 border-gray-200">
-            <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              onClick={() => setIsAvgSpendingCollapsed(!isAvgSpendingCollapsed)}
-            >
-              <h4 className="text-base font-semibold text-gray-800">
-                人均價錢
-              </h4>
-              <FontAwesomeIcon
-                icon={isAvgSpendingCollapsed ? faChevronDown : faChevronUp}
-                className="text-gray-500"
-              />
-            </div>
-            {!isAvgSpendingCollapsed && (
-              <div className="mt-3 space-y-2">
-                <div>
-                  <label
-                    htmlFor="minAvgSpending"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    最低人均消費 ($)
-                  </label>
-                  <input
-                    type="number"
-                    id="minAvgSpending"
-                    value={localFilters.minAvgSpending || ""}
-                    onChange={(e) =>
-                      handleFilterChange(
-                        "minAvgSpending",
-                        e.target.value
-                          ? parseInt(e.target.value, 10)
-                          : undefined
-                      )
-                    }
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                    min="0"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="maxAvgSpending"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    最高人均消費 ($)
-                  </label>
-                  <input
-                    type="number"
-                    id="maxAvgSpending"
-                    value={localFilters.maxAvgSpending || ""}
-                    onChange={(e) =>
-                      handleFilterChange(
-                        "maxAvgSpending",
-                        e.target.value
-                          ? parseInt(e.target.value, 10)
-                          : undefined
-                      )
-                    }
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                    min="0"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 最低評分篩選 */}
-          <div className="border-b pb-4 border-gray-200">
-            <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              onClick={() => setIsMinRatingCollapsed(!isMinRatingCollapsed)}
-            >
-              <h4 className="text-base font-semibold text-gray-800">
-                最低評分
-              </h4>
-              <FontAwesomeIcon
-                icon={isMinRatingCollapsed ? faChevronDown : faChevronUp}
-                className="text-gray-500"
-              />
-            </div>
-            {!isMinRatingCollapsed && (
-              <div className="mt-3">
+        <div className="space-y-4">
+          <FilterGroup
+            title="預計用餐詳情"
+            isCollapsed={isTimeAndPartyCollapsed}
+            onToggle={() =>
+              setIsTimeAndPartyCollapsed(!isTimeAndPartyCollapsed)
+            }
+          >
+            <div className="space-y-3">
+              <div className="flex items-center">
                 <input
-                  type="range"
-                  min="0"
-                  max="5"
-                  step="0.5"
-                  value={localFilters.minRating || 0}
-                  onChange={(e) =>
-                    handleFilterChange("minRating", parseFloat(e.target.value))
-                  }
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-sm"
+                  type="checkbox"
+                  id="showFavoritesOnly"
+                  checked={showFavoritesOnly}
+                  onChange={(e) => setShowFavoritesOnly(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <span className="block text-center text-sm text-gray-700 mt-2">
-                  {localFilters.minRating || 0} 星及以上
-                </span>
+                <label
+                  htmlFor="showFavoritesOnly"
+                  className="ml-2 text-sm text-gray-700"
+                >
+                  只顯示我的收藏餐廳
+                </label>
               </div>
-            )}
-          </div>
-
-          {/* 座位數篩選 */}
-          <div className="border-b pb-4 border-gray-200">
-            <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              onClick={() =>
-                setIsSeatingCapacityCollapsed(!isSeatingCapacityCollapsed)
-              }
-            >
-              <h4 className="text-base font-semibold text-gray-800">座位數</h4>
-              <FontAwesomeIcon
-                icon={isSeatingCapacityCollapsed ? faChevronDown : faChevronUp}
-                className="text-gray-500"
+              <DateTimeFilter
+                localFilters={localFilters}
+                handleFilterChange={handleFilterChange}
               />
             </div>
-            {!isSeatingCapacityCollapsed && (
-              <div className="mt-3 space-y-2">
-                {parsedSeatingCapacities.map((capacity) => (
-                  <div key={capacity.label} className="flex items-center">
-                    <input
-                      type="radio"
-                      id={`seating-${capacity.label}`}
-                      name="seatingCapacity"
-                      checked={
-                        localFilters.minSeatingCapacity === capacity.min &&
-                        localFilters.maxSeatingCapacity === capacity.max
-                      }
-                      onChange={() => {
-                        handleFilterChange("minSeatingCapacity", capacity.min);
-                        handleFilterChange("maxSeatingCapacity", capacity.max);
-                      }}
-                      className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                    />
-                    <label
-                      htmlFor={`seating-${capacity.label}`}
-                      className="ml-2 text-sm text-gray-700"
-                    >
-                      {capacity.label}
-                    </label>
-                  </div>
-                ))}
-                <div className="flex items-center">
-                  <input
-                    type="radio"
-                    id="seating-any"
-                    name="seatingCapacity"
-                    checked={
-                      !localFilters.minSeatingCapacity &&
-                      !localFilters.maxSeatingCapacity
-                    }
-                    onChange={() => {
-                      handleFilterChange("minSeatingCapacity", undefined);
-                      handleFilterChange("maxSeatingCapacity", undefined);
-                    }}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <label
-                    htmlFor="seating-any"
-                    className="ml-2 text-sm text-gray-700"
-                  >
-                    不限
-                  </label>
-                </div>
-              </div>
-            )}
-          </div>
+          </FilterGroup>
 
-          {/* 營業狀態篩選 */}
-          <div className="border-b pb-4 border-gray-200">
-            <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              onClick={() =>
-                setIsBusinessHoursCollapsed(!isBusinessHoursCollapsed)
-              }
-            >
-              <h4 className="text-base font-semibold text-gray-800">
-                營業狀態
-              </h4>
-              <FontAwesomeIcon
-                icon={isBusinessHoursCollapsed ? faChevronDown : faChevronUp}
-                className="text-gray-500"
-              />
-            </div>
-            {!isBusinessHoursCollapsed && (
-              <div className="mt-3 space-y-2">
-                <div className="flex items-center">
-                  <input
-                    type="radio"
-                    id="status-open"
-                    name="businessHours"
-                    value="營業中"
-                    checked={localFilters.businessHours === "營業中"}
+          <FilterGroup
+            title="地區"
+            isCollapsed={isRegionCollapsed}
+            onToggle={() => setIsRegionCollapsed(!isRegionCollapsed)}
+          >
+            <div className="space-y-3">
+              <div>
+                <label
+                  htmlFor="province"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  省份
+                </label>
+                <div className="relative">
+                  <select
+                    id="province"
+                    value={localFilters.province || ""}
                     onChange={(e) =>
-                      handleFilterChange("businessHours", e.target.value)
+                      handleFilterChange("province", e.target.value)
                     }
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <label
-                    htmlFor="status-open"
-                    className="ml-2 text-sm text-gray-700"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8"
                   >
-                    營業中
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="radio"
-                    id="status-closed"
-                    name="businessHours"
-                    value="休假中"
-                    checked={localFilters.businessHours === "休假中"}
-                    onChange={(e) =>
-                      handleFilterChange("businessHours", e.target.value)
-                    }
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    <option value="">所有省份</option>
+                    {displayProvinces.map((province) => (
+                      <option key={province} value={province}>
+                        {province}
+                      </option>
+                    ))}
+                  </select>
+                  <FontAwesomeIcon
+                    icon={faChevronDown}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
                   />
-                  <label
-                    htmlFor="status-closed"
-                    className="ml-2 text-sm text-gray-700"
-                  >
-                    休假中 (含暫時休業)
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="radio"
-                    id="status-any"
-                    name="businessHours"
-                    value=""
-                    checked={!localFilters.businessHours}
-                    onChange={() => handleFilterChange("businessHours", "")}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <label
-                    htmlFor="status-any"
-                    className="ml-2 text-sm text-gray-700"
-                  >
-                    不限
-                  </label>
                 </div>
               </div>
-            )}
-          </div>
+              <div>
+                <label
+                  htmlFor="city"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  城市
+                </label>
+                <input
+                  type="text"
+                  id="city"
+                  placeholder="輸入城市名稱"
+                  value={localFilters.city || ""}
+                  onChange={(e) => handleFilterChange("city", e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                />
+              </div>
+            </div>
+          </FilterGroup>
 
-          {/* 訂座模式篩選 (多選) */}
-          <div className="border-b pb-4 border-gray-200">
-            <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              onClick={() =>
-                setIsReservationModesCollapsed(!isReservationModesCollapsed)
+          <FilterGroup
+            title="菜系類別"
+            isCollapsed={isCategoryCollapsed}
+            onToggle={() => setIsCategoryCollapsed(!isCategoryCollapsed)}
+          >
+            <CheckboxesFilter
+              title="cuisine"
+              options={displayCuisineTypes}
+              selected={localFilters.category || []}
+              onToggle={(value) =>
+                handleMultiSelectFilterChange("category", value)
               }
-            >
-              <h4 className="text-base font-semibold text-gray-800">
-                訂座模式
-              </h4>
-              <FontAwesomeIcon
-                icon={isReservationModesCollapsed ? faChevronDown : faChevronUp}
-                className="text-gray-500"
-              />
-            </div>
-            {!isReservationModesCollapsed && (
-              <div className="mt-3 space-y-2">
-                {displayReservationModes.map((mode) => (
-                  <div key={mode} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id={`reservation-${mode}`}
-                      checked={(localFilters.reservationModes || []).includes(
-                        mode
-                      )}
-                      onChange={() =>
-                        handleMultiSelectFilterChange("reservationModes", mode)
-                      }
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <label
-                      htmlFor={`reservation-${mode}`}
-                      className="ml-2 text-sm text-gray-700"
-                    >
-                      {mode}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            />
+          </FilterGroup>
 
-          {/* 付款方式篩選 (多選) */}
-          <div className="border-b pb-4 border-gray-200">
-            <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              onClick={() =>
-                setIsPaymentMethodsCollapsed(!isPaymentMethodsCollapsed)
+          <FilterGroup
+            title="人均價錢"
+            isCollapsed={isAvgSpendingCollapsed}
+            onToggle={() => setIsAvgSpendingCollapsed(!isAvgSpendingCollapsed)}
+          >
+            <div className="space-y-2">
+              <div>
+                <label
+                  htmlFor="minAvgSpending"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  最低人均消費 ($)
+                </label>
+                <input
+                  type="number"
+                  id="minAvgSpending"
+                  value={localFilters.minAvgSpending || ""}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      "minAvgSpending",
+                      e.target.value ? parseInt(e.target.value, 10) : undefined
+                    )
+                  }
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                  min="0"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="maxAvgSpending"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  最高人均消費 ($)
+                </label>
+                <input
+                  type="number"
+                  id="maxAvgSpending"
+                  value={localFilters.maxAvgSpending || ""}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      "maxAvgSpending",
+                      e.target.value ? parseInt(e.target.value, 10) : undefined
+                    )
+                  }
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                  min="0"
+                />
+              </div>
+            </div>
+          </FilterGroup>
+
+          <FilterGroup
+            title="座位數"
+            isCollapsed={isSeatingCapacityCollapsed}
+            onToggle={() =>
+              setIsSeatingCapacityCollapsed(!isSeatingCapacityCollapsed)
+            }
+          >
+            <RadioGroupFilter
+              title="seatingCapacity"
+              options={[
+                ...parsedSeatingCapacities,
+                { label: "不限", value: "any" },
+              ]}
+              selectedValue={
+                localFilters.minSeatingCapacity
+                  ? `${localFilters.minSeatingCapacity}-${localFilters.maxSeatingCapacity}`
+                  : "any"
               }
-            >
-              <h4 className="text-base font-semibold text-gray-800">
-                付款方式
-              </h4>
-              <FontAwesomeIcon
-                icon={isPaymentMethodsCollapsed ? faChevronDown : faChevronUp}
-                className="text-gray-500"
-              />
-            </div>
-            {!isPaymentMethodsCollapsed && (
-              <div className="mt-3 space-y-2">
-                {displayPaymentMethods.map((method) => (
-                  <div key={method} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id={`payment-${method}`}
-                      checked={(localFilters.paymentMethods || []).includes(
-                        method
-                      )}
-                      onChange={() =>
-                        handleMultiSelectFilterChange("paymentMethods", method)
-                      }
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <label
-                      htmlFor={`payment-${method}`}
-                      className="ml-2 text-sm text-gray-700"
-                    >
-                      {method}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+              onSelect={(value) => {
+                if (value === "any") {
+                  handleFilterChange("minSeatingCapacity", undefined);
+                  handleFilterChange("maxSeatingCapacity", undefined);
+                } else {
+                  const selectedOption = parsedSeatingCapacities.find(
+                    (opt) => opt.value === value
+                  );
+                  if (selectedOption) {
+                    handleFilterChange(
+                      "minSeatingCapacity",
+                      selectedOption.min
+                    );
+                    handleFilterChange(
+                      "maxSeatingCapacity",
+                      selectedOption.max
+                    );
+                  }
+                }
+              }}
+              valueKey="value"
+              labelKey="label"
+            />
+          </FilterGroup>
 
-          {/* 設施/服務篩選 (多選) */}
-          <div className="pb-4">
-            <div
-              className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-              onClick={() => setIsFacilitiesCollapsed(!isFacilitiesCollapsed)}
-            >
-              <h4 className="text-base font-semibold text-gray-800">
-                設施/服務
-              </h4>
-              <FontAwesomeIcon
-                icon={isFacilitiesCollapsed ? faChevronDown : faChevronUp}
-                className="text-gray-500"
-              />
-            </div>
-            {!isFacilitiesCollapsed && (
-              <div className="mt-3 space-y-2">
-                {displayFacilities.map((facility) => (
-                  <div key={facility} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id={`facility-${facility}`}
-                      checked={(localFilters.facilities || []).includes(
-                        facility
-                      )}
-                      onChange={() =>
-                        handleMultiSelectFilterChange("facilities", facility)
-                      }
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <label
-                      htmlFor={`facility-${facility}`}
-                      className="ml-2 text-sm text-gray-700"
-                    >
-                      {facility}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <FilterGroup
+            title="營業狀態"
+            isCollapsed={isBusinessHoursCollapsed}
+            onToggle={() =>
+              setIsBusinessHoursCollapsed(!isBusinessHoursCollapsed)
+            }
+          >
+            <RadioGroupFilter
+              title="businessHours"
+              options={businessHoursOptions}
+              selectedValue={localFilters.businessHours || ""}
+              onSelect={(value) => handleFilterChange("businessHours", value)}
+              valueKey="value"
+              labelKey="label"
+            />
+          </FilterGroup>
+
+          <FilterGroup
+            title="訂座模式"
+            isCollapsed={isReservationModesCollapsed}
+            onToggle={() =>
+              setIsReservationModesCollapsed(!isReservationModesCollapsed)
+            }
+          >
+            <CheckboxesFilter
+              title="reservation"
+              options={displayReservationModes}
+              selected={localFilters.reservationModes || []}
+              onToggle={(value) =>
+                handleMultiSelectFilterChange("reservationModes", value)
+              }
+            />
+          </FilterGroup>
+
+          <FilterGroup
+            title="付款方式"
+            isCollapsed={isPaymentMethodsCollapsed}
+            onToggle={() =>
+              setIsPaymentMethodsCollapsed(!isPaymentMethodsCollapsed)
+            }
+          >
+            <CheckboxesFilter
+              title="payment"
+              options={displayPaymentMethods}
+              selected={localFilters.paymentMethods || []}
+              onToggle={(value) =>
+                handleMultiSelectFilterChange("paymentMethods", value)
+              }
+            />
+          </FilterGroup>
+
+          <FilterGroup
+            title="設施/服務"
+            isCollapsed={isFacilitiesCollapsed}
+            onToggle={() => setIsFacilitiesCollapsed(!isFacilitiesCollapsed)}
+          >
+            <CheckboxesFilter
+              title="facility"
+              options={displayFacilities}
+              selected={localFilters.facilities || []}
+              onToggle={(value) =>
+                handleMultiSelectFilterChange("facilities", value)
+              }
+            />
+          </FilterGroup>
         </div>
       </div>
-
-      {/* 底部漸變遮罩 */}
       <div
-        className="absolute left-0 right-0 h-[50px] pointer-events-none bg-gradient-to-t from-white to-white/0 "
-        style={{ bottom: "70px" }}
+        className={`absolute inset-x-0 h-24 pointer-events-none z-20 `}
+        style={{
+          background:
+            "linear-gradient(to top, #ffffff, rgba(255, 255, 255, 0))",
+          bottom: isFiltersActive ? "160px" : "100px",
+        }}
       ></div>
-
-      {/* 按鈕區域 */}
-      <div
-        className={`absolute inset-x-0 bottom-0 flex flex-col space-y-4 pt-6 mb-6 px-6 transition-colors duration-100 bg-white`}
-      >
-        <button
-          onClick={handleApply}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-        >
-          應用篩選
-        </button>
-        {isFiltersActive && (
+      <div className="mt-auto bg-transparent">
+        <div className="flex flex-col space-y-4 pt-6 pb-6 px-6">
           <button
-            onClick={handleReset}
-            className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-xl shadow-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50"
+            onClick={handleApply}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
           >
-            <FontAwesomeIcon icon={faTimesCircle} className="mr-2" />
-            清除所有篩選
+            應用篩選
           </button>
-        )}
+          {isFiltersActive && (
+            <button
+              onClick={handleReset}
+              className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-xl shadow-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50"
+            >
+              <FontAwesomeIcon icon={faTimesCircle} className="mr-2" />
+              清除所有篩選
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

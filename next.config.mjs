@@ -6,11 +6,6 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  experimental: {
-    appDir: true,
-    turbo: false, 
-  },
-};
+const nextConfig = {};
 
 export default withBundleAnalyzer(nextConfig);

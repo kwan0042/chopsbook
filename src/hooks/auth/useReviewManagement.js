@@ -1,4 +1,3 @@
-// src/hooks/auth/useReviewManagement.js
 "use client";
 
 import { useCallback } from "react";
@@ -10,13 +9,14 @@ import {
   deleteDoc,
   doc,
   updateDoc,
+  setDoc, // 已新增 setDoc
 } from "firebase/firestore";
-import { forbiddenWords } from "../../lib/config/moderationConfig.js"; // 導入敏感詞彙列表
+import { forbiddenWords } from "../../lib/config/moderationConfig.js"; // Import forbidden words list
 
 /**
- * checkModeration: 簡單的敏感詞彙檢查。
- * @param {string} text - 要檢查的文本內容。
- * @returns {string | null} - 如果包含敏感詞彙則返回警告訊息，否則返回 null。
+ * checkModeration: Simple moderation check for forbidden words.
+ * @param {string} text - The text content to check.
+ * @returns {string | null} - Returns a warning message if forbidden words are found, otherwise returns null.
  */
 export const checkModeration = (text) => {
   const lowerCaseText = text.toLowerCase();
@@ -30,13 +30,13 @@ export const checkModeration = (text) => {
 
 /**
  * useReviewManagement Hook:
- * 提供食評提交、草稿儲存和內容審核相關的函數。
- * @param {object} db - Firebase Firestore 實例。
- * @param {object} currentUser - 當前登入用戶物件。
- * @param {string} appId - 應用程式 ID。
- * @param {function} setCurrentUser - 更新 currentUser 狀態的回調。
- * @param {function} setModalMessage - 用於顯示模態框訊息的回調。
- * @returns {object} 包含 submitReview, saveReviewDraft, checkModeration 的物件。
+ * Provides functions for submitting reviews, saving drafts, and content moderation.
+ * @param {object} db - Firebase Firestore instance.
+ * @param {object} currentUser - The current logged-in user object.
+ * @param {string} appId - The application ID.
+ * @param {function} setCurrentUser - Callback to update the currentUser state.
+ * @param {function} setModalMessage - Callback to display modal messages.
+ * @returns {object} An object containing submitReview, saveReviewDraft, and checkModeration.
  */
 export const useReviewManagement = (
   db,
@@ -46,23 +46,44 @@ export const useReviewManagement = (
   setModalMessage
 ) => {
   /**
-   * 提交餐廳食評。
-   * @param {string} restaurantId - 餐廳 ID。
-   * @param {object} ratings - 評分物件 (e.g., { taste: 4.5, environment: 4.0 })。
-   * @param {string} reviewContent - 食評內容。
-   * @param {string} draftId - 如果是從草稿提交，則提供草稿 ID。
+   * Submits a restaurant review.
+   * @param {string} restaurantId - The restaurant ID.
+   * @param {string} reviewTitle - The title of the review.
+   * @param {number} overallRating - The overall rating (0-5).
+   * @param {string} reviewContent - The detailed review content.
+   * @param {object} detailedRatings - Detailed ratings object (e.g., { taste: 4.5, drinks: 4.0 }).
+   * @param {number} costPerPerson - The average cost per person.
+   * @param {string} timeOfDay - The time of day (e.g., 'day', 'night').
+   * @param {string} serviceType - The service type (e.g., 'dine-in', 'pickup').
+   * @param {Array<object>} uploadedImages - An array of objects with image URLs and descriptions.
+   * @param {string} draftId - Optional draft ID if submitting from a draft.
    * @returns {Promise<void>}
    */
   const submitReview = useCallback(
-    async (restaurantId, ratings, reviewContent, draftId = null) => {
+    async (
+      restaurantId,
+      reviewTitle,
+      overallRating,
+      reviewContent,
+      detailedRatings,
+      costPerPerson,
+      timeOfDay,
+      serviceType,
+      uploadedImages,
+      draftId = null
+    ) => {
       if (!db || !currentUser) {
         throw new Error("請先登入才能提交食評。");
       }
 
-      // 1. 內容審核
-      const moderationError = checkModeration(reviewContent);
-      if (moderationError) {
-        throw new Error(moderationError);
+      // 1. Content moderation check on title and content
+      const moderationErrorTitle = checkModeration(reviewTitle);
+      const moderationErrorContent = checkModeration(reviewContent);
+      if (moderationErrorTitle) {
+        throw new Error(moderationErrorTitle);
+      }
+      if (moderationErrorContent) {
+        throw new Error(moderationErrorContent);
       }
 
       try {
@@ -75,8 +96,14 @@ export const useReviewManagement = (
           restaurantId,
           userId: currentUser.uid,
           username: currentUser.username || currentUser.email.split("@")[0],
-          ratings,
+          reviewTitle,
+          overallRating,
           reviewContent,
+          detailedRatings,
+          costPerPerson,
+          timeOfDay,
+          serviceType,
+          uploadedImages,
           createdAt: serverTimestamp(),
           status: "published",
         };
@@ -84,7 +111,7 @@ export const useReviewManagement = (
         const docRef = await addDoc(reviewsCollectionRef, newReview);
         const reviewId = docRef.id;
 
-        // 2. 修正：更新用戶的 publishedReviews 列表，並使用統一的用戶文件路徑
+        // 2. Update user's publishedReviews list
         const userDocRef = doc(
           db,
           `artifacts/${appId}/users/${currentUser.uid}`
@@ -97,7 +124,7 @@ export const useReviewManagement = (
           publishedReviews: [...(prevUser.publishedReviews || []), reviewId],
         }));
 
-        // 3. 更新餐廳的評論計數 (reviewCount)
+        // 3. Update restaurant's review count
         const restaurantDocRef = doc(
           db,
           `artifacts/${appId}/public/data/restaurants`,
@@ -107,7 +134,7 @@ export const useReviewManagement = (
           reviewCount: increment(1),
         });
 
-        // 4. 如果是從草稿提交，刪除草稿
+        // 4. If submitted from a draft, delete the draft
         if (draftId) {
           const draftDocRef = doc(
             db,
@@ -150,7 +177,7 @@ export const useReviewManagement = (
           createdAt: serverTimestamp(),
           expiresAt: new Date(
             Date.now() + 3 * 24 * 60 * 60 * 1000
-          ).toISOString(), // 3天後過期
+          ).toISOString(), // Expires in 3 days
         };
 
         let draftId;
@@ -162,11 +189,9 @@ export const useReviewManagement = (
           );
           await setDoc(draftDocRef, draftToSave, { merge: true });
           draftId = existingDraftId;
-          setModalMessage("食評草稿已更新！");
         } else {
           const docRef = await addDoc(draftsCollectionRef, draftToSave);
           draftId = docRef.id;
-          setModalMessage("食評草稿已儲存！");
         }
         return draftId;
       } catch (error) {
@@ -174,8 +199,37 @@ export const useReviewManagement = (
         throw error;
       }
     },
-    [db, currentUser, appId, setModalMessage]
+    [db, currentUser, appId]
   );
 
-  return { submitReview, saveReviewDraft, checkModeration };
+  /**
+   * 設定在用戶離開頁面時自動儲存草稿。
+   * @param {object} draftData - 完整的草稿資料。
+   * @param {string} [draftId] - 現有草稿的 ID。
+   */
+  const setupDraftAutoSave = useCallback(
+    (draftData, draftId) => {
+      if (!currentUser || !draftData?.restaurantId) return;
+
+      const handleBeforeUnload = (e) => {
+        // 確保非同步操作能在事件結束前完成
+        e.preventDefault();
+        e.returnValue = ""; // Required for Chrome
+
+        // 使用 navigator.sendBeacon 或 fetch keep-alive
+        // 這裡我們直接呼叫 saveReviewDraft，因為它會被包裝在 useEffect 中
+        // 並且在組件卸載時觸發
+        saveReviewDraft(draftData, draftId).catch(console.error);
+      };
+
+      window.addEventListener("beforeunload", handleBeforeUnload);
+
+      return () => {
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+      };
+    },
+    [currentUser, saveReviewDraft]
+  );
+
+  return { submitReview, saveReviewDraft, checkModeration, setupDraftAutoSave };
 };
