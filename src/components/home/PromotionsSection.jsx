@@ -10,7 +10,7 @@ const PromotionsSection = () => {
   ];
 
   return (
-    <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white shadow-md rounded-lg mb-8">
+    <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white shadow-md rounded-lg ">
       <h2 className="text-3xl font-extrabold text-gray-900 text-center mb-8">最新推廣與精選</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-screen-xl mx-auto">
         {promotions.map(promo => (

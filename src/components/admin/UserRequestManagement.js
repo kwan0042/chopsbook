@@ -133,7 +133,6 @@ const UserRequestManagement = () => {
           });
         } else {
           // 已審批請求模式：使用分頁查詢
-
           const lastVisible = pageCursors[page];
 
           let q = query(
@@ -193,11 +192,11 @@ const UserRequestManagement = () => {
               querySnapshot.docs[querySnapshot.docs.length - 1],
             ]);
           }
+          setLoading(false); // 在非即時監聽模式下，在此處設定載入狀態為 false
         }
       } catch (error) {
         console.error("載入資料失敗:", error);
-      } finally {
-        setLoading(false);
+        setLoading(false); // 確保在出錯時也停止載入
       }
     };
 
@@ -206,7 +205,7 @@ const UserRequestManagement = () => {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [db, appId, loadingUser, viewMode, page, pageCursors]);
+  }, [db, appId, loadingUser, viewMode, page]);
 
   const handleNextPage = () => {
     if (hasMore) {
@@ -365,30 +364,34 @@ const UserRequestManagement = () => {
         </table>
       </div>
 
-      {viewMode === "reviewed" && (requests.length > 0 || page > 0) && (
+      {viewMode === "reviewed" && (
         <div className="flex justify-center space-x-4 p-4">
-          <button
-            onClick={handlePrevPage}
-            className={`px-6 py-2 rounded-md text-white transition-colors duration-200 shadow-sm ${
-              page === 0 || loading
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-indigo-600 hover:bg-indigo-700"
-            }`}
-            disabled={page === 0 || loading}
-          >
-            上一頁
-          </button>
-          <button
-            onClick={handleNextPage}
-            className={`px-6 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200 shadow-sm ${
-              !hasMore || loading
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-indigo-600 hover:bg-indigo-700"
-            }`}
-            disabled={!hasMore || loading}
-          >
-            {loading ? "載入中..." : "下一頁"}
-          </button>
+          {page > 0 && (
+            <button
+              onClick={handlePrevPage}
+              className={`px-6 py-2 rounded-md text-white transition-colors duration-200 shadow-sm ${
+                loading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-indigo-600 hover:bg-indigo-700"
+              }`}
+              disabled={loading}
+            >
+              上一頁
+            </button>
+          )}
+          {hasMore && (
+            <button
+              onClick={handleNextPage}
+              className={`px-6 py-2 rounded-md text-white transition-colors duration-200 shadow-sm ${
+                loading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-indigo-600 hover:bg-indigo-700"
+              }`}
+              disabled={loading}
+            >
+              {loading ? "載入中..." : "下一頁"}
+            </button>
+          )}
         </div>
       )}
     </div>
