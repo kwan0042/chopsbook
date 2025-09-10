@@ -149,11 +149,12 @@ const AddRestaurantPage = ({ onBackToHome }) => {
 
     try {
       await addDoc(
-        collection(db, `artifacts/${appId}/public/data/add_rest_request`),
+        collection(db, `artifacts/${appId}/public/data/restaurant_requests`),
         {
           ...dataToSubmit,
+          type: "add", // 新增：標記為新增餐廳請求
           submittedBy: currentUser.uid,
-          createdAt: serverTimestamp(),
+          submittedAt: serverTimestamp(), // 新增：使用新欄位名稱
           status: "pending", // 新增的欄位
         }
       );

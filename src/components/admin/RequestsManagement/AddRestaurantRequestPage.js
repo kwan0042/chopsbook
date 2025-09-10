@@ -1,7 +1,6 @@
-//v3-src/components/admin/AddRestaurantRequestPage.js
 "use client";
 
-import React, { useState, useContext, useEffect, useRef } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { AuthContext } from "../../../lib/auth-context";
 import {
   doc,
@@ -12,6 +11,9 @@ import {
   addDoc,
   collection,
   onSnapshot,
+  query,
+  where,
+  increment, // 引入 Firestore 的 increment 函數
 } from "firebase/firestore";
 import LoadingSpinner from "../../LoadingSpinner";
 import { useRouter, useParams } from "next/navigation";
@@ -79,15 +81,17 @@ const AddRestaurantRequestPage = ({ requestId }) => {
   const changesSectionRef = useRef(null);
 
   useEffect(() => {
+    // 只有在 db 和 requestId 都可用時才開始載入資料
     if (!db || !requestId) {
-      setLoading(false);
-      setLocalModalMessage("無效的請求 ID。此頁面僅處理新增請求。");
-      setModalType("error");
+      // 保持載入狀態，直到參數可用
       return;
     }
 
-    const collectionPath = `artifacts/${appId}/public/data/add_rest_request`;
+    const collectionPath = `artifacts/${appId}/public/data/restaurant_requests`;
     const requestDocRef = doc(db, collectionPath, requestId);
+
+    console.log("正在載入請求資料。請求 ID:", requestId);
+    console.log("Firestore 集合路徑:", collectionPath);
 
     // 實時監聽請求資料
     const unsubscribe = onSnapshot(
@@ -102,6 +106,15 @@ const AddRestaurantRequestPage = ({ requestId }) => {
         }
 
         const reqData = { ...requestDocSnap.data(), id: requestDocSnap.id };
+        // 額外檢查 document 的類型是否為 'add'
+        if (reqData.type !== "add") {
+          setLocalModalMessage("此頁面只處理新增餐廳的申請。");
+          setModalType("info");
+          setLoading(false);
+          setRequestData(null);
+          return;
+        }
+
         setRequestData({ ...reqData, type: "add" });
         setLoading(false);
       },
@@ -113,7 +126,9 @@ const AddRestaurantRequestPage = ({ requestId }) => {
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   }, [db, appId, requestId]);
 
   const handleApprove = async () => {
@@ -136,13 +151,22 @@ const AddRestaurantRequestPage = ({ requestId }) => {
       // 更新請求狀態
       const requestDocRef = doc(
         db,
-        `artifacts/${appId}/public/data/add_rest_request`,
+        `artifacts/${appId}/public/data/restaurant_requests`,
         requestId
       );
       batch.update(requestDocRef, {
         status: "reviewed",
         reviewedAt: new Date(),
         reviewedBy: currentUser.email || currentUser.uid,
+      });
+
+      // 新增：在批次中更新總數
+      const countDocRef = doc(
+        db,
+        `artifacts/${appId}/public/data/count/reviewedRequests`
+      );
+      batch.update(countDocRef, {
+        count: increment(1),
       });
 
       await batch.commit();
@@ -162,13 +186,27 @@ const AddRestaurantRequestPage = ({ requestId }) => {
     if (isSubmitting || !requestData) return;
     try {
       setIsSubmitting(true);
-      const requestCollectionPath = `artifacts/${appId}/public/data/add_rest_request`;
+      const batch = writeBatch(db); // 使用批次寫入以確保原子性
+
+      const requestCollectionPath = `artifacts/${appId}/public/data/restaurant_requests`;
       const requestDocRef = doc(db, requestCollectionPath, requestId);
-      await updateDoc(requestDocRef, {
+      batch.update(requestDocRef, {
         status: "rejected",
         reviewedBy: currentUser.email || currentUser.uid,
         reviewedAt: new Date(),
       });
+
+      // 新增：在批次中更新總數
+      const countDocRef = doc(
+        db,
+        `artifacts/${appId}/public/data/count/reviewedRequests`
+      );
+      batch.update(countDocRef, {
+        count: increment(1),
+      });
+
+      await batch.commit(); // 執行批次寫入
+
       setLocalModalMessage("已成功否決此請求。");
       setModalType("success");
       setTimeout(() => router.push("/admin"), 2000);
@@ -181,11 +219,22 @@ const AddRestaurantRequestPage = ({ requestId }) => {
     }
   };
 
-  if (loading) {
+  if (loading || !requestData) {
     return (
       <div className="flex items-center justify-center p-8">
         <LoadingSpinner />
         <p className="text-gray-600 ml-4">載入請求資料中...</p>
+        {modalMessage && (
+          <Modal
+            message={modalMessage}
+            onClose={() => {
+              setLocalModalMessage("");
+              setModalType("");
+            }}
+            isOpen={!!modalMessage}
+            type={modalType}
+          />
+        )}
       </div>
     );
   }
@@ -244,14 +293,14 @@ const AddRestaurantRequestPage = ({ requestId }) => {
                 <span>
                   提交時間:{" "}
                   <span className="font-bold">
-                    {formatDateTime(dataToDisplay?.createdAt)}
+                    {formatDateTime(dataToDisplay?.submittedAt)}
                   </span>
                 </span>
               </div>
               {Object.entries(restaurantSections).map(
                 ([sectionKey, sectionData]) => {
                   const sectionFields = sectionData.fields.filter(
-                    (field) => field in dataToDisplay
+                    (field) => dataToDisplay && field in dataToDisplay
                   );
                   if (sectionFields.length === 0) return null;
 

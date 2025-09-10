@@ -1,4 +1,3 @@
-//v3-src/components/admin/RequestsManagement/EditRestaurantRequestPage.js
 "use client";
 
 import React, { useState, useContext, useEffect, useRef } from "react";
@@ -56,6 +55,11 @@ const restaurantSections = {
       "facilitiesServices",
     ],
   },
+  businessHours: {
+    // 新增此區塊
+    zh: "營業時間",
+    fields: ["businessHours"],
+  },
   photos: {
     zh: "照片",
     fields: ["facadePhotoUrls", "facadePhotoUrl"],
@@ -81,15 +85,17 @@ const EditRestaurantRequestPage = ({ requestId }) => {
   const changesSectionRef = useRef(null);
 
   useEffect(() => {
+    // 只有在 db 和 requestId 都可用時才開始載入資料
     if (!db || !requestId) {
-      setLoading(false);
-      setLocalModalMessage("無效的請求 ID。此頁面僅處理更新請求。");
-      setModalType("error");
+      // 保持載入狀態，直到參數可用
       return;
     }
 
-    const collectionPath = `artifacts/${appId}/public/data/update_rest_request`;
+    const collectionPath = `artifacts/${appId}/public/data/restaurant_requests`;
     const requestDocRef = doc(db, collectionPath, requestId);
+
+    console.log("正在載入請求資料。請求 ID:", requestId);
+    console.log("Firestore 集合路徑:", collectionPath);
 
     // 實時監聽請求資料
     const unsubscribe = onSnapshot(
@@ -105,6 +111,15 @@ const EditRestaurantRequestPage = ({ requestId }) => {
         }
 
         const reqData = { ...requestDocSnap.data(), id: requestDocSnap.id };
+        // 額外檢查 document 的類型是否為 'update'
+        if (reqData.type !== "update") {
+          setLocalModalMessage("此頁面只處理更新餐廳的申請。");
+          setModalType("info");
+          setLoading(false);
+          setRequestData(null);
+          return;
+        }
+
         setRequestData({ ...reqData, type: "update" });
 
         // 獲取原始餐廳資料
@@ -133,7 +148,9 @@ const EditRestaurantRequestPage = ({ requestId }) => {
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   }, [db, appId, requestId]);
 
   // 處理儲存所有變更的邏輯
@@ -186,7 +203,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
       // 更新請求狀態，保留文件
       const requestDocRef = doc(
         db,
-        `artifacts/${appId}/public/data/update_rest_request`,
+        `artifacts/${appId}/public/data/restaurant_requests`,
         requestId
       );
       batch.update(requestDocRef, {
@@ -196,6 +213,9 @@ const EditRestaurantRequestPage = ({ requestId }) => {
       });
 
       await batch.commit();
+
+      setLocalModalMessage("已成功儲存所有已批准的變更。", "success"); // 新增成功提示
+      setTimeout(() => router.push("/admin"), 2000); // 延遲跳轉
     } catch (error) {
       console.error("儲存所有變更失敗:", error);
       setLocalModalMessage(`儲存失敗: ${error.message}`);
@@ -209,7 +229,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
     if (isSubmitting || !requestData) return;
     try {
       setIsSubmitting(true);
-      const requestCollectionPath = `artifacts/${appId}/public/data/update_rest_request`;
+      const requestCollectionPath = `artifacts/${appId}/public/data/restaurant_requests`;
       const requestDocRef = doc(db, requestCollectionPath, requestId);
       await updateDoc(requestDocRef, {
         status: "rejected",
@@ -235,7 +255,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
       setIsSubmitting(true);
       const requestDocRef = doc(
         db,
-        `artifacts/${appId}/public/data/update_rest_request`,
+        `artifacts/${appId}/public/data/restaurant_requests`,
         requestId
       );
       await updateDoc(requestDocRef, {
@@ -258,7 +278,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
       setIsSubmitting(true);
       const requestDocRef = doc(
         db,
-        `artifacts/${appId}/public/data/update_rest_request`,
+        `artifacts/${appId}/public/data/restaurant_requests`,
         requestId
       );
       await updateDoc(requestDocRef, {
@@ -281,7 +301,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
       setIsSubmitting(true);
       const requestDocRef = doc(
         db,
-        `artifacts/${appId}/public/data/update_rest_request`,
+        `artifacts/${appId}/public/data/restaurant_requests`,
         requestId
       );
       const updates = Object.keys(requestData.changes || {}).reduce(
@@ -302,11 +322,22 @@ const EditRestaurantRequestPage = ({ requestId }) => {
     }
   };
 
-  if (loading) {
+  if (loading || !requestData) {
     return (
       <div className="flex items-center justify-center p-8">
         <LoadingSpinner />
         <p className="text-gray-600 ml-4">載入請求資料中...</p>
+        {modalMessage && (
+          <Modal
+            message={modalMessage}
+            onClose={() => {
+              setLocalModalMessage("");
+              setModalType("");
+            }}
+            isOpen={!!modalMessage}
+            type={modalType}
+          />
+        )}
       </div>
     );
   }
@@ -476,7 +507,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
                 <span>
                   提交時間:{" "}
                   <span className="font-bold">
-                    {formatDateTime(requestData?.createdAt)}
+                    {formatDateTime(requestData?.submittedAt)}
                   </span>
                 </span>
               </div>

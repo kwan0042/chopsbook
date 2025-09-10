@@ -10,7 +10,7 @@ import Link from "next/link";
 import ReviewModerationCheck from "./ReviewModerationCheck";
 import StarRating from "./StarRating";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus, faXmark,  } from "@fortawesome/free-solid-svg-icons";
+import { faPlus, faXmark, faSun } from "@fortawesome/free-solid-svg-icons";
 import {
   IconCoffee,
   IconSunset2,
@@ -18,7 +18,6 @@ import {
   IconBuildingStore,
   IconMoped,
   IconPaperBag,
-  IconSun,
 } from "@tabler/icons-react";
 
 // Back button icon
@@ -70,6 +69,7 @@ const ReviewForm = ({ onBack, draftId }) => {
   const [timeOfDay, setTimeOfDay] = useState("");
   const [serviceType, setServiceType] = useState("");
   const [uploadedImages, setUploadedImages] = useState([]);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const [ratings, setRatings] = useState(() => {
     const initialRatings = {};
@@ -86,6 +86,46 @@ const ReviewForm = ({ onBack, draftId }) => {
   const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
   const [lastSubmittedRestaurantId, setLastSubmittedRestaurantId] =
     useState(null);
+
+  // Helper function to check for unsaved changes
+  const hasUnsavedChanges = useCallback(() => {
+    return (
+      reviewTitle ||
+      reviewContent ||
+      selectedRestaurant ||
+      overallRating > 0 ||
+      costPerPerson ||
+      timeOfDay ||
+      serviceType ||
+      uploadedImages.length > 0 ||
+      Object.values(ratings).some((rating) => rating > 0)
+    );
+  }, [
+    reviewTitle,
+    reviewContent,
+    selectedRestaurant,
+    overallRating,
+    costPerPerson,
+    timeOfDay,
+    serviceType,
+    uploadedImages,
+    ratings,
+  ]);
+
+  // 處理瀏覽器關閉或刷新頁面
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (hasUnsavedChanges()) {
+        event.preventDefault();
+        event.returnValue = "";
+        return "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
 
   // 計算並更新總體評級
   useEffect(() => {
@@ -154,39 +194,6 @@ const ReviewForm = ({ onBack, draftId }) => {
   }, [searchQuery, restaurants]);
 
   useEffect(() => {
-    if (!selectedRestaurant || !currentUser) return;
-    const timer = setTimeout(() => {
-      const draftData = {
-        restaurantId: selectedRestaurant.id,
-        restaurantName:
-          selectedRestaurant.restaurantNameZh ||
-          selectedRestaurant.restaurantNameEn,
-        reviewTitle,
-        reviewContent,
-        overallRating,
-        costPerPerson,
-        timeOfDay,
-        serviceType,
-        ratings,
-      };
-      saveReviewDraft(draftData, draftId);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [
-    selectedRestaurant,
-    reviewTitle,
-    reviewContent,
-    overallRating,
-    costPerPerson,
-    timeOfDay,
-    serviceType,
-    ratings,
-    currentUser,
-    draftId,
-    saveReviewDraft,
-  ]);
-
-  useEffect(() => {
     const loadDraft = async () => {
       if (draftId && db && currentUser && !loading && !isDraftLoaded) {
         try {
@@ -248,7 +255,6 @@ const ReviewForm = ({ onBack, draftId }) => {
     appId,
     setModalMessage,
     router,
-    ratings,
     isDraftLoaded,
   ]);
 
@@ -415,6 +421,25 @@ const ReviewForm = ({ onBack, draftId }) => {
     setModerationWarning(warning);
   }, []);
 
+  const handleBackButtonClick = () => {
+    if (hasUnsavedChanges()) {
+      setShowConfirmModal(true);
+    } else {
+      onBack();
+    }
+  };
+
+  const handleConfirmSave = async () => {
+    setShowConfirmModal(false);
+    await handleSaveDraft();
+    onBack();
+  };
+
+  const handleCancelSave = () => {
+    setShowConfirmModal(false);
+    onBack();
+  };
+
   if (!currentUser) return null;
   if (loading || (draftId && submitting && !isDraftLoaded)) {
     return (
@@ -428,13 +453,39 @@ const ReviewForm = ({ onBack, draftId }) => {
   return (
     <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-4xl relative">
       <button
-        onClick={onBack}
+        onClick={handleBackButtonClick}
         className="absolute top-4 left-4 text-gray-500 hover:text-gray-700 transition-colors flex items-center"
         aria-label="返回"
       >
         <ArrowLeftIcon className="mr-2" />
         返回
       </button>
+
+      {/* 離開確認彈窗 */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full text-center">
+            <p className="text-lg font-semibold mb-4 text-gray-800">
+              你有未儲存的草稿，是否要儲存？
+            </p>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={handleCancelSave}
+                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                否
+              </button>
+              <button
+                onClick={handleConfirmSave}
+                className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+              >
+                是
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h2 className="text-2xl font-extrabold text-gray-900 mb-8 text-center">
         撰寫食評
       </h2>
@@ -462,63 +513,62 @@ const ReviewForm = ({ onBack, draftId }) => {
         </div>
       ) : (
         <form onSubmit={handleSubmitReview} className="space-y-6">
-          <div>
-            <label className="block text-gray-700 text-base font-bold mb-2">
-              選擇餐廳 <span className="text-red-500">*</span>
-            </label>
-            {selectedRestaurant ? (
-              <div className="flex items-center justify-between p-3 border border-gray-300 rounded-md bg-indigo-50 text-indigo-800">
-                <span className="font-semibold text-base">
-                  {selectedRestaurant.restaurantNameZh ||
-                    selectedRestaurant.restaurantNameEn}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleRemoveSelectedRestaurant}
-                  className="text-indigo-600 hover:text-indigo-800 focus:outline-none"
-                >
-                  移除
-                </button>
-              </div>
-            ) : (
-              <>
-                <input
-                  type="text"
-                  placeholder="搜尋餐廳名稱 (中文或英文)"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {searchQuery && filteredRestaurants.length > 0 && (
-                  <ul className="absolute z-10 bg-white border border-gray-300 w-full mt-1 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                    {filteredRestaurants.map((r) => (
-                      <li
-                        key={r.id}
-                        onClick={() => handleSelectRestaurant(r)}
-                        className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
-                      >
-                        {r.restaurantNameZh} ({r.restaurantNameEn})
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {searchQuery && filteredRestaurants.length === 0 && (
-                  <p className="mt-2 text-base text-red-500">
-                    沒有找到匹配的餐廳。
-                    <a href="/merchant/add" className="text-blue-500">
-                      新增餐廳？
-                    </a>
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4  ">
+            <div className="col-span-2">
+              <label className="block text-gray-700 text-base font-bold mb-2">
+                選擇餐廳 <span className="text-red-500">*</span>
+              </label>
+              {selectedRestaurant ? (
+                <div className="flex items-center justify-between p-3 border border-gray-300 rounded-md bg-indigo-50 text-indigo-800 h-10">
+                  <span className="font-semibold text-base">
+                    {selectedRestaurant.restaurantNameZh ||
+                      selectedRestaurant.restaurantNameEn}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleRemoveSelectedRestaurant}
+                    className="text-indigo-600 hover:text-indigo-800 focus:outline-none"
+                  >
+                    移除
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    placeholder="搜尋餐廳名稱 (中文或英文)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                  />
+                  {searchQuery && filteredRestaurants.length > 0 && (
+                    <ul className="absolute z-10 bg-white border border-gray-300 w-full mt-1 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {filteredRestaurants.map((r) => (
+                        <li
+                          key={r.id}
+                          onClick={() => handleSelectRestaurant(r)}
+                          className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                        >
+                          {r.restaurantNameZh} ({r.restaurantNameEn})
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {searchQuery && filteredRestaurants.length === 0 && (
+                    <p className="mt-2 text-base text-red-500">
+                      沒有找到匹配的餐廳。
+                      <a href="/merchant/add" className="text-blue-500">
+                        新增餐廳？
+                      </a>
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
             <div>
               <label
                 htmlFor="costPerPerson"
-                className="block text-gray-700 text-sm font-bold mb-2"
+                className="block text-gray-700 text-base font-bold mb-2"
               >
                 每人消費金額
               </label>
@@ -528,60 +578,61 @@ const ReviewForm = ({ onBack, draftId }) => {
                 min="0"
                 value={costPerPerson}
                 onChange={(e) => setCostPerPerson(e.target.value)}
-                className="text-sm w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-sm w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
                 placeholder="例如: 150"
               />
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-gray-700 text-base font-bold mb-2">
-                用餐時間 <span className="text-red-500">*</span>
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {[
-                  {
-                    value: "morning",
-                    label: "早上",
-                    icon: <IconCoffee stroke={2} className="text-2xl" />,
-                  },
-                  {
-                    value: "noon",
-                    label: "中午",
-                    icon: <IconSun stroke={2}  className="text-2xl" />,
-                  },
-                  {
-                    value: "afternoon",
-                    label: "下午",
-                    icon: <IconSunset2 stroke={2} className="text-2xl" />,
-                  },
-                  {
-                    value: "night",
-                    label: "晚上",
-                    icon: <IconMoon stroke={2} className="text-2xl" />,
-                  },
-                ].map((item) => (
-                  <label
-                    key={item.value}
-                    className={`flex flex-col items-center justify-center p-4 rounded-lg cursor-pointer transition-all duration-200 ${
-                      timeOfDay === item.value
-                        ? "bg-blue-100 border-2 border-blue-500 shadow-md"
-                        : "bg-gray-50 border border-gray-300 hover:bg-gray-100"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="timeOfDay"
-                      value={item.value}
-                      checked={timeOfDay === item.value}
-                      onChange={(e) => setTimeOfDay(e.target.value)}
-                      className="hidden"
-                    />
-                    {item.icon}
-                    <span className="mt-2 text-sm font-medium text-gray-800">
-                      {item.label}
-                    </span>
-                  </label>
-                ))}
-              </div>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-gray-700 text-base font-bold mb-2">
+              用餐時間 <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                {
+                  value: "morning",
+                  label: "早上",
+                  icon: <IconCoffee stroke={2} className="text-2xl" />,
+                },
+                {
+                  value: "noon",
+                  label: "中午",
+                  icon: <FontAwesomeIcon icon={faSun} className="text-2xl" />,
+                },
+                {
+                  value: "afternoon",
+                  label: "下午",
+                  icon: <IconSunset2 stroke={2} className="text-2xl" />,
+                },
+                {
+                  value: "night",
+                  label: "晚上",
+                  icon: <IconMoon stroke={2} className="text-2xl" />,
+                },
+              ].map((item) => (
+                <label
+                  key={item.value}
+                  className={`flex flex-col items-center justify-center p-4 rounded-lg cursor-pointer transition-all duration-200 ${
+                    timeOfDay === item.value
+                      ? "bg-blue-100 border-2 border-blue-500 shadow-md"
+                      : "bg-gray-50 border border-gray-300 hover:bg-gray-100"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="timeOfDay"
+                    value={item.value}
+                    checked={timeOfDay === item.value}
+                    onChange={(e) => setTimeOfDay(e.target.value)}
+                    className="hidden"
+                  />
+                  {item.icon}
+                  <span className="mt-2 text-sm font-medium text-gray-800">
+                    {item.label}
+                  </span>
+                </label>
+              ))}
             </div>
           </div>
           <div>
@@ -630,23 +681,7 @@ const ReviewForm = ({ onBack, draftId }) => {
               ))}
             </div>
           </div>
-          <div>
-            <label
-              htmlFor="reviewTitle"
-              className="block text-gray-700 text-base font-bold mb-2"
-            >
-              評論標題 <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="reviewTitle"
-              type="text"
-              value={reviewTitle}
-              onChange={(e) => setReviewTitle(e.target.value)}
-              className="text-sm w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="給評論一個簡短的標題..."
-              required
-            />
-          </div>
+
           <div>
             <label className="block text-gray-700 text-base font-bold mb-2">
               總體評級 <span className="text-red-500">*</span>
@@ -656,9 +691,7 @@ const ReviewForm = ({ onBack, draftId }) => {
                 value={overallRating}
                 onValueChange={handleOverallRatingChange}
               />
-              <span className="font-semibold text-gray-800">
-                {overallRating.toFixed(1)} / 5
-              </span>
+              
               <button
                 type="button"
                 onClick={() => setShowDetailedRatings(!showDetailedRatings)}
@@ -668,6 +701,7 @@ const ReviewForm = ({ onBack, draftId }) => {
               </button>
             </div>
           </div>
+
           {showDetailedRatings && (
             <div className="bg-gray-50 p-4 rounded-lg space-y-4">
               <h4 className="text-base font-bold text-gray-800">細項評分</h4>
@@ -684,15 +718,31 @@ const ReviewForm = ({ onBack, draftId }) => {
                           handleRatingChange(category.key, val)
                         }
                       />
-                      <span className="font-semibold text-gray-800">
-                        {(ratings[category.key] || 0).toFixed(1)}
-                      </span>
+                      
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
+          <div>
+            <label
+              htmlFor="reviewTitle"
+              className="block text-gray-700 text-base font-bold mb-2"
+            >
+              評論標題 <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="reviewTitle"
+              type="text"
+              value={reviewTitle}
+              onChange={(e) => setReviewTitle(e.target.value)}
+              className="text-sm w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 "
+              placeholder="給評論一個簡短的標題..."
+              required
+            />
+          </div>
+
           <div>
             <label
               htmlFor="reviewContent"
@@ -735,7 +785,7 @@ const ReviewForm = ({ onBack, draftId }) => {
                 已選擇 {uploadedImages.length} / 5 張
               </span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 mt-4">
               {uploadedImages.map((image) => (
                 <div key={image.id} className="relative group">
                   <img

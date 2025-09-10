@@ -1,45 +1,50 @@
 // src/app/api/user/[userId]/route.js
 
-import { getFirestore } from 'firebase-admin/firestore';
-// 請確認你的 firebase-admin.js 檔案路徑正確，或使用 @ 路徑別名
-import { app } from '@/lib/firebase-admin';
+import { getFirestore } from "firebase-admin/firestore";
+import { app } from "@/lib/firebase-admin";
 
-export async function GET(request, {params}) {
-  const { userId } = params;
+export async function GET(request, { params }) {
+  const userId = params.userId;
 
   if (!userId) {
     return new Response(JSON.stringify({ message: "Missing user ID" }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
   }
 
   try {
     const db = getFirestore(app);
-    
-    // 步驟 1: 獲取用戶的根級資料
     const userDocRef = db.doc(`artifacts/default-app-id/users/${userId}`);
     const userDocSnap = await userDocRef.get();
 
     if (!userDocSnap.exists) {
       return new Response(JSON.stringify({ message: "User not found." }), {
         status: 404,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
       });
     }
 
     const userData = userDocSnap.data();
-    
-    // 步驟 2: 處理收藏餐廳清單，並獲取其名稱
+
     let favoriteRestaurantNames = [];
-    if (userData.favoriteRestaurants && userData.favoriteRestaurants.length > 0) {
+    if (
+      userData.favoriteRestaurants &&
+      userData.favoriteRestaurants.length > 0
+    ) {
       const restaurantNamesPromises = userData.favoriteRestaurants.map(
         async (restaurantId) => {
-          const restaurantDocRef = db.doc(`artifacts/default-app-id/public/data/restaurants/${restaurantId}`);
+          const restaurantDocRef = db.doc(
+            `artifacts/default-app-id/public/data/restaurants/${restaurantId}`
+          );
           const restaurantDocSnap = await restaurantDocRef.get();
           if (restaurantDocSnap.exists) {
             const restaurantData = restaurantDocSnap.data();
-            return restaurantData.restaurantNameZh || restaurantData.restaurantNameEn || `未知餐廳 (ID: ${restaurantId})`;
+            return (
+              restaurantData.restaurantNameZh ||
+              restaurantData.restaurantNameEn ||
+              `未知餐廳 (ID: ${restaurantId})`
+            );
           } else {
             return `已刪除餐廳 (ID: ${restaurantId})`;
           }
@@ -48,22 +53,23 @@ export async function GET(request, {params}) {
       favoriteRestaurantNames = await Promise.all(restaurantNamesPromises);
     }
 
-    // 步驟 3: 將所有數據組合成單一回應物件
     const combinedData = {
       ...userData,
       favoriteRestaurantNames: favoriteRestaurantNames,
     };
-    
+
     return new Response(JSON.stringify(combinedData), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
     });
-    
   } catch (error) {
     console.error("Failed to fetch user data:", error);
-    return new Response(JSON.stringify({ message: `Internal Server Error: ${error.message}` }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ message: `Internal Server Error: ${error.message}` }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }

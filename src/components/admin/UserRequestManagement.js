@@ -1,133 +1,31 @@
-//v3-src/components/admin/UserRequestManagement.js
 "use client";
 
 import React, { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../../lib/auth-context";
-import { collection, query, onSnapshot, doc, getDoc } from "firebase/firestore"; // 導入 doc, getDoc
+import {
+  collection,
+  query,
+  onSnapshot,
+  doc,
+  getDoc,
+  getDocs,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+} from "firebase/firestore";
 import LoadingSpinner from "../LoadingSpinner";
 import { useRouter } from "next/navigation";
 
 const UserRequestManagement = () => {
-  // 移除 onBackToAdmin props, 因為它沒有被使用
-  const { db, currentUser, appId, formatDateTime, loadingUser } =
-    useContext(AuthContext);
+  const { db, appId, formatDateTime, loadingUser } = useContext(AuthContext);
   const router = useRouter();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // 獲取所有待處理的請求
-  useEffect(() => {
-    if (loadingUser || !db || !appId) {
-      setLoading(false);
-      return;
-    }
-
-    const addRequestsCollectionPath = `artifacts/${appId}/public/data/add_rest_request`;
-    const updateRequestsCollectionPath = `artifacts/${appId}/public/data/update_rest_request`;
-    const restaurantsCollectionPath = `artifacts/${appId}/public/data/restaurants`;
-
-    const addRequestsQuery = query(collection(db, addRequestsCollectionPath));
-    const updateRequestsQuery = query(
-      collection(db, updateRequestsCollectionPath)
-    );
-
-    // 用於儲存餐廳名稱的快取，避免重複查詢
-    const restaurantNameCache = new Map();
-
-    const unsubscribeNew = onSnapshot(
-      addRequestsQuery,
-      (snapshot) => {
-        const newRequests = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          type: "add",
-          displayStatus: getStatusDisplay(doc.data().status), // 處理狀態顯示
-        }));
-        // 使用函數式更新確保基於最新狀態進行操作
-        setRequests((currentRequests) => {
-          const otherRequests = currentRequests.filter(
-            (req) => req.type !== "add"
-          );
-          const combinedRequests = [...otherRequests, ...newRequests];
-          // 排序：最新的請求顯示在最上面
-          return combinedRequests.sort(
-            (a, b) =>
-              (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
-          );
-        });
-        setLoading(false);
-      },
-      (error) => {
-        console.error("即時監聽新請求失敗:", error);
-        setLoading(false);
-      }
-    );
-
-    const unsubscribeUpdate = onSnapshot(
-      updateRequestsQuery,
-      async (snapshot) => {
-        const updateRequestsPromises = snapshot.docs.map(async (docSnap) => {
-          const reqData = docSnap.data();
-          let restaurantName = "N/A";
-
-          // 如果是更新請求，需要從主餐廳資料中獲取名稱
-          if (reqData.restaurantId) {
-            // 嘗試從快取中獲取
-            if (restaurantNameCache.has(reqData.restaurantId)) {
-              restaurantName = restaurantNameCache.get(reqData.restaurantId);
-            } else {
-              // 快取中沒有則查詢 Firestore
-              const restaurantDocRef = doc(
-                db,
-                restaurantsCollectionPath,
-                reqData.restaurantId
-              );
-              const restaurantDocSnap = await getDoc(restaurantDocRef);
-              if (restaurantDocSnap.exists()) {
-                const rData = restaurantDocSnap.data();
-                restaurantName =
-                  rData.restaurantNameZh || rData.restaurantNameEn || "N/A";
-                restaurantNameCache.set(reqData.restaurantId, restaurantName); // 存入快取
-              }
-            }
-          }
-
-          return {
-            id: docSnap.id,
-            ...reqData,
-            type: "update",
-            originalRestaurantName: restaurantName, // 儲存原始餐廳名稱
-            displayStatus: getStatusDisplay(reqData.status), // 處理狀態顯示
-          };
-        });
-
-        const updateRequests = await Promise.all(updateRequestsPromises);
-
-        // 使用函數式更新確保基於最新狀態進行操作
-        setRequests((currentRequests) => {
-          const otherRequests = currentRequests.filter(
-            (req) => req.type !== "update"
-          );
-          const combinedRequests = [...otherRequests, ...updateRequests];
-          // 排序：最新的請求顯示在最上面
-          return combinedRequests.sort(
-            (a, b) =>
-              (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
-          );
-        });
-        setLoading(false);
-      },
-      (error) => {
-        console.error("即時監聽更新請求失敗:", error);
-        setLoading(false);
-      }
-    );
-
-    return () => {
-      unsubscribeNew();
-      unsubscribeUpdate();
-    };
-  }, [db, appId, loadingUser]);
+  const [viewMode, setViewMode] = useState("pending");
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const [pageCursors, setPageCursors] = useState([null]);
 
   // 輔助函數：將狀態翻譯成中文
   const getStatusDisplay = (status) => {
@@ -136,15 +34,16 @@ const UserRequestManagement = () => {
         return "待處理";
       case "reviewed":
         return "已審批";
+      case "rejected":
+        return "已否決";
       default:
         return "待處理";
     }
   };
 
-  // 處理導航到詳細頁面
+  // 處理導航到詳細頁面 (在新分頁中打開)
   const handleViewRequestDetails = (requestId, type) => {
-    // 使用新的動態路由，並將請求類型作為參數傳遞
-    router.push(`/admin/requests/${requestId}?type=${type}`);
+    window.open(`/admin/admin_requests/${requestId}?type=${type}`, "_blank");
   };
 
   // 根據請求類型獲取餐廳名稱
@@ -153,13 +52,173 @@ const UserRequestManagement = () => {
       return request.restaurantNameZh || request.restaurantNameEn || "N/A";
     }
     if (request.type === "update") {
-      // 對於更新請求，使用之前獲取到的原始餐廳名稱
       return request.originalRestaurantName || "N/A";
     }
     return "N/A";
   };
 
-  if (loading) {
+  // 處理切換視圖模式，並重設分頁狀態
+  const handleViewModeChange = (mode) => {
+    if (viewMode !== mode) {
+      setRequests([]);
+      setLoading(true);
+      setPage(0);
+      setPageCursors([null]);
+      setHasMore(true);
+      setViewMode(mode);
+    }
+  };
+
+  // 核心資料獲取邏輯
+  useEffect(() => {
+    if (loadingUser || !db || !appId) {
+      setLoading(false);
+      return;
+    }
+
+    const requestsRef = collection(
+      db,
+      `artifacts/${appId}/public/data/restaurant_requests`
+    );
+    const restaurantsCollectionPath = `artifacts/${appId}/public/data/restaurants`;
+    const pageSize = 10; // 每頁顯示 10 筆資料，可依需求調整
+
+    let unsubscribe;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        if (viewMode === "pending") {
+          // 待處理請求模式：使用即時監聽器
+          const q = query(
+            requestsRef,
+            where("status", "==", "pending"),
+            orderBy("submittedAt", "desc")
+          );
+
+          unsubscribe = onSnapshot(q, async (snapshot) => {
+            const fetchedRequests = await Promise.all(
+              snapshot.docs.map(async (docSnap) => {
+                const reqData = docSnap.data();
+                const type = reqData.type;
+                let restaurantName =
+                  reqData.restaurantNameZh || reqData.restaurantNameEn || "N/A";
+
+                if (type === "update" && reqData.restaurantId) {
+                  const restaurantDocRef = doc(
+                    db,
+                    restaurantsCollectionPath,
+                    reqData.restaurantId
+                  );
+                  const restaurantDocSnap = await getDoc(restaurantDocRef);
+                  if (restaurantDocSnap.exists()) {
+                    const rData = restaurantDocSnap.data();
+                    restaurantName =
+                      rData.restaurantNameZh || rData.restaurantNameEn || "N/A";
+                  }
+                }
+
+                return {
+                  id: docSnap.id,
+                  ...reqData,
+                  originalRestaurantName: restaurantName,
+                  displayStatus: getStatusDisplay(reqData.status),
+                };
+              })
+            );
+            setRequests(fetchedRequests);
+            setHasMore(false);
+            setLoading(false);
+          });
+        } else {
+          // 已審批請求模式：使用分頁查詢
+
+          const lastVisible = pageCursors[page];
+
+          let q = query(
+            requestsRef,
+            where("status", "in", ["reviewed", "rejected"]),
+            orderBy("submittedAt", "desc"),
+            limit(pageSize + 1) // 額外多取一筆，以判斷是否還有下一頁
+          );
+          if (lastVisible) {
+            q = query(q, startAfter(lastVisible));
+          }
+
+          const querySnapshot = await getDocs(q);
+
+          // 判斷是否還有更多資料
+          const hasMoreData = querySnapshot.docs.length > pageSize;
+          setHasMore(hasMoreData);
+
+          const docsToDisplay = hasMoreData
+            ? querySnapshot.docs.slice(0, pageSize)
+            : querySnapshot.docs;
+
+          const newRequests = await Promise.all(
+            docsToDisplay.map(async (docSnap) => {
+              const reqData = docSnap.data();
+              const type = reqData.type;
+              let restaurantName =
+                reqData.restaurantNameZh || reqData.restaurantNameEn || "N/A";
+
+              if (type === "update" && reqData.restaurantId) {
+                const restaurantDocRef = doc(
+                  db,
+                  restaurantsCollectionPath,
+                  reqData.restaurantId
+                );
+                const restaurantDocSnap = await getDoc(restaurantDocRef);
+                if (restaurantDocSnap.exists()) {
+                  const rData = restaurantDocSnap.data();
+                  restaurantName =
+                    rData.restaurantNameZh || rData.restaurantNameEn || "N/A";
+                }
+              }
+
+              return {
+                id: docSnap.id,
+                ...reqData,
+                originalRestaurantName: restaurantName,
+                displayStatus: getStatusDisplay(reqData.status),
+              };
+            })
+          );
+          setRequests(newRequests);
+
+          if (querySnapshot.docs.length > 0 && pageCursors.length <= page + 1) {
+            setPageCursors((prev) => [
+              ...prev,
+              querySnapshot.docs[querySnapshot.docs.length - 1],
+            ]);
+          }
+        }
+      } catch (error) {
+        console.error("載入資料失敗:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [db, appId, loadingUser, viewMode, page, pageCursors]);
+
+  const handleNextPage = () => {
+    if (hasMore) {
+      setPage((prevPage) => prevPage + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    setPage((prevPage) => Math.max(0, prevPage - 1));
+  };
+
+  if (loading && requests.length === 0) {
     return (
       <div className="flex items-center justify-center p-8">
         <LoadingSpinner />
@@ -176,6 +235,28 @@ const UserRequestManagement = () => {
           <p className="text-sm text-gray-600 mt-1">
             管理所有待處理的新餐廳申請與餐廳資訊更新請求。
           </p>
+        </div>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => handleViewModeChange("pending")}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+              viewMode === "pending"
+                ? "bg-indigo-600 text-white"
+                : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+            }`}
+          >
+            待處理請求
+          </button>
+          <button
+            onClick={() => handleViewModeChange("reviewed")}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+              viewMode === "reviewed"
+                ? "bg-indigo-600 text-white"
+                : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+            }`}
+          >
+            已審批請求
+          </button>
         </div>
       </div>
 
@@ -222,20 +303,21 @@ const UserRequestManagement = () => {
             {requests.length === 0 ? (
               <tr>
                 <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                  目前沒有待處理的請求。
+                  {viewMode === "pending"
+                    ? "目前沒有待處理的請求。"
+                    : "目前沒有已審批或已否決的請求。"}
                 </td>
               </tr>
             ) : (
               requests.map((request) => (
                 <tr
-                  key={request.id}
+                  key={`${request.type}-${request.id}`}
                   className="hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
                   onClick={() =>
                     handleViewRequestDetails(request.id, request.type)
                   }
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    
                     {getRestaurantName(request)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -263,7 +345,7 @@ const UserRequestManagement = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-700">
-                    {formatDateTime(request.createdAt)}
+                    {formatDateTime(request.submittedAt)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                     <button
@@ -282,6 +364,33 @@ const UserRequestManagement = () => {
           </tbody>
         </table>
       </div>
+
+      {viewMode === "reviewed" && (requests.length > 0 || page > 0) && (
+        <div className="flex justify-center space-x-4 p-4">
+          <button
+            onClick={handlePrevPage}
+            className={`px-6 py-2 rounded-md text-white transition-colors duration-200 shadow-sm ${
+              page === 0 || loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-indigo-600 hover:bg-indigo-700"
+            }`}
+            disabled={page === 0 || loading}
+          >
+            上一頁
+          </button>
+          <button
+            onClick={handleNextPage}
+            className={`px-6 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200 shadow-sm ${
+              !hasMore || loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-indigo-600 hover:bg-indigo-700"
+            }`}
+            disabled={!hasMore || loading}
+          >
+            {loading ? "載入中..." : "下一頁"}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

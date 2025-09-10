@@ -15,6 +15,7 @@ import Modal from "../Modal";
 import LoadingSpinner from "../LoadingSpinner";
 import RestaurantForm from "./RestaurantForm";
 import { useRouter, useSearchParams } from "next/navigation";
+import { validateRestaurantForm } from "../../lib/validation";
 
 // 圖標：用於返回按鈕
 const ArrowLeftIcon = ({ className = "" }) => (
@@ -57,6 +58,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
   const [submitting, setSubmitting] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState("");
+  const [errors, setErrors] = useState({});
 
   // 格式化日期時間 (雖然在此組件未使用，但保留以防萬一)
   const formatDateTime = (date) => {
@@ -99,7 +101,8 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
             handleSelectRestaurant(restaurantIdFromUrl);
           } else {
             // URL ID 無效，顯示錯誤訊息並讓使用者從頭搜尋
-            setModalMessage("URL 中的餐廳 ID 無效，請重新搜尋。", "error");
+            setModalMessage("URL 中的餐廳 ID 無效，請重新搜尋。");
+            setModalType("error");
             setSelectedRestaurantId(null);
             setSelectedRestaurantData(null);
             setFormData({});
@@ -178,7 +181,8 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
         setSelectedRestaurantData(restaurantWithId);
         setFormData(restaurantWithId);
       } else {
-        setModalMessage("找不到選擇的餐廳資料。", "error");
+        setModalMessage("找不到選擇的餐廳資料。");
+        setModalType("error");
         console.log(restaurantId);
         setSelectedRestaurantId(null);
         setSelectedRestaurantData(null);
@@ -186,7 +190,8 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       }
     } catch (error) {
       console.error("獲取選擇餐廳資料失敗:", error);
-      setModalMessage(`獲取餐廳資料失敗: ${error.message}`, "error");
+      setModalMessage(`獲取餐廳資料失敗: ${error.message}`);
+      setModalType("error");
     } finally {
       setSubmitting(false);
     }
@@ -227,25 +232,21 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
     setSubmitting(true);
     setModalMessage("");
     setModalType("");
+    setErrors({}); // 每次提交前先清除舊的錯誤
 
-    console.log("handleSubmit triggered in UpdateRestaurantPage.");
-
-    if (!db || !currentUser || !selectedRestaurantId) {
-      const msg = "請先登入並選擇餐廳才能提交更新申請。";
-      console.log("Validation failed (DB/User/Restaurant ID missing):", msg);
-      setModalMessage(msg, "error");
+    const validationErrors = validateRestaurantForm(
+      updatedFormDataWithImageUrl
+    );
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       setSubmitting(false);
       return;
     }
 
-    if (
-      !updatedFormDataWithImageUrl.restaurantNameZh ||
-      !updatedFormDataWithImageUrl.contactName ||
-      !updatedFormDataWithImageUrl.contactPhone
-    ) {
-      const msg = "請填寫所有標記為必填的欄位 (餐廳名稱, 聯絡姓名, 聯絡電話)。";
-      console.log("Validation failed (required fields missing):", msg);
-      setModalMessage(msg, "error");
+    if (!db || !currentUser || !selectedRestaurantId) {
+      const msg = "請先登入並選擇餐廳才能提交更新申請。";
+      setModalMessage(msg);
+      setModalType("error");
       setSubmitting(false);
       return;
     }
@@ -253,7 +254,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
     try {
       const updateApplicationsRef = collection(
         db,
-        `artifacts/${appId}/public/data/update_rest_request`
+        `artifacts/${appId}/public/data/restaurant_requests`
       );
 
       const changes = {};
@@ -286,7 +287,8 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
 
       if (Object.keys(changes).length === 0) {
         const msg = "您沒有做出任何更改。";
-        setModalMessage(msg, "info");
+        setModalMessage(msg);
+        setModalType("info");
         setSubmitting(false);
         return;
       }
@@ -294,14 +296,15 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       await addDoc(updateApplicationsRef, {
         restaurantId: selectedRestaurantId,
         changes: changes,
+        type: "update", // 新增：標記為更新餐廳請求
         submittedBy: currentUser.uid,
+        submittedAt: serverTimestamp(), // 新增：使用新欄位名稱
         status: "pending",
-        createdAt: serverTimestamp(),
       });
       const successMsg =
         "謝謝你使用ChopsBook 提供餐廳資訊 為廣大嘅美食家作出貢獻 幕後團隊將火速審批";
-      console.log("Submission successful:", successMsg);
-      setModalMessage(successMsg, "success");
+      setModalMessage(successMsg);
+      setModalType("success");
       setSelectedRestaurantId(null);
       setSelectedRestaurantData(null);
       setFormData({});
@@ -310,16 +313,14 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
     } catch (error) {
       console.error("提交餐廳更新申請失敗:", error);
       const errorMsg = `提交失敗: ${error.message}`;
-      console.log("Submission failed, setting modal message:", errorMsg);
-      setModalMessage(errorMsg, "error");
+      setModalMessage(errorMsg);
+      setModalType("error");
     } finally {
       setSubmitting(false);
-      console.log("handleSubmit finished, submitting set to false.");
     }
   };
 
   const closeModal = () => {
-    console.log("Closing modal.");
     setModalMessage("");
     setModalType("");
     if (modalType === "success") {

@@ -1,5 +1,3 @@
-// src/data/restaurant-options.js
-
 export const cuisineOptions = [
   "選擇菜系",
   // 亞洲菜系

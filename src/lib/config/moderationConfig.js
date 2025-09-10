@@ -38,4 +38,5 @@ export const forbiddenWords = [
   "淫",
   "毒品",
   "槍",
+  "屌",
 ];

@@ -1,6 +1,6 @@
 // src/app/admin/editUsers/page.js
 import { Suspense } from "react";
-import UserEditor from "../../../components/admin/EditUser/UserEditor";
+import UserEditor from "../../../components/admin/admin_user/UserEditor";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 
 /**
