@@ -8,6 +8,7 @@ import { AuthContext } from "../../../lib/auth-context";
 import { RestaurantContext } from "../../../lib/restaurant-context";
 import { useRestaurantData } from "../../../hooks/useRestaurantData";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Link from "next/link";
 
 export default function RestaurantOverviewPage() {
   const { restaurantId } = useParams();
@@ -162,7 +163,7 @@ export default function RestaurantOverviewPage() {
               >
                 <div className="flex items-center mb-2">
                   <span className=" font-semibold text-gray-800">
-                    {review.username }
+                    {review.username}
                   </span>
                   <span className="ml-auto text-sm text-gray-500">
                     {review.createdAt
@@ -171,18 +172,18 @@ export default function RestaurantOverviewPage() {
                   </span>
                 </div>
                 <p className="text-gray-700 leading-relaxed">
-                  {review.reviewContent }
+                  {review.reviewContent}
                 </p>
               </div>
             ))}
           </div>
           <div className="text-right mt-4">
-            <a
-              href="reviews"
+            <Link
+              href={`/restaurants/${restaurantId}/reviews`} // 修正點：使用 Link 組件並加上動態路由
               className="text-blue-600 hover:underline font-medium"
             >
               查看所有評論 &gt;
-            </a>
+            </Link>
           </div>
         </section>
       )}

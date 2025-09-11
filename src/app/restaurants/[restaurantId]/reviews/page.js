@@ -176,9 +176,9 @@ export default function RestaurantReviewsPage() {
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center space-x-2">
                     <span className="font-semibold text-gray-800 text-lg">
-                      {review.username || "匿名用戶"}
+                      {review.username}
                     </span>
-                    {renderStars(review.overallRating)}
+                    {renderStars(review.overallRating)}{review.overallRating} ｜
                     {/* 在總評分旁顯示用餐時段和用餐類型圖示 */}
                     <div className="flex items-center space-x-2 ml-2">
                       {renderTimeIcon(review.timeOfDay)}
@@ -187,7 +187,7 @@ export default function RestaurantReviewsPage() {
                           reviewFields.timeOfDay.typeFields[review.timeOfDay]
                             ?.zh
                         }
-                      </span>
+                      </span> 
                       {renderServiceTypeIcon(review.serviceType)}
                       <span className="text-sm text-gray-600">
                         {

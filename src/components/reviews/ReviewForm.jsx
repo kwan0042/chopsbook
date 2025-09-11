@@ -87,6 +87,9 @@ const ReviewForm = ({ onBack, draftId }) => {
   const [lastSubmittedRestaurantId, setLastSubmittedRestaurantId] =
     useState(null);
 
+  // 修正點：新增狀態來儲存從 Firestore 讀取的用戶名
+  const [username, setUsername] = useState(null);
+
   // Helper function to check for unsaved changes
   const hasUnsavedChanges = useCallback(() => {
     return (
@@ -192,6 +195,33 @@ const ReviewForm = ({ onBack, draftId }) => {
       setFilteredRestaurants([]);
     }
   }, [searchQuery, restaurants]);
+
+  // 修正點：新增 useEffect 以從 Firestore 讀取用戶名
+  useEffect(() => {
+    const fetchUsername = async () => {
+      if (currentUser && db && appId) {
+        try {
+          const userDocRef = doc(
+            db,
+            `artifacts/${appId}/users`,
+            currentUser.uid
+          );
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUsername(userData.username); // 從 Firestore 中讀取 username
+          } else {
+            // 如果用戶文件不存在，可以設定一個預設值
+            setUsername("匿名用戶");
+          }
+        } catch (error) {
+          console.error("讀取用戶名失敗:", error);
+          setUsername("匿名用戶"); // 讀取失敗也設定預設值
+        }
+      }
+    };
+    fetchUsername();
+  }, [currentUser, db, appId]);
 
   useEffect(() => {
     const loadDraft = async () => {
@@ -363,6 +393,7 @@ const ReviewForm = ({ onBack, draftId }) => {
 
     setSubmitting(true);
     try {
+      // 1. 上傳圖片到 Firebase Storage
       const storage = getStorage();
       const uploadedImageUrls = await Promise.all(
         uploadedImages.map(async (image) => {
@@ -375,20 +406,38 @@ const ReviewForm = ({ onBack, draftId }) => {
           return { url, description: image.description };
         })
       );
-      const submittedRestaurantId = selectedRestaurant.id;
-      await submitReview(
-        submittedRestaurantId,
-        reviewTitle,
-        overallRating,
-        reviewContent,
-        ratings,
-        costPerPerson,
-        timeOfDay,
-        serviceType,
-        uploadedImageUrls,
-        draftId
-      );
 
+      const submittedRestaurantId = selectedRestaurant.id;
+
+      // 2. 向新的 API Route 發送請求
+      const response = await fetch("/api/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          restaurantId: submittedRestaurantId,
+          reviewTitle,
+          overallRating,
+          reviewContent,
+          ratings,
+          costPerPerson,
+          timeOfDay,
+          serviceType,
+          uploadedImageUrls,
+          userId: currentUser.uid,
+          // 修正點：使用從 Firestore 讀取的 username 狀態
+          username: username,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to submit review.");
+      }
+
+      // 3. 請求成功後的處理
       setSelectedRestaurant(null);
       setReviewTitle("");
       setOverallRating(0);
