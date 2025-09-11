@@ -19,7 +19,6 @@ import {
   IconMoped,
   IconPaperBag,
 } from "@tabler/icons-react";
-import Image from "next/image";
 
 // Back button icon
 const ArrowLeftIcon = ({ className = "" }) => (
@@ -643,7 +642,7 @@ const ReviewForm = ({ onBack, draftId }) => {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {[
                 {
-                  value: "dine-in",
+                  value: "dineIn",
                   label: "堂食",
                   icon: <IconBuildingStore stroke={2} className="text-xl" />,
                 },
@@ -653,7 +652,7 @@ const ReviewForm = ({ onBack, draftId }) => {
                   icon: <IconMoped stroke={2} className="text-xl" />,
                 },
                 {
-                  value: "pickup",
+                  value: "pickUp",
                   label: "自取",
                   icon: <IconPaperBag stroke={2} className="text-xl" />,
                 },
@@ -692,7 +691,7 @@ const ReviewForm = ({ onBack, draftId }) => {
                 value={overallRating}
                 onValueChange={handleOverallRatingChange}
               />
-              
+
               <button
                 type="button"
                 onClick={() => setShowDetailedRatings(!showDetailedRatings)}
@@ -719,7 +718,6 @@ const ReviewForm = ({ onBack, draftId }) => {
                           handleRatingChange(category.key, val)
                         }
                       />
-                      
                     </div>
                   </div>
                 ))}
@@ -789,7 +787,7 @@ const ReviewForm = ({ onBack, draftId }) => {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 mt-4">
               {uploadedImages.map((image) => (
                 <div key={image.id} className="relative group">
-                  <Image
+                  <img
                     src={image.url}
                     alt="Uploaded preview"
                     className="w-full h-32 object-cover rounded-md"

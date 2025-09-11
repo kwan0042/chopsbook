@@ -40,21 +40,36 @@ export const restaurantFields = {
  * 將 Firestore 評論欄位鍵映射到可讀的中文和英文名稱。
  */
 export const reviewFields = {
-  createdAt: { zh: "創建時間", en: "Created At" },
-  ratings: {
-    zh: "評分",
-    en: "Ratings",
+  costPerPerson: { zh: "人均消費", en: "Cost Per Person" },
+  createdAt: { zh: "評論時間", en: "Created At" },
+  detailedRatings: {
+    zh: "詳細評分",
+    en: "Detailed Ratings",
     nestedFields: {
+      cp: { zh: "CP值", en: "Value" },
+      drinks: { zh: "飲品/酒", en: "Drinks" },
       environment: { zh: "環境", en: "Environment" },
       hygiene: { zh: "衛生", en: "Hygiene" },
       service: { zh: "服務", en: "Service" },
       taste: { zh: "口味", en: "Taste" },
-      value: { zh: "CP值", en: "Value" },
     },
   },
+  overallRating: { zh: "總體評分", en: "Overall Rating" },
   restaurantId: { zh: "餐廳ID", en: "Restaurant ID" },
   reviewContent: { zh: "評論內容", en: "Review Content" },
+  reviewTitle: { zh: "評論標題", en: "Review Title" },
+  
+  serviceType: {
+    zh: "用餐類型",
+    en: "Service Type",
+    typeFields: {
+      delivery: { zh: "外賣", en: "delivery" },
+      dineIn: { zh: "堂食", en: "dine-in" },
+      pickUp: { zh: "自取", en: "pickup" },
+  },},
   status: { zh: "狀態", en: "Status" },
+  timeOfDay: { zh: "用餐時段", en: "Time of Day" },
+  uploadedImages: { zh: "評論圖片", en: "Uploaded Images" },
   userId: { zh: "用戶ID", en: "User ID" },
   username: { zh: "用戶名稱", en: "Username" },
 };

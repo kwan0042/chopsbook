@@ -7,7 +7,7 @@ import { faTag } from "@fortawesome/free-solid-svg-icons";
 import { AuthContext } from "../../../lib/auth-context";
 import { RestaurantContext } from "../../../lib/restaurant-context";
 import { useRestaurantData } from "../../../hooks/useRestaurantData";
-import LoadingSpinner from "../../../components/LoadingSpinner";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function RestaurantOverviewPage() {
   const { restaurantId } = useParams();
@@ -162,18 +162,16 @@ export default function RestaurantOverviewPage() {
               >
                 <div className="flex items-center mb-2">
                   <span className=" font-semibold text-gray-800">
-                    {review.username || "匿名用戶"}
+                    {review.username }
                   </span>
                   <span className="ml-auto text-sm text-gray-500">
                     {review.createdAt
-                      ? new Date(review.createdAt.toDate()).toLocaleDateString(
-                          "zh-TW"
-                        )
+                      ? new Date(review.createdAt).toLocaleDateString("zh-TW")
                       : "N/A"}
                   </span>
                 </div>
                 <p className="text-gray-700 leading-relaxed">
-                  {review.reviewContent || "沒有內容"}
+                  {review.reviewContent }
                 </p>
               </div>
             ))}

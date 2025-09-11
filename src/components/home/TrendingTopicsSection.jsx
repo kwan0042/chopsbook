@@ -39,7 +39,7 @@ const TrendingTopicsSection = () => {
         <button 
           onClick={handlePrevPage} 
           disabled={currentPage === 0}
-          className="p-2 mr-4 text-gray-500 hover:text-gray-900 disabled:opacity-50 transition-colors"
+          className="p-2 mr-2 text-gray-500 hover:text-gray-900 disabled:opacity-50 transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -63,7 +63,7 @@ const TrendingTopicsSection = () => {
         <button 
           onClick={handleNextPage} 
           disabled={currentPage >= totalPages - 1}
-          className="p-2 ml-4 text-gray-500 hover:text-gray-900 disabled:opacity-50 transition-colors"
+          className="p-2 ml-2 text-gray-500 hover:text-gray-900 disabled:opacity-50 transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

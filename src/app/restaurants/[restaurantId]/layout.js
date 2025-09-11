@@ -334,9 +334,9 @@ export default function RestaurantDetailLayout({ children }) {
             <div className="p-6">
               <div className="flex flex-col md:flex-row mt-4 gap-4">
                 <div className="flex-1">
-                  <div className="bg-white shadow-md rounded-xl p-6">
+                  
                     {children}
-                  </div>
+                  
                 </div>
                 <div className="md:w-1/3 flex-shrink-0">
                   <div className="bg-white rounded-xl shadow-xl sticky top-8">
