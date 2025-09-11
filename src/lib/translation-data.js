@@ -1,5 +1,3 @@
-// src/lib/translation-data.js
-
 /**
  * 將 Firestore 餐廳欄位鍵映射到可讀的中文和英文名稱。
  */
@@ -58,7 +56,7 @@ export const reviewFields = {
   restaurantId: { zh: "餐廳ID", en: "Restaurant ID" },
   reviewContent: { zh: "評論內容", en: "Review Content" },
   reviewTitle: { zh: "評論標題", en: "Review Title" },
-  
+
   serviceType: {
     zh: "用餐類型",
     en: "Service Type",
@@ -66,9 +64,19 @@ export const reviewFields = {
       delivery: { zh: "外賣", en: "delivery" },
       dineIn: { zh: "堂食", en: "dine-in" },
       pickUp: { zh: "自取", en: "pickup" },
-  },},
+    },
+  },
   status: { zh: "狀態", en: "Status" },
-  timeOfDay: { zh: "用餐時段", en: "Time of Day" },
+  timeOfDay: {
+    zh: "用餐時段",
+    en: "Time of Day",
+    typeFields: {
+      morning: { zh: "早上", en: "Morning" },
+      noon: { zh: "中午", en: "Noon" },
+      afternoon: { zh: "下午", en: "Afternoon" },
+      night: { zh: "晚上", en: "Night" },
+    },
+  },
   uploadedImages: { zh: "評論圖片", en: "Uploaded Images" },
   userId: { zh: "用戶ID", en: "User ID" },
   username: { zh: "用戶名稱", en: "Username" },
