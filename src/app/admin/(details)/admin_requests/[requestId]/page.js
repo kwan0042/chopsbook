@@ -2,8 +2,8 @@
 "use client";
 
 import { useSearchParams, useParams } from "next/navigation";
-import AddRestaurantRequestPage from "../../../../../components/admin/requestsManagement/AddRestaurantRequestPage";
-import EditRestaurantRequestPage from "../../../../../components/admin/requestsManagement/EditRestaurantRequestPage";
+import AddRestaurantRequestPage from "@/components/admin/requestsManagement/AddRestaurantRequestPage";
+import EditRestaurantRequestPage from "@/components/admin/requestsManagement/EditRestaurantRequestPage";
 import React from "react";
 
 const RequestPage = () => {

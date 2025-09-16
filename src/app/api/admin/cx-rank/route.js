@@ -1,19 +1,34 @@
 // This API route handles requests to check for users with a specific rank in Firebase Firestore.
-// This example assumes a Node.js environment (e.g., Next.js, Express) on the server.
-// You must have Firebase Admin SDK set up and configured on your server for this to work.
+// This version is adapted to read the service account credentials from a single environment variable string.
 
-// Import necessary Firebase Admin SDK modules
-import { initializeApp, cert } from "firebase-admin/app";
+import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
-// IMPORTANT: Replace with your actual Firebase Admin SDK credentials
-// You should store this securely (e.g., as environment variables).
-const serviceAccount = {
-  // your service account credentials here
-};
+// The environment variable containing the service account JSON string.
+const serviceAccountString = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_KEY;
 
-// Check if Firebase Admin app is already initialized
-if (!initializeApp.length) {
+let serviceAccount;
+
+try {
+  if (serviceAccountString) {
+    // Parse the JSON string into a JavaScript object.
+    serviceAccount = JSON.parse(serviceAccountString);
+  } else {
+    // If the environment variable is not set, throw an error.
+    throw new Error(
+      "FIREBASE_ADMIN_SERVICE_ACCOUNT_KEY environment variable is not set."
+    );
+  }
+} catch (error) {
+  // If parsing fails, it means the JSON string is malformed.
+  console.error("Failed to parse the service account JSON string:", error);
+  // Re-throw the error to halt the build process.
+  throw new Error("Invalid service account JSON format.");
+}
+
+// Check if a Firebase Admin app is already initialized.
+// This is the correct way to prevent re-initialization in a hot-reloading environment.
+if (!getApps().length) {
   initializeApp({
     credential: cert(serviceAccount),
   });
@@ -23,11 +38,10 @@ const db = getFirestore();
 
 /**
  * Handles a GET request to find users by rank.
- * @param {Request} request The incoming request object.
+ * @param {Request} request The incoming request object from Next.js.
  */
 export async function GET(request) {
   try {
-    // Get the rank from the URL query parameters
     const { searchParams } = new URL(request.url);
     const rank = searchParams.get("rank");
 
@@ -41,15 +55,10 @@ export async function GET(request) {
       );
     }
 
-    // Reference the 'users' collection in Firestore
-    // NOTE: You must have a 'users' collection with a 'rank' field in your Firestore.
     const usersRef = db.collection("users");
-
-    // Query for documents where the 'rank' field matches the requested rank
     const snapshot = await usersRef.where("rank", "==", rank).get();
 
     if (snapshot.empty) {
-      console.log(`No users found with rank: ${rank}`);
       return new Response(
         JSON.stringify({
           success: true,
@@ -63,15 +72,11 @@ export async function GET(request) {
       );
     }
 
-    const users = [];
-    snapshot.forEach((doc) => {
-      users.push({
-        id: doc.id,
-        ...doc.data(),
-      });
-    });
+    const users = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
 
-    console.log(`Found ${users.length} users with rank: ${rank}`);
     return new Response(
       JSON.stringify({
         success: true,
