@@ -2,7 +2,7 @@
 
 import React, { useContext } from "react";
 import { AuthContext } from "../../lib/auth-context";
-import UserManagement from "../../components/admin/UserManagement";
+import UserManagement from "./admin_user/UserManagement";
 
 /**
  * Admin Page: 管理員主控台的預設頁面。

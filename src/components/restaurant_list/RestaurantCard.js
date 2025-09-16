@@ -108,12 +108,12 @@ const RestaurantCard = ({
                 <FontAwesomeIcon
                   key={index}
                   icon={
-                    index < Math.floor(restaurant.rating || 0)
+                    index < Math.floor(restaurant.averageRating || 0)
                       ? faSolidStar
                       : faRegularStar
                   }
                   className={`${isGridView ? "text-sm" : "text-sm"} ${
-                    index < Math.floor(restaurant.rating || 0)
+                    index < Math.floor(restaurant.averageRating || 0)
                       ? "text-yellow-500"
                       : "text-gray-300"
                   }`}
@@ -124,7 +124,7 @@ const RestaurantCard = ({
                   isGridView ? "text-sm" : "text-sm"
                 }`}
               >
-                {restaurant.rating?.toFixed(1) || "N/A"}
+                {restaurant.averageRating?.toFixed(1) || "N/A"}
               </span>
               <span
                 className={`ml-2 flex items-center text-gray-700 ${

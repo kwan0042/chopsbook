@@ -626,18 +626,33 @@ const RestaurantForm = ({
             </div>
           </div>
           {/* 定休日 (特殊日期/節日) */}
-          <div className="h-full flex flex-col">
-            <label className="block text-gray-700 text-sm font-bold mb-2">
-              定休日 (節日或特殊日期)
-            </label>
-            <textarea
-              type="text"
-              name="closedDates"
-              value={formData.closedDates || ""}
-              onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
-              placeholder="例如：元旦、聖誕節、每年農曆除夕"
-            />
+          <div className="h-full flex flex-col gap-3">
+            <div>
+              <label className="block text-gray-700 text-sm font-bold mb-2">
+                定休日 (節日或特殊日期)
+              </label>
+              <textarea
+                type="text"
+                name="closedDates"
+                value={formData.closedDates || ""}
+                onChange={handleChange}
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
+                placeholder="例如：元旦、聖誕節、每年農曆除夕"
+              />
+            </div>
+            <div className="flex items-center space-x-2 h-8">
+              <input
+                type="checkbox"
+                checked={formData.businessHours?.isOpen || false}
+                onChange={(e) =>
+                  handleBusinessHoursChange(index, "isOpen", e.target.checked)
+                }
+                className="form-checkbox h-5 w-5 text-blue-600 rounded"
+              />
+              <label className="block text-gray-700 text-sm font-bold ">
+                公眾假期營業
+              </label>
+            </div>
           </div>
         </div>
 

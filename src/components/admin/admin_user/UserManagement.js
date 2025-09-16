@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useContext, useEffect } from "react";
-import { AuthContext } from "../../lib/auth-context";
+import { AuthContext } from "../../../lib/auth-context";
 import { collection, onSnapshot, query } from "firebase/firestore";
-import LoadingSpinner from "../../components/LoadingSpinner";
+import LoadingSpinner from "../../LoadingSpinner";
 import { useRouter } from "next/navigation";
-import Modal from "../../components/Modal"; // 導入 Modal 組件
+import Modal from "../../Modal"; // 導入 Modal 組件
 
 /**
  * UserManagement: 管理員用戶管理區塊組件。

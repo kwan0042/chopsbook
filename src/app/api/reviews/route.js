@@ -38,6 +38,18 @@ export async function POST(request) {
     const reviewsCollectionPath = `artifacts/${appId}/public/data/reviews`;
     const restaurantsCollectionPath = `artifacts/${appId}/public/data/restaurants`;
 
+    // 1. 在交易之前計算 visitCount
+    // 查詢該用戶為該餐廳提交的所有食評
+    const existingReviewsQuery = db
+      .collection(reviewsCollectionPath)
+      .where("userId", "==", userId)
+      .where("restaurantId", "==", restaurantId);
+
+    const existingReviewsSnapshot = await existingReviewsQuery.get();
+
+    // visitCount = 現有食評數量 + 1 (這次的食評)
+    const visitCount = existingReviewsSnapshot.size + 1;
+
     const result = await db.runTransaction(async (transaction) => {
       const restaurantRef = db
         .collection(restaurantsCollectionPath)
@@ -49,18 +61,14 @@ export async function POST(request) {
       }
 
       const data = restaurantDoc.data();
-      // 修正點：使用現有的 reviewCount
       const currentReviewCount = data.reviewCount || 0;
-      // 修正點：使用 ratingSum 而非 totalRatingSum
       const currentRatingSum = data.ratingSum || 0;
 
-      // 修正點：計算新的評論總數
       const newReviewCount = currentReviewCount + 1;
-      // 修正點：計算新的總評分
       const newRatingSum = currentRatingSum + overallRating;
       const newAverageRating = newRatingSum / newReviewCount;
 
-      // 修正點：更新餐廳文件
+      // 更新餐廳文件
       transaction.update(restaurantRef, {
         reviewCount: newReviewCount,
         ratingSum: newRatingSum,
@@ -82,6 +90,7 @@ export async function POST(request) {
         uploadedImageUrls,
         createdAt: FieldValue.serverTimestamp(),
         status: "published",
+        visitCount, // 2. 在這裡將 visitCount 加入新文件
       });
 
       return { success: true };

@@ -39,7 +39,14 @@ export const AuthProvider = ({ children }) => {
   } = useAuthCore(handleGlobalModalMessage);
 
   // 認證操作 (登入、註冊、登出、重設密碼)
-  const { login, signup, logout, sendPasswordReset, signupWithGoogle } =
+  const {
+    login,
+    signup,
+    logout,
+    sendPasswordReset,
+    signupWithGoogle,
+    loginWithFacebook,
+  } = // <-- 更新: 加入 loginWithFacebook
     useAuthOperations(
       auth,
       db,
@@ -104,7 +111,8 @@ export const AuthProvider = ({ children }) => {
         login,
         signup,
         logout,
-        signupWithGoogle, // 將 signupWithGoogle 暴露給 Context
+        signupWithGoogle,
+        loginWithFacebook, // <-- 新增: 將 loginWithFacebook 暴露給 Context
         isAdmin,
         updateUserAdminStatus,
         updateUserProfile,

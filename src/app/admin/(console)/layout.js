@@ -1,15 +1,27 @@
 "use client";
 
 import React, { useContext, useEffect, useState } from "react";
-import { AuthContext } from "../../lib/auth-context";
+import { AuthContext } from "../../../lib/auth-context";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import LoadingSpinner from "../../components/LoadingSpinner";
-import Modal from "../../components/Modal";
+import LoadingSpinner from "../../../components/LoadingSpinner";
+import Modal from "../../../components/Modal";
+
+/**
+ * 判斷當前路徑是否在 [xxx] 動態資料夾
+ * 規則：
+ *   - /admin/.../[id] → 跳過 AdminLayout
+ */
+function isInsideDynamicFolder(pathname) {
+  const segments = pathname.split("/").filter(Boolean);
+  return segments.some(
+    (segment) => segment.startsWith("[") && segment.endsWith("]")
+  );
+}
 
 /**
  * Admin Layout: 包含所有管理頁面共用的 UI 和邏輯。
- * 它會檢查用戶是否登入以及是否為管理員，並提供共享的導航。
+ * 預設會包住所有 `/admin/*` 路由，但 `[xxx]` 動態資料夾會交給子 layout。
  */
 export default function AdminLayout({ children }) {
   const { currentUser, loadingUser, isAdmin } = useContext(AuthContext);
@@ -19,12 +31,10 @@ export default function AdminLayout({ children }) {
   const [localModalMessage, setLocalModalMessage] = useState("");
   const closeModal = () => setLocalModalMessage("");
 
+  // 🔑 權限檢查
   useEffect(() => {
-    if (loadingUser) {
-      return;
-    }
+    if (loadingUser) return;
 
-    // 如果未登入或不是管理員，則導航到首頁
     if (!currentUser) {
       router.push("/login");
     } else if (!isAdmin) {
@@ -36,7 +46,7 @@ export default function AdminLayout({ children }) {
     }
   }, [currentUser, loadingUser, isAdmin, router]);
 
-  // 如果 AuthContext 仍在初始化，顯示全域載入狀態
+  // ⏳ 載入中
   if (loadingUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -45,7 +55,7 @@ export default function AdminLayout({ children }) {
     );
   }
 
-  // 如果未登入或不是管理員（且 loadingUser 為 false），則不渲染內容
+  // ❌ 無權限
   if (!currentUser || !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -62,9 +72,16 @@ export default function AdminLayout({ children }) {
     );
   }
 
+  // 🛠️ 如果在 [xxx] 動態資料夾 → 跳過父層 layout
+  if (isInsideDynamicFolder(pathname)) {
+    return <>{children}</>;
+  }
+
+  // 🌟 一般情況：完整 Admin Layout
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-100 p-4 font-inter">
       <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 lg:p-8">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-8 pb-4 border-b border-gray-200">
           <h1 className="text-4xl font-extrabold text-gray-900 mb-4 sm:mb-0">
             管理員控制台
@@ -88,6 +105,8 @@ export default function AdminLayout({ children }) {
             <span>返回首頁</span>
           </button>
         </div>
+
+        {/* User Info */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-sm p-6 mb-8 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
           <div className="w-16 h-16 bg-blue-200 rounded-full flex items-center justify-center flex-shrink-0 shadow-inner">
             <span className="text-blue-700 font-bold text-2xl">
@@ -101,6 +120,8 @@ export default function AdminLayout({ children }) {
             <p className="text-sm text-blue-700 mt-1">您是當前登入的管理員。</p>
           </div>
         </div>
+
+        {/* Navigation */}
         <nav className="bg-white rounded-lg shadow-md mb-8 p-2 border border-gray-200">
           <ul className="flex flex-wrap justify-center sm:justify-start gap-2 sm:gap-4">
             <li>
@@ -170,6 +191,8 @@ export default function AdminLayout({ children }) {
             </li>
           </ul>
         </nav>
+
+        {/* Page content */}
         {children}
       </div>
       <Modal message={localModalMessage} onClose={closeModal} />

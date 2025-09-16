@@ -1,7 +1,6 @@
 /* src/app/globals.css */
 
 /* Tailwind CSS v4 的最新導入方式 */
-
 @import "tailwindcss";
 
 /* 你可以在這裡添加任何自定義的全局 CSS 樣式 */
@@ -22,7 +21,6 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
-
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
@@ -30,4 +28,53 @@ body {
 /* 適用於 Firefox 瀏覽器 */
 .scrollbar-hide {
   scrollbar-width: none;
+}
+
+/* --- 等級圖標的自定義樣式與動畫 --- */
+
+/* 快速脈衝動畫 (用於管理員) */
+/* 快速旋轉動畫 (用於管理員) */
+@keyframes spin-fast {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 慢速脈衝動畫 (用於其他等級) */
+
+
+.rank-before::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px; /* Tailwind's rounded-full */
+  z-index: 0;
+  /* 為了防止被父元素 overflow: hidden 裁切，稍微放大偽元素 */
+  transform: scale(1.1);
+}
+
+.rank-0-effect::before {
+  background-image: conic-gradient(
+    from 0deg,
+    #e879f9,   /* 紫色 */
+    #9333ea,   /* 深紫色 */
+    #3b82f6,   /* 藍色 */
+    #14b8a6,   /* 綠松石色 */
+    #fcd34d,   /* 黃色 */
+    #f97316,   /* 橘色 */
+    #ef4444,   /* 紅色 */
+    #e879f9    /* 回到紫色，形成無縫循環 */
+  );
+  animation: spin-fast 2s linear infinite; /* 套用快速旋轉動畫 */
+}
+
+.rank-other-effect::before {
+  background-color: rgba(243, 244, 246, 1); /* bg-gray-100/80 */
+ 
 }

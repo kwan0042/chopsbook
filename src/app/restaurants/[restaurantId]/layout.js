@@ -114,21 +114,21 @@ export default function RestaurantDetailLayout({ children }) {
     await toggleFavoriteRestaurant(restaurantId);
   }, [currentUser, toggleFavoriteRestaurant, restaurantId, setModalMessage]);
 
-  const renderRatingStars = (rating) => (
+  const renderRatingStars = (averageRating) => (
     <div className="flex items-center">
       {Array.from({ length: 5 }, (_, index) => (
         <FontAwesomeIcon
           key={index}
-          icon={index < Math.floor(rating || 0) ? faSolidStar : faRegularStar}
+          icon={index < Math.floor(averageRating || 0) ? faSolidStar : faRegularStar}
           className={`text-base ${
-            index < Math.floor(rating || 0)
+            index < Math.floor(averageRating || 0)
               ? "text-yellow-500"
               : "text-gray-300"
           }`}
         />
       ))}
       <span className="text-gray-800 font-bold text-base ml-2">
-        {rating?.toFixed(1) || "N/A"}
+        {averageRating?.toFixed(1) || "N/A"}
       </span>
       <span className="text-gray-600 ml-3 text-sm">
         <FontAwesomeIcon icon={faComment} className="mr-1 text-blue-500" />
@@ -198,8 +198,7 @@ export default function RestaurantDetailLayout({ children }) {
             <div className="relative p-6 border-b border-gray-200">
               <h1 className="text-4xl font-extrabold text-gray-900 mb-2 leading-tight">
                 {restaurant.restaurantNameZh ||
-                  restaurant.restaurantNameEn ||
-                  "未知餐廳"}
+                  restaurant.restaurantNameEn }
               </h1>
               <button
                 onClick={handleToggleFavorite}
@@ -217,7 +216,7 @@ export default function RestaurantDetailLayout({ children }) {
             {/* 餐廳基本資訊 */}
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700 border-b border-gray-200">
               <div>
-                {renderRatingStars(restaurant.rating)}
+                {renderRatingStars(restaurant.averageRating)}
                 <p className="mt-2 text-base">
                   <FontAwesomeIcon
                     icon={faMapMarkerAlt}

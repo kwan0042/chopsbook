@@ -7,11 +7,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getAuth, signOut } from "firebase/auth";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGoogle } from "@fortawesome/free-brands-svg-icons"; // 導入 Google 品牌圖標
+import { faGoogle, faFacebook } from "@fortawesome/free-brands-svg-icons"; // 導入 Google 和 Facebook 圖標
 
 export default function LoginPage() {
-  const { login, signupWithGoogle, loadingUser, currentUser } =
-    useContext(AuthContext); // 引入 signupWithGoogle
+  const {
+    login,
+    signupWithGoogle,
+    loginWithFacebook,
+    loadingUser,
+    currentUser,
+  } = useContext(AuthContext); // 引入 signupWithGoogle 和 loginWithFacebook
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -103,8 +108,7 @@ export default function LoginPage() {
     setLocalLoading(true);
     setLoginResult(null);
     try {
-      await signupWithGoogle(); // 呼叫共用的 Google 登入/註冊函數
-      // 成功後，由 useEffect 處理跳轉
+      await signupWithGoogle();
     } catch (error) {
       console.error("Google 登入失敗:", error);
       let errorMessage = "Google 登入失敗，請稍後再試。";
@@ -123,6 +127,30 @@ export default function LoginPage() {
       setLocalLoading(false);
     }
   }, [signupWithGoogle]);
+
+  const handleFacebookLogin = useCallback(async () => {
+    setLocalLoading(true);
+    setLoginResult(null);
+    try {
+      await loginWithFacebook();
+    } catch (error) {
+      console.error("Facebook 登入失敗:", error);
+      let errorMessage = "Facebook 登入失敗，請稍後再試。";
+      if (error.code === "auth/popup-closed-by-user") {
+        errorMessage = "Facebook 登入視窗已被關閉。";
+      } else if (error.code === "auth/cancelled-popup-request") {
+        errorMessage = "已有一個進行中的登入視窗。";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      setLoginResult({
+        success: false,
+        message: errorMessage,
+      });
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [loginWithFacebook]);
 
   const handleBackToLogin = () => {
     setLoginResult(null);
@@ -282,7 +310,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* --- 分隔線和 Google 登入按鈕 --- */}
+        {/* --- 分隔線和第三方登入按鈕 --- */}
         <div className="mt-6">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
@@ -303,8 +331,18 @@ export default function LoginPage() {
             <FontAwesomeIcon icon={faGoogle} className="mr-2" />
             使用 Google 登入
           </button>
+
+          {/* 新增的 Facebook 登入按鈕 */}
+          <button
+            onClick={handleFacebookLogin}
+            className="w-full mt-4 flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            disabled={loadingUser || localLoading}
+          >
+            <FontAwesomeIcon icon={faFacebook} className="mr-2 text-blue-600" />
+            使用 Facebook 登入
+          </button>
         </div>
-        {/* --- 分隔線和 Google 登入按鈕結束 --- */}
+        {/* --- 分隔線和第三方登入按鈕結束 --- */}
 
         <p className="mt-6 text-center text-sm text-gray-600">
           還沒有帳戶？

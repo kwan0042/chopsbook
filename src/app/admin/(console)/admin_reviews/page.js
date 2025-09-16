@@ -2,9 +2,9 @@
 
 import React, { useContext, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AuthContext } from "../../../lib/auth-context";
-import ReviewManagement from "../../../components/admin/ReviewManagement";
-import LoadingSpinner from "../../../components/LoadingSpinner";
+import { AuthContext } from "@/lib/auth-context";
+import ReviewManagement from "@/components/admin/ReviewManagement";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 /**
  * Admin Review Management Page: 用於管理食評。

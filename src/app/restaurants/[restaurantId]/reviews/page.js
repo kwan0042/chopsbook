@@ -25,6 +25,7 @@ import {
   IconMoped,
   IconPaperBag,
 } from "@tabler/icons-react";
+import Link from "next/link";
 
 // 引入翻譯數據
 import { reviewFields } from "../../../../lib/translation-data";
@@ -154,6 +155,7 @@ export default function RestaurantReviewsPage() {
       {recentReviews.length === 0 ? (
         <div className="text-center text-gray-600 p-8 border-2 border-dashed border-gray-300 rounded-lg">
           <p>此餐廳尚未有任何評論。</p>
+          <Link href={`/personal/reviews`}>成為第一個食評家啦！</Link>
         </div>
       ) : (
         <div className="space-y-6  mx-auto">
@@ -178,8 +180,8 @@ export default function RestaurantReviewsPage() {
                     <span className="font-semibold text-gray-800 text-lg">
                       {review.username}
                     </span>
-                    {renderStars(review.overallRating)}{review.overallRating} ｜
-                    {/* 在總評分旁顯示用餐時段和用餐類型圖示 */}
+                    {renderStars(review.overallRating)} {review.overallRating}{" "}
+                    ｜{/* 在總評分旁顯示用餐時段和用餐類型圖示 */}
                     <div className="flex items-center space-x-2 ml-2">
                       {renderTimeIcon(review.timeOfDay)}
                       <span className="text-sm text-gray-600">
@@ -187,7 +189,7 @@ export default function RestaurantReviewsPage() {
                           reviewFields.timeOfDay.typeFields[review.timeOfDay]
                             ?.zh
                         }
-                      </span> 
+                      </span>
                       {renderServiceTypeIcon(review.serviceType)}
                       <span className="text-sm text-gray-600">
                         {
@@ -199,6 +201,13 @@ export default function RestaurantReviewsPage() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
+                    <span className="text-sm font-bold text-gray-500">
+                      第{" "}
+                      <span className="text-orange-400">
+                        {review.visitCount}
+                      </span>{" "}
+                      次打卡
+                    </span>
                     <span className="text-sm text-gray-500">
                       {new Date(review.createdAt).toLocaleString("zh-TW", {
                         year: "numeric",
@@ -238,7 +247,7 @@ export default function RestaurantReviewsPage() {
                       {reviewFields.detailedRatings.zh}
                     </h3>
                     <div className="grid grid-cols-6 gap-2 text-sm text-gray-600">
-                      {Object.entries(review.detailedRatings || {}).map(
+                      {Object.entries(review.ratings || {}).map(
                         ([key, value]) => {
                           // 如果 key 是 'drinks' 且值為 0，則不渲染此項目
                           if (key === "drinks" && value === 0.0) {

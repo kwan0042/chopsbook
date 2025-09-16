@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useContext, useCallback } from "react";
+import React, { useContext, useCallback } from "react";
 import { AuthContext } from "../../lib/auth-context";
 import LoadingSpinner from "../LoadingSpinner";
 import RestaurantCard from "./RestaurantCard";
@@ -23,17 +23,16 @@ const RestaurantListPage = ({
 }) => {
   const { toggleFavoriteRestaurant, currentUser } = useContext(AuthContext);
 
-  const itemsPerPage = 9;
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // 由於資料已經在父組件和後端API中篩選，此處只需處理分頁和渲染
-  const totalPages = Math.ceil(restaurants.length / itemsPerPage);
-  const indexOfLastRestaurant = currentPage * itemsPerPage;
-  const indexOfFirstRestaurant = indexOfLastRestaurant - itemsPerPage;
-  const currentRestaurants = restaurants.slice(
-    indexOfFirstRestaurant,
-    indexOfLastRestaurant
-  );
+  // 移除客戶端分頁狀態和邏輯
+  // const itemsPerPage = 9;
+  // const [currentPage, setCurrentPage] = useState(1);
+  // const totalPages = Math.ceil(restaurants.length / itemsPerPage);
+  // const indexOfLastRestaurant = currentPage * itemsPerPage;
+  // const indexOfFirstRestaurant = indexOfLastRestaurant - itemsPerPage;
+  // const currentRestaurants = restaurants.slice(
+  //   indexOfFirstRestaurant,
+  //   indexOfLastRestaurant
+  // );
 
   const handleToggleFavorite = async (restaurantId) => {
     try {
@@ -43,13 +42,14 @@ const RestaurantListPage = ({
     }
   };
 
-  const handleNextPage = useCallback(() => {
-    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-  }, [totalPages]);
+  // 移除分頁按鈕處理函數
+  // const handleNextPage = useCallback(() => {
+  //   setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  // }, [totalPages]);
 
-  const handlePrevPage = useCallback(() => {
-    setCurrentPage((prev) => Math.max(prev - 1, 1));
-  }, []);
+  // const handlePrevPage = useCallback(() => {
+  //   setCurrentPage((prev) => Math.max(prev - 1, 1));
+  // }, []);
 
   const hasFiltersOrSearch =
     Object.values(filters).some(
@@ -272,9 +272,10 @@ const RestaurantListPage = ({
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-xl px-3 font-bold text-gray-800">
           {hasFiltersOrSearch ? "搜尋/篩選結果" : "所有餐廳"}
-          {restaurants &&
+          {/* 由於現在只顯示部分餐廳，故移除總數顯示 */}
+          {/* {restaurants &&
             restaurants.length > 0 &&
-            ` (${restaurants.length} 間)`}
+            ` (${restaurants.length} 間)`} */}
         </h2>
         <div className="flex items-center space-x-4">
           {hasFiltersOrSearch && onClearFilters && (
@@ -321,7 +322,8 @@ const RestaurantListPage = ({
                 : "flex flex-col space-y-4"
             }
           >
-            {currentRestaurants.map((restaurant) => (
+            {/* 直接渲染從父組件傳遞來的餐廳列表 */}
+            {restaurants.map((restaurant) => (
               <RestaurantCard
                 key={restaurant.id}
                 restaurant={restaurant}
@@ -334,7 +336,8 @@ const RestaurantListPage = ({
               />
             ))}
           </div>
-          {totalPages > 1 && (
+          {/* 移除舊的分頁按鈕 */}
+          {/* {totalPages > 1 && (
             <div className="flex justify-center items-center space-x-4 mt-8">
               <button
                 onClick={handlePrevPage}
@@ -354,7 +357,7 @@ const RestaurantListPage = ({
                 下一頁
               </button>
             </div>
-          )}
+          )} */}
         </>
       )}
     </div>

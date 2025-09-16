@@ -90,6 +90,8 @@ const ReviewForm = ({ onBack, draftId }) => {
   // 修正點：新增狀態來儲存從 Firestore 讀取的用戶名
   const [username, setUsername] = useState(null);
 
+  // 移除 `visitCount` 狀態和相關的 useEffect 鉤子，因為現在由 API 處理
+
   // Helper function to check for unsaved changes
   const hasUnsavedChanges = useCallback(() => {
     return (
@@ -370,8 +372,8 @@ const ReviewForm = ({ onBack, draftId }) => {
       setModalMessage("請選擇要評價的餐廳。");
       return;
     }
-    if (!reviewTitle.trim() || !reviewContent.trim()) {
-      setModalMessage("評論標題和內容都不能為空。");
+    if (!reviewTitle.trim()) {
+      setModalMessage("評論標題不能為空。");
       return;
     }
     if (overallRating === 0) {
@@ -410,6 +412,7 @@ const ReviewForm = ({ onBack, draftId }) => {
       const submittedRestaurantId = selectedRestaurant.id;
 
       // 2. 向新的 API Route 發送請求
+      // 注意：這裡不再計算 visitCount，而是將這個任務交給後端 API
       const response = await fetch("/api/reviews", {
         method: "POST",
         headers: {
@@ -428,6 +431,8 @@ const ReviewForm = ({ onBack, draftId }) => {
           userId: currentUser.uid,
           // 修正點：使用從 Firestore 讀取的 username 狀態
           username: username,
+          // API 會自行處理 visitCount，這裡不需要傳遞
+          likes: 0,
         }),
       });
 
@@ -796,7 +801,7 @@ const ReviewForm = ({ onBack, draftId }) => {
               htmlFor="reviewContent"
               className="block text-gray-700 text-base font-bold mb-2"
             >
-              評論詳情 <span className="text-red-500">*</span>
+              評論詳情
             </label>
             <textarea
               id="reviewContent"
@@ -807,10 +812,6 @@ const ReviewForm = ({ onBack, draftId }) => {
               placeholder="分享您的用餐體驗..."
               required
             ></textarea>
-            <ReviewModerationCheck
-              content={reviewContent}
-              onModerationResult={handleModerationResult}
-            />
           </div>
           <div>
             <label className="block text-gray-700 text-sm font-bold mb-2">

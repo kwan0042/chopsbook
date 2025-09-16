@@ -105,9 +105,8 @@ const FilterSidebar = ({
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const { currentUser } = useContext(AuthContext);
 
-  useEffect(() => {
-    setLocalFilters(initialFilters);
-  }, [initialFilters]);
+  // 移除導致無限迴圈的 useEffect 鉤子。
+  // 現在，當 key 屬性改變時，useState 會自動使用新的 initialFilters 值進行初始化。
 
   const handleScroll = useCallback(() => {
     if (scrollContainerRef.current) {

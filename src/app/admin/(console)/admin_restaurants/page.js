@@ -2,9 +2,9 @@
 
 import React, { useContext, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AuthContext } from "../../../lib/auth-context";
-import RestaurantManagement from "../../../components/admin/RestaurantManagement";
-import LoadingSpinner from "../../../components/LoadingSpinner";
+import { AuthContext } from "@/lib/auth-context";
+import RestaurantManagement from "@/components/admin/RestaurantManagement";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 /**
  * Admin Restaurants Page: 用於管理餐廳資訊。

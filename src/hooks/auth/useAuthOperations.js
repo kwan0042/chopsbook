@@ -9,14 +9,15 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   GoogleAuthProvider,
+  FacebookAuthProvider, // <-- 新增: 導入 FacebookAuthProvider
   signInWithPopup,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore"; // <-- 新增: 導入 updateDoc
 import { isValidEmail } from "./useUtils";
 
 /**
  * useAuthOperations Hook:
- * 提供認證相關的操作函數 (登入、註冊、登出、重設密碼, Google 登入)。
+ * 提供認證相關的操作函數 (登入、註冊、登出、重設密碼, Google/Facebook 登入)。
  * @param {object} auth - Firebase Auth 實例。
  * @param {object} db - Firebase Firestore 實例。
  * @param {string} appId - 應用程式 ID。
@@ -93,7 +94,8 @@ export const useAuthOperations = (
         await setDoc(userDocRef, additionalProfileData, { merge: true });
 
         setModalMessage(
-          "註冊成功！請檢查您的電子郵件以完成驗證，然後再次登入。"
+          "註冊成功！請檢查您的電子郵件以完成驗證，然後再次登入。",
+          "success"
         );
         return userCredential;
       } catch (error) {
@@ -111,11 +113,11 @@ export const useAuthOperations = (
       }
       await signOut(auth);
       setCurrentUser(null);
-      setModalMessage("登出成功！");
+      setModalMessage("登出成功！", "success");
     } catch (error) {
       console.error("useAuthOperations: 登出失敗:", error);
       const errorMessage = error.message || "登出失敗，請稍後再試";
-      setModalMessage(`登出失敗: ${errorMessage}`);
+      setModalMessage(`登出失敗: ${errorMessage}`, "error");
     }
   }, [auth, setModalMessage, setCurrentUser]);
 
@@ -137,7 +139,6 @@ export const useAuthOperations = (
     [auth]
   );
 
-  // --- 修正 Google 登入邏輯，確保返回完整的用戶物件 ---
   const signupWithGoogle = useCallback(async () => {
     try {
       const googleProvider = new GoogleAuthProvider();
@@ -163,26 +164,23 @@ export const useAuthOperations = (
           phoneNumber: user.phoneNumber || null,
           isRestaurantOwner: false,
           isGoogleUser: true,
-          lastLogin: currentTime, // 新增：新用戶註冊時設置 lastLogin
+          lastLogin: currentTime,
         };
         await setDoc(userDocRef, fullUserData);
       } else {
         fullUserData = {
           ...userDocSnap.data(),
           isGoogleUser: true,
-          lastLogin: currentTime, // 新增：現有用戶登入時更新 lastLogin
+          lastLogin: currentTime,
         };
-        await setDoc(
-          userDocRef,
-          { isGoogleUser: true, lastLogin: currentTime },
-          { merge: true }
-        );
+        await updateDoc(userDocRef, {
+          isGoogleUser: true,
+          lastLogin: currentTime,
+        });
       }
 
-      // 關鍵：將 Firestore 資料與 Firebase Auth 的用戶物件合併後，再更新狀態
       const userWithProfile = { ...user, ...fullUserData };
       setCurrentUser(userWithProfile);
-
       setModalMessage("Google 註冊/登入成功！", "success");
       return userWithProfile;
     } catch (error) {
@@ -200,5 +198,77 @@ export const useAuthOperations = (
     }
   }, [auth, db, appId, setModalMessage, setCurrentUser]);
 
-  return { login, signup, logout, sendPasswordReset, signupWithGoogle };
+  // --- 新增: Facebook 登入/註冊函式 ---
+  const loginWithFacebook = useCallback(async () => {
+    try {
+      const facebookProvider = new FacebookAuthProvider();
+      facebookProvider.addScope("email"); // 請求 email 權限
+      facebookProvider.addScope("public_profile"); // 請求公開個人資料權限
+
+      const result = await signInWithPopup(auth, facebookProvider);
+      const user = result.user;
+
+      const userDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
+      const userDocSnap = await getDoc(userDocRef);
+
+      let fullUserData = {};
+      const currentTime = new Date().toISOString();
+
+      if (!userDocSnap.exists()) {
+        // 新用戶，創建個人資料
+        const defaultUsername = user.displayName || user.email.split("@")[0];
+        fullUserData = {
+          email: user.email,
+          createdAt: currentTime,
+          isAdmin: false,
+          username: defaultUsername,
+          rank: "10",
+          publishedReviews: [],
+          favoriteRestaurants: [],
+          phoneNumber: user.phoneNumber || null,
+          isRestaurantOwner: false,
+          isFacebookUser: true,
+          lastLogin: currentTime,
+        };
+        await setDoc(userDocRef, fullUserData);
+      } else {
+        // 現有用戶，更新登入時間
+        fullUserData = {
+          ...userDocSnap.data(),
+          isFacebookUser: true,
+          lastLogin: currentTime,
+        };
+        await updateDoc(userDocRef, {
+          isFacebookUser: true,
+          lastLogin: currentTime,
+        });
+      }
+
+      const userWithProfile = { ...user, ...fullUserData };
+      setCurrentUser(userWithProfile);
+      setModalMessage("Facebook 註冊/登入成功！", "success");
+      return userWithProfile;
+    } catch (error) {
+      console.error("useAuthOperations: Facebook 註冊/登入失敗:", error);
+      let errorMessage = "Facebook 註冊/登入失敗，請稍後再試。";
+      if (error.code === "auth/popup-closed-by-user") {
+        errorMessage = "Facebook 登入視窗已被關閉。";
+      } else if (error.code === "auth/cancelled-popup-request") {
+        errorMessage = "已有一個進行中的登入視窗。";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      setModalMessage(errorMessage, "error");
+      throw error;
+    }
+  }, [auth, db, appId, setModalMessage, setCurrentUser]);
+
+  return {
+    login,
+    signup,
+    logout,
+    sendPasswordReset,
+    signupWithGoogle,
+    loginWithFacebook, // <-- 新增: 將新函式暴露出去
+  };
 };

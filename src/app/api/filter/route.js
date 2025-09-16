@@ -173,19 +173,28 @@ export async function GET(request) {
       q = q.where("rating", ">=", parseFloat(filters.minRating));
     }
 
+    // --- 新增分頁邏輯 ---
+    const limit = parseInt(searchParams.get("limit") || 10, 10);
+    const startAfterDocId = searchParams.get("startAfterDocId");
+
+    // 分頁必須依賴一個排序欄位，這裡使用 restaurantNameEn
+    q = q.orderBy("restaurantNameEn").limit(limit + 1);
+
+    if (startAfterDocId) {
+      // 獲取起始文件
+      const startAfterDoc = await restaurantsColRef.doc(startAfterDocId).get();
+      if (startAfterDoc.exists) {
+        q = q.startAfter(startAfterDoc);
+      }
+    }
+    // --- 分頁邏輯結束 ---
+
     const snapshot = await q.get();
 
     let restaurants = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
       restaurants.push({ id: doc.id, ...data });
-      // 偵錯: 記錄每家餐廳的關鍵篩選數據
-      if (data.restaurantNameZh === "央街食堂") {
-        console.log(`[Debug] 央街食堂的原始數據:`, {
-          seatingCapacity: data.seatingCapacity,
-          businessHours: data.businessHours,
-        });
-      }
     });
 
     // 在伺服器端進行二次篩選，處理 Firestore 無法直接處理的複雜邏輯
@@ -197,12 +206,10 @@ export async function GET(request) {
     // 將所有篩選邏輯整合到一個 filter 函數中
     const filteredRestaurants = restaurants.filter((restaurant) => {
       const hasFilters = Object.keys(filters).length > 0 || searchQuery;
-      // 修正: 即使沒有其他篩選，如果收藏 ID 存在，也應該進行篩選
       if (!hasFilters && favoriteRestaurantIds.length === 0) {
         return true;
       }
 
-      // 新增：處理收藏餐廳的篩選
       const passesFavorites =
         favoriteRestaurantIds.length === 0 ||
         favoriteRestaurantIds.includes(restaurant.id);
@@ -247,19 +254,6 @@ export async function GET(request) {
           .toLowerCase()
           .includes(searchQuery.toLowerCase());
 
-      // 偵錯: 記錄每個篩選器的結果
-      console.log(`[Filtering] 餐廳 "${restaurant.restaurantNameZh}" - 結果:`, {
-        seating: passesSeating,
-        time: passesTimeFilter,
-        category: passesCategory,
-        search: passesSearch,
-        reservationModes: passesReservationModes,
-        paymentMethods: passesPaymentMethods,
-        facilities: passesFacilities,
-        favorites: passesFavorites,
-      });
-
-      // 返回所有篩選條件的邏輯 AND 結果
       return (
         passesSeating &&
         passesReservationModes &&
@@ -272,10 +266,23 @@ export async function GET(request) {
       );
     });
 
+    // --- 調整回傳值以符合分頁邏輯 ---
+    const hasMore = filteredRestaurants.length > limit;
+    const paginatedRestaurants = hasMore
+      ? filteredRestaurants.slice(0, limit)
+      : filteredRestaurants;
+    const lastDocId =
+      paginatedRestaurants.length > 0
+        ? paginatedRestaurants[paginatedRestaurants.length - 1].id
+        : null;
+
     return NextResponse.json({
       success: true,
-      restaurants: filteredRestaurants,
+      restaurants: paginatedRestaurants,
+      hasMore,
+      lastDocId,
     });
+    // --- 回傳值調整結束 ---
   } catch (error) {
     console.error("API Filter Error:", error);
     return NextResponse.json(

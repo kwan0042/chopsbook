@@ -7,6 +7,9 @@ import { faUser, faBookmark } from "@fortawesome/free-solid-svg-icons";
 import { useRouter, usePathname } from "next/navigation";
 import { getAuth, signOut } from "firebase/auth";
 
+// 從新的 hook 檔案中導入 RankDisplay 組件
+import { RankDisplay } from "@/hooks/cx-ranks";
+
 const Navbar = ({ onShowFilterModal, onSearch }) => {
   const { currentUser, setModalMessage, favoriteRestaurantsCount, app } =
     useContext(AuthContext);
@@ -100,12 +103,11 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
                 <span className="text-gray-200 text-sm hidden sm:block">
                   {currentUser.username}
                 </span>
-                <button
-                  onClick={handleLogout}
-                  className="text-red-400 hover:text-red-500 transition duration-200 text-sm"
-                >
-                  登出
-                </button>
+
+                {currentUser.rank !== undefined && (
+                  <RankDisplay rank={currentUser.rank} />
+                )}
+
                 <div className="relative flex items-center group">
                   <FontAwesomeIcon
                     icon={faBookmark}
@@ -119,6 +121,12 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
                     </span>
                   )}
                 </div>
+                <button
+                  onClick={handleLogout}
+                  className="text-red-400 hover:text-red-500 transition duration-200 text-sm px-2"
+                >
+                  登出
+                </button>
               </div>
             ) : (
               <button
@@ -267,7 +275,9 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
           </button>
           {isAdmin && (
             <button
-              onClick={handleGoToAdminPage}
+              onClick={() => {
+                router.push("/admin");
+              }}
               className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
             >
               管理員頁面
