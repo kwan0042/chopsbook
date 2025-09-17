@@ -163,11 +163,11 @@ export default function RestaurantReviewsPage() {
             const currentImagePage = currentImagePages[review.id] || 0;
             const startIndex = currentImagePage * IMAGES_PER_PAGE;
             const endIndex = startIndex + IMAGES_PER_PAGE;
-            const displayedImages = review.uploadedImages
-              ? review.uploadedImages.slice(startIndex, endIndex)
+            const displayedImages = review.uploadedImageUrls
+              ? review.uploadedImageUrls.slice(startIndex, endIndex)
               : [];
-            const totalImagePages = review.uploadedImages
-              ? Math.ceil(review.uploadedImages.length / IMAGES_PER_PAGE)
+            const totalImagePages = review.uploadedImageUrls
+              ? Math.ceil(review.uploadedImageUrls.length / IMAGES_PER_PAGE)
               : 0;
 
             return (
@@ -287,8 +287,9 @@ export default function RestaurantReviewsPage() {
                     </p>
                   </div>
                   {/* 圖片區域 */}
-                  {review.uploadedImages &&
-                    review.uploadedImages.length > 0 && (
+                  {console.log(review.uploadedImageUrls)}
+                  {review.uploadedImageUrls &&
+                    review.uploadedImageUrls.length > 0 && (
                       <div className="mx-2 p-4 relative">
                         {/* 圖片網格，強制為 2x2 佈局 */}
                         <div className="grid grid-cols-2 gap-4">
@@ -300,7 +301,7 @@ export default function RestaurantReviewsPage() {
                             >
                               <Image
                                 src={image.url}
-                                alt={`${reviewFields.uploadedImages.zh} ${
+                                alt={`${reviewFields.uploadedImageUrls} ${
                                   index + startIndex + 1
                                 }`}
                                 fill
@@ -337,7 +338,7 @@ export default function RestaurantReviewsPage() {
                               onClick={() =>
                                 goToNextImagePage(
                                   review.id,
-                                  review.uploadedImages.length
+                                  review.uploadedImageUrls.length
                                 )
                               }
                               disabled={

@@ -1,8 +1,10 @@
+// src/components/HomePage.js
+
 "use client";
 
-import React, { useState, useContext, useCallback } from "react";
+import React, { useState, useContext, useCallback, useEffect } from "react"; // ✅ 導入 useEffect
 import { AuthContext } from "../../lib/auth-context";
-import { useRouter } from "next/navigation"; // 導入 useRouter
+import { useRouter } from "next/navigation";
 
 // 導入所有現在獨立的組件
 import Navbar from "../Navbar";
@@ -30,13 +32,26 @@ const HomePage = ({
   onShowAdminPage,
   onShowPersonalPage,
 }) => {
-  const { currentUser, logout, setModalMessage, modalMessage } =
-    useContext(AuthContext);
+  const { currentUser, logout, setModalMessage, modalMessage, db, appId } =
+    useContext(AuthContext); // ✅ 從 AuthContext 獲取 db 和 appId
   var currentYear = new Date().getFullYear();
-  const router = useRouter(); // 實例化 useRouter
+  const router = useRouter();
 
   // 管理 FilterModal (舊有的，不同的 Modal) 的顯示狀態
   const [showFilterModal, setShowFilterModal] = useState(false);
+
+  // ✅ 關鍵修正：添加一個狀態來強制 TrendingTopicsSection 重新載入
+  const [trendingKey, setTrendingKey] = useState(0);
+
+  // ✅ 關鍵修正：在元件載入時更新 key
+  useEffect(() => {
+    // 每次 HomePage 掛載時，都增加 key 的值
+    // 這會強制 TrendingTopicsSection 元件完全重新渲染，從而避免快取問題
+    if (db && appId) {
+      // 確保 Firebase 已初始化
+      setTrendingKey((prevKey) => prevKey + 1);
+    }
+  }, [db, appId]); // 依賴項是 db 和 appId，確保在它們可用時才執行
 
   const handleShowFilterModal = useCallback(() => {
     setShowFilterModal(true);
@@ -46,17 +61,14 @@ const HomePage = ({
     setShowFilterModal(false);
   }, []);
 
-  // 修改應用篩選器函數，讓它導航到餐廳列表頁面並傳遞篩選條件
   const handleApplyFilters = useCallback(
     (filters) => {
-      // 將篩選條件轉換為 URL 參數
       const params = new URLSearchParams();
       if (Object.keys(filters).length > 0) {
         params.set("filters", JSON.stringify(filters));
       }
-      // 導航到餐廳列表頁面並帶上參數
       router.push(`/restaurants?${params.toString()}`);
-      setShowFilterModal(false); // 應用篩選後關閉 FilterModal
+      setShowFilterModal(false);
     },
     [router]
   );
@@ -64,40 +76,32 @@ const HomePage = ({
   const closeModal = () => setModalMessage("");
 
   return (
-    // 更新背景色以匹配新設計的專業感
     <div className="min-h-screen flex flex-col bg-gray-50 font-inter">
-      {/* Navbar 現在接收用於顯示 Modal 的函數，以及新的頁面導航函數 */}
       <Navbar
         onShowFilterModal={handleShowFilterModal}
         onShowMerchantPage={onShowMerchantPage}
         onShowAdminPage={onShowAdminPage}
       />
       <main className="flex-grow">
-        {/* HeroSection 保持不變，但更新了背景色以匹配新設計 */}
         <HeroSection />
 
         <div className=" mx-auto py-21 px-2 sm:px-2 lg:px-12">
-          {/* 使用網格佈局來集中展示多個功能區塊 */}
-          <div className="grid grid-cols-6 md:grid-cols-6 gap-8">
-            <div className="col-span-1  grid grid-cols-1 gap-8 h-fit">
-              <WeeklyRankingsSection />
+          <div className="grid grid-cols-6 md:grid-cols-6 gap-4">
+            <div className="col-span-1  grid grid-cols-1 gap-4 h-fit">
+              {/* <WeeklyRankingsSection /> */}
               <PersonalizedSection />
             </div>
-            <div className="col-span-4 grid grid-cols-1 gap-8">
+            <div className="col-span-4 grid grid-cols-1 gap-4">
               <PromotionsSection />
-              <TrendingTopicsSection />
-              <PopularReviewsSection />
+              {/* ✅ 關鍵修正：將 key prop 傳遞給 TrendingTopicsSection */}
+              <TrendingTopicsSection key={trendingKey} />
             </div>
-            <div className="col-span-1 grid grid-cols-1 gap-8 h-fit">
+            <div className="col-span-1 grid grid-cols-1 gap-4 h-fit">
               <InteractivePollSection />
               <RandomPickerSection />
               <LatestReviewsSection />
             </div>
           </div>
-
-          
-
-          {/* 獨立的餐廳類別區塊，位於主要網格下方 */}
           <TrendingCateSection />
         </div>
       </main>
@@ -105,7 +109,6 @@ const HomePage = ({
         &copy; {currentYear} ChopsBook. 版權所有.
       </footer>
 
-      {/* FilterModal 根據 showFilterModal 狀態顯示 */}
       <FilterModal
         isOpen={showFilterModal}
         onClose={handleCloseFilterModal}

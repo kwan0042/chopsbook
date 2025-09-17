@@ -1,3 +1,5 @@
+// src/app/admin/layout.js
+
 "use client";
 
 import React, { useContext, useEffect, useState } from "react";
@@ -10,7 +12,7 @@ import Modal from "../../../components/Modal";
 /**
  * 判斷當前路徑是否在 [xxx] 動態資料夾
  * 規則：
- *   - /admin/.../[id] → 跳過 AdminLayout
+ * - /admin/.../[id] → 跳過 AdminLayout
  */
 function isInsideDynamicFolder(pathname) {
   const segments = pathname.split("/").filter(Boolean);
@@ -33,11 +35,17 @@ export default function AdminLayout({ children }) {
 
   // 🔑 權限檢查
   useEffect(() => {
+    // 等待用戶狀態載入完成
     if (loadingUser) return;
 
+    // 如果未登入，重導向到登入頁
     if (!currentUser) {
       router.push("/login");
-    } else if (!isAdmin) {
+      return;
+    }
+
+    // 如果已登入但不是管理員，顯示訊息並重導向到首頁
+    if (!isAdmin) {
       setLocalModalMessage("您沒有權限訪問管理員頁面。請使用管理員帳戶登入。");
       const timer = setTimeout(() => {
         router.push("/");
@@ -46,7 +54,7 @@ export default function AdminLayout({ children }) {
     }
   }, [currentUser, loadingUser, isAdmin, router]);
 
-  // ⏳ 載入中
+  // ⏳ 載入中 (在權限檢查前，如果 loadingUser 為 true，顯示載入狀態)
   if (loadingUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -55,13 +63,14 @@ export default function AdminLayout({ children }) {
     );
   }
 
-  // ❌ 無權限
+  // ❌ 無權限 (當 loadingUser 為 false 且無權限時，顯示錯誤訊息)
   if (!currentUser || !isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <p className="text-xl text-red-600">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
+        <p className="text-xl text-red-600 font-semibold text-center mb-4">
           {localModalMessage || "正在驗證您的權限..."}
         </p>
+        <LoadingSpinner />
         <Modal
           message={localModalMessage}
           onClose={closeModal}
@@ -189,10 +198,23 @@ export default function AdminLayout({ children }) {
                 </button>
               </Link>
             </li>
+            <li>
+              <Link href="/admin/admin_blogs">
+                <button
+                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
+                    pathname.startsWith("/admin/admin_ratings")
+                      ? "bg-indigo-600 text-white shadow-md"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  文章管理
+                </button>
+              </Link>
+            </li>
           </ul>
         </nav>
 
-        {/* Page content */}
+        {/* 渲染子頁面內容 */}
         {children}
       </div>
       <Modal message={localModalMessage} onClose={closeModal} />

@@ -1,31 +1,5 @@
-import { initializeApp, cert, getApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 import { NextResponse } from "next/server";
-
-// 檢查 Firebase 服務帳戶金鑰環境變數
-if (!process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_KEY) {
-  throw new Error(
-    "Firebase service account credentials missing from environment variables."
-  );
-}
-
-// 從環境變數中解析金鑰
-const serviceAccount = JSON.parse(
-  process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_KEY
-);
-
-// 初始化 Firebase Admin SDK
-let app;
-try {
-  // 嘗試獲取已初始化的應用程式，如果不存在則初始化一個新的
-  app = getApp();
-} catch (e) {
-  app = initializeApp({
-    credential: cert(serviceAccount),
-  });
-}
-
-const db = getFirestore(app);
+import { db } from "@/lib/firebase-admin"; // ✅ 從統一檔案匯入 db
 
 // 判斷營業時間邏輯
 const isRestaurantOpen = (businessHours, date, time) => {

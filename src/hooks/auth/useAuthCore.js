@@ -1,7 +1,7 @@
 // src/hooks/auth/useAuthCore.js
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   initializeFirebaseApp,
   getFirebaseDb,
@@ -81,8 +81,20 @@ export const useAuthCore = (setGlobalModalMessage) => {
       return;
     }
 
-    const projectAppId =
-      typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+    // [修正] 從 NEXT_PUBLIC_FIREBASE_ADMIN_APP_ID 環境變數中讀取 app ID
+    const projectAppId = process.env.NEXT_PUBLIC_FIREBASE_ADMIN_APP_ID;
+    if (!projectAppId) {
+      console.error(
+        "環境變數 NEXT_PUBLIC_FIREBASE_ADMIN_APP_ID 未設定。請檢查 .env 檔案。"
+      );
+      setGlobalModalMessage(
+        "配置錯誤: 無法獲取 Firebase 應用程式 ID。",
+        "error"
+      );
+      setLoadingUser(false);
+      setAuthReady(true);
+      return;
+    }
     setAppId(projectAppId);
 
     const currentFirebaseConfig = {
@@ -242,6 +254,21 @@ export const useAuthCore = (setGlobalModalMessage) => {
     initializeAndAuthenticateFirebase();
   }, [setGlobalModalMessage, app]);
 
+  // ✅ 新增 getToken 函式，用於獲取用戶的 ID Token
+  const getToken = useCallback(async () => {
+    if (auth && auth.currentUser) {
+      try {
+        const token = await auth.currentUser.getIdToken(true); // `true` 強制刷新 token
+        return token;
+      } catch (error) {
+        console.error("獲取 ID Token 失敗:", error);
+        setGlobalModalMessage("驗證失敗，請重新登入。", "error");
+        return null;
+      }
+    }
+    return null;
+  }, [auth, setGlobalModalMessage]);
+
   return {
     currentUser,
     loadingUser,
@@ -253,5 +280,6 @@ export const useAuthCore = (setGlobalModalMessage) => {
     appId,
     app,
     setCurrentUser,
+    getToken, // ✅ 在回傳物件中加入 getToken
   };
 };

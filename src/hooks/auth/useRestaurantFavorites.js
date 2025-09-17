@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { doc, getDoc, updateDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 /**
  * useRestaurantFavorites Hook:
@@ -18,47 +18,44 @@ export const useRestaurantFavorites = (
   db,
   currentUser,
   appId,
-  setCurrentUser, // 確保這裡接收了 setCurrentUser
+  setCurrentUser,
   setModalMessage
 ) => {
+  // 收藏數量現在由 toggleFavoriteRestaurant 函數來更新
   const [favoriteRestaurantsCount, setFavoriteRestaurantsCount] = useState(0);
 
-  // useEffect 監聽收藏列表的變化並更新數量
+  // ✅ 修正點一：這個 useEffect 現在只在 currentUser 改變時進行一次性讀取
   useEffect(() => {
-    let unsubscribe = () => {};
-
-    if (db && currentUser?.uid && appId) {
-      // 修正：將路徑改為與 useAuthCore 相同的單一用戶文件路徑
-      const userDocRef = doc(db, `artifacts/${appId}/users/${currentUser.uid}`);
-
-      // 使用 onSnapshot 監聽用戶資料的即時變化
-      unsubscribe = onSnapshot(
-        userDocRef,
-        (docSnap) => {
-          if (docSnap.exists()) {
-            const userData = docSnap.data();
-            const count = (userData.favoriteRestaurants || []).length;
-            setFavoriteRestaurantsCount(count);
-            
-            // 可選：為了確保 UI 100% 同步，這裡可以手動更新整個 currentUser 物件
-            // 但這可能會導致過多的 re-render，因此在大多數情況下，
-            // toggleFavoriteRestaurant 內部和 AuthCore 的處理已經足夠。
-            // setCurrentUser(userData);
-          } else {
-            setFavoriteRestaurantsCount(0);
-          }
-        },
-        (error) => {
-          console.error("useRestaurantFavorites: 監聽收藏餐廳失敗:", error);
-          setFavoriteRestaurantsCount(0);
-        }
-      );
-    } else {
+    // 檢查依賴項，確保有足夠的資訊才執行
+    if (!db || !currentUser?.uid || !appId) {
       setFavoriteRestaurantsCount(0);
+      return;
     }
 
-    return () => unsubscribe();
-  }, [db, currentUser?.uid, appId, setModalMessage]); // 依賴項包含 db, currentUser.uid, appId
+    const fetchFavoritesCount = async () => {
+      try {
+        const userDocRef = doc(
+          db,
+          `artifacts/${appId}/users/${currentUser.uid}`
+        );
+        const docSnap = await getDoc(userDocRef);
+
+        if (docSnap.exists()) {
+          const userData = docSnap.data();
+          const count = (userData.favoriteRestaurants || []).length;
+          setFavoriteRestaurantsCount(count);
+        } else {
+          setFavoriteRestaurantsCount(0);
+        }
+      } catch (error) {
+        console.error("useRestaurantFavorites: 讀取收藏餐廳數量失敗:", error);
+        setFavoriteRestaurantsCount(0);
+      }
+    };
+
+    fetchFavoritesCount();
+
+  }, [db, currentUser?.uid, appId]);
 
   /**
    * 切換餐廳在用戶收藏列表中的狀態（新增或移除）。
@@ -73,7 +70,6 @@ export const useRestaurantFavorites = (
       }
 
       const userId = currentUser.uid;
-      // 修正：將路徑改為與 useAuthCore 相同的單一用戶文件路徑
       const userDocRef = doc(db, `artifacts/${appId}/users/${userId}`);
 
       try {
@@ -95,13 +91,15 @@ export const useRestaurantFavorites = (
           message = "已加入收藏！";
         }
 
-        // 使用 updateDoc 僅更新 favoriteRestaurants 欄位
         await updateDoc(userDocRef, {
           favoriteRestaurants: newFavorites,
         });
 
-        // 關鍵修改：在 Firestore 更新後，立即更新 currentUser 狀態
-        // 為了確保 UI 即時響應，這是必要的
+        // ✅ 修正點二：在 Firestore 更新後，立即更新本地的計數器
+        // 這樣 UI 才能即時響應，而不需要即時監聽器
+        setFavoriteRestaurantsCount(newFavorites.length);
+
+        // 手動更新 AuthContext 的 currentUser 狀態，確保 UI 響應迅速
         setCurrentUser((prevUser) => {
           if (!prevUser) return null;
           return {

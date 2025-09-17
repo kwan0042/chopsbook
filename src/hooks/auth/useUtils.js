@@ -1,4 +1,5 @@
 // src/hooks/auth/useUtils.js
+
 "use client";
 
 import { useCallback } from "react";
@@ -13,9 +14,9 @@ export const isValidEmail = (email) => {
 };
 
 /**
- * formatDateTime: 格式化日期時間，用於統一顯示。
+ * formatDateTime: 格式化日期時間，並強制使用多倫多時區來顯示。
  * @param {Date | object | string} date - 日期物件、Firestore Timestamp 或日期字串。
- * @returns {string} - 格式化後的日期時間字串或 "N/A"。
+ * @returns {string} - 格式化後的多倫多日期時間字串或 "N/A"。
  */
 export const formatDateTime = (date) => {
   if (!date) return "N/A";
@@ -32,6 +33,7 @@ export const formatDateTime = (date) => {
       return "無效日期";
     }
 
+    // 強制使用多倫多時區，並以台灣格式顯示
     return d.toLocaleString("zh-TW", {
       year: "numeric",
       month: "2-digit",
@@ -40,6 +42,7 @@ export const formatDateTime = (date) => {
       minute: "2-digit",
       second: "2-digit",
       hour12: false,
+      timeZone: "America/Toronto", // 強制使用多倫多時區
     });
   } catch (e) {
     console.error("格式化日期失敗:", e);

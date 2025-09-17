@@ -181,7 +181,6 @@ export const useAuthOperations = (
 
       const userWithProfile = { ...user, ...fullUserData };
       setCurrentUser(userWithProfile);
-      setModalMessage("Google 註冊/登入成功！", "success");
       return userWithProfile;
     } catch (error) {
       console.error("useAuthOperations: Google 註冊/登入失敗:", error);

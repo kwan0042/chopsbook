@@ -1,219 +1,145 @@
+// ✅ 這是移除後端 API 依賴的完整程式碼
+// src/app/admin/blogs/new/page.js
+
 "use client";
 
 import React, { useState, useContext } from "react";
+import BlogForm from "@/components/admin/blogsManagement/blogForm";
 import { AuthContext } from "@/lib/auth-context";
-import { useForm } from "react-hook-form";
-import {
-  collection,
-  addDoc,
-  doc,
-  updateDoc,
-  serverTimestamp,
-} from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { toast } from "react-toastify";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getAuth } from "firebase/auth";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"; // ✅ 新增 Firebase Storage 客戶端 SDK
 
 const BlogNewPage = () => {
-  // 在這裡新增 currentUser
-  const { db, appId, storage, loadingUser, currentUser } =
-    useContext(AuthContext);
+  const { loadingUser } = useContext(AuthContext);
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-
+  const [saving, setSaving] = useState(false);
   const [coverImageFile, setCoverImageFile] = useState(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState(null);
-
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm({
-    defaultValues: {
-      title: "",
-      content: "",
-    },
-  });
-
-  const previewTitle = watch("title");
-  const previewContent = watch("content");
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setCoverImageFile(file);
-      const fileUrl = URL.createObjectURL(file);
-      setCoverPreviewUrl(fileUrl);
+      setCoverPreviewUrl(URL.createObjectURL(file));
     }
   };
 
-  const onSubmit = async (data) => {
-    // 檢查 currentUser 是否存在
-    if (loadingUser || !db || !appId || !storage || !currentUser) {
+  const handleSave = async (formData) => {
+    if (!formData.title || !formData.content) {
+      toast.error("文章標題與內容為必填欄位。");
+      setSaving(false);
+      return;
+    }
+
+    const currentUser = getAuth().currentUser;
+    if (loadingUser || !currentUser) {
       toast.error("無法提交文章：使用者未登入或資料載入中。");
       return;
     }
 
-    setLoading(true);
-    let coverImageUrl = null;
-    let blogId = null;
+    setSaving(true);
 
     try {
-      const blogCollectionRef = collection(
-        db,
-        `artifacts/${appId}/public/data/blogs`
-      );
-      const docRef = await addDoc(blogCollectionRef, {});
-      blogId = docRef.id;
+      // 步驟1: 建立文章草稿並取得 blogId
+      const token = await currentUser.getIdToken();
+      const createResponse = await fetch("/api/blogs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          content: formData.content,
+          status: formData.status,
+        }),
+      });
 
-      if (coverImageFile) {
-        const imageRef = ref(storage, `public/blogs/${blogId}/cover`);
-        const snapshot = await uploadBytes(imageRef, coverImageFile);
-        coverImageUrl = await getDownloadURL(snapshot.ref);
+      const responseData = await createResponse.json();
+      if (!createResponse.ok) {
+        const errorMessage = responseData.error || "建立文章失敗";
+        throw new Error(errorMessage);
+      }
+      const { id: blogId } = responseData;
+
+      let coverImageUrl = null;
+      // ✅ 新的步驟: 如果有封面圖，使用前端直接上傳
+      if (coverImageFile && blogId) {
+        const storage = getStorage();
+        const storageRef = ref(storage, `public/blogs/${blogId}/cover`);
+
+        await uploadBytes(storageRef, coverImageFile);
+        coverImageUrl = await getDownloadURL(storageRef);
       }
 
-      const articleData = {
-        title: data.title,
-        content: data.content,
-        coverImage: coverImageUrl,
-        authorId: currentUser.uid,
-        status: "pending",
-        submittedAt: serverTimestamp(),
+      // ✅ 步驟3: 更新文章，將封面圖 URL 寫入
+      const finalData = {
+        id: blogId,
+        ...formData,
       };
-      await updateDoc(
-        doc(db, `artifacts/${appId}/public/data/blogs`, blogId),
-        articleData
-      );
+      // 將封面圖 URL 併入最終的資料中
+      if (coverImageUrl) {
+        finalData.coverImage = coverImageUrl;
+      }
 
-      toast.success("文章已成功提交！");
+      const updateResponse = await fetch("/api/blogs", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(finalData),
+      });
+
+      if (!updateResponse.ok) {
+        const updateErrorData = await updateResponse.json();
+        const errorMessage = updateErrorData.error || "更新文章失敗";
+        throw new Error(errorMessage);
+      }
+
+      const message =
+        formData.status === "draft" ? "草稿已成功儲存！" : "文章已成功提交！";
+      toast.success(message);
       router.push("/admin/admin_blogs");
     } catch (error) {
-      console.error("添加文章或圖片失敗:", error);
-      toast.error("添加文章失敗，請重試。");
+      console.error("提交文章失敗:", error);
+      toast.error(`提交文章失敗：${error.message}`);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
+  const handleCancel = () => {
+    router.back();
+  };
+
+  const initialData = {
+    title: "",
+    content: "",
+    status: "draft",
+  };
+
+  if (loadingUser) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <LoadingSpinner />
+        <p className="text-gray-600 ml-4">載入使用者資訊...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-      <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-        <h2 className="text-2xl font-semibold text-gray-800">新增部落格文章</h2>
-        <p className="text-sm text-gray-600 mt-1">
-          在此填寫文章內容，並預覽發布後的樣貌。
-        </p>
-      </div>
-
-      <div className="flex flex-col lg:flex-row min-h-screen">
-        {/* 左側：預覽區 */}
-        <div className="w-full lg:w-1/2 p-6 border-b lg:border-r border-gray-200 bg-gray-50 overflow-y-auto">
-          <div className="bg-white rounded-lg p-6 shadow-lg">
-            {/* 預覽封面圖 */}
-            {coverPreviewUrl && (
-              <img
-                src={coverPreviewUrl}
-                alt="封面預覽"
-                className="w-full h-auto object-cover rounded-lg mb-4"
-              />
-            )}
-            {/* 預覽標題 */}
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              {previewTitle || "預覽標題"}
-            </h1>
-            {/* 預覽作者與日期 */}
-            <div className="text-sm text-gray-500 mb-6">
-              作者: Admin • {new Date().toLocaleDateString("zh-TW")}
-            </div>
-            {/* 預覽內容 */}
-            <p className="text-gray-700 leading-relaxed">
-              {previewContent || "這裡會即時顯示您輸入的文章內容。"}
-            </p>
-          </div>
-        </div>
-
-        {/* 右側：編輯表單 */}
-        <div className="w-full lg:w-1/2 p-6 overflow-y-auto">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div>
-              <label
-                htmlFor="title"
-                className="block text-sm font-medium text-gray-700"
-              >
-                文章標題
-              </label>
-              <input
-                id="title"
-                type="text"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                {...register("title", { required: "文章標題為必填項目" })}
-              />
-              {errors.title && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.title.message}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="content"
-                className="block text-sm font-medium text-gray-700"
-              >
-                詳細內容
-              </label>
-              <input
-                id="content"
-                type="text"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                {...register("content", { required: "文章內容為必填項目" })}
-              />
-              {errors.content && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.content.message}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="coverImage"
-                className="block text-sm font-medium text-gray-700"
-              >
-                封面圖
-              </label>
-              <input
-                id="coverImage"
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
-              />
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                取消
-              </button>
-              <button
-                type="submit"
-                className={`ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                  loading ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-                disabled={loading}
-              >
-                {loading ? <LoadingSpinner size="sm" /> : "發布文章"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+    <BlogForm
+      initialData={initialData}
+      onSave={handleSave}
+      onCancel={handleCancel}
+      saving={saving}
+      onImageChange={handleImageChange}
+      previewUrl={coverPreviewUrl}
+    />
   );
 };
 

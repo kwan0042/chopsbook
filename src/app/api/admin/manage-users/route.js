@@ -1,21 +1,6 @@
 // app/api/admin/manage-users/route.js
 import { NextResponse } from "next/server";
-import admin from "firebase-admin";
-
-// 確保 Firebase Admin SDK 只被初始化一次
-if (!admin.apps.length) {
-  try {
-    const serviceAccount = JSON.parse(
-      process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_KEY
-    );
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-  } catch (error) {
-    console.error("Firebase Admin initialization failed:", error);
-    throw new Error("伺服器配置錯誤：無法初始化 Firebase Admin SDK。");
-  }
-}
+import { auth } from "@/lib/firebase-admin"; // ✅ 從統一檔案匯入
 
 export async function POST(request) {
   const authHeader = request.headers.get("authorization");
@@ -25,7 +10,7 @@ export async function POST(request) {
   const idToken = authHeader.split("Bearer ")[1];
 
   try {
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decodedToken = await auth.verifyIdToken(idToken);
     const requestingUser = decodedToken;
 
     if (!requestingUser.isAdmin) {
@@ -45,9 +30,7 @@ export async function POST(request) {
             { status: 400 }
           );
         }
-        await admin
-          .auth()
-          .setCustomUserClaims(targetUid, { isAdmin: newStatus });
+        await auth.setCustomUserClaims(targetUid, { isAdmin: newStatus });
         return NextResponse.json({ message: "使用者管理員狀態已更新。" });
       }
 
@@ -58,8 +41,8 @@ export async function POST(request) {
             { status: 400 }
           );
         }
-        await admin.auth().getUserByEmail(email); // 檢查使用者是否存在
-        const resetLink = await admin.auth().generatePasswordResetLink(email);
+        await auth.getUserByEmail(email); // 檢查使用者是否存在
+        const resetLink = await auth.generatePasswordResetLink(email);
 
         console.log(`管理員為 ${email} 生成了重設密碼連結：${resetLink}`);
         return NextResponse.json({

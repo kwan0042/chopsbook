@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }) => {
     appId,
     app,
     setCurrentUser,
+    getToken
   } = useAuthCore(handleGlobalModalMessage);
 
   // 認證操作 (登入、註冊、登出、重設密碼)
@@ -125,6 +126,7 @@ export const AuthProvider = ({ children }) => {
         checkModeration,
         formatDateTime,
         setCurrentUser,
+        getToken
       }}
     >
       {children}
