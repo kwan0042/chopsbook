@@ -101,7 +101,7 @@ export async function PUT(request) {
       );
     }
 
-    // ✅ 關鍵修正：檢查前端發來的狀態是否為 "published" 或 "rejected"
+    // 關鍵修正：檢查前端發來的狀態是否為 "published" 或 "rejected"
     // 只有在狀態為這兩種時，才寫入 reviewedAt 和 reviewedBy
     if (updateData.status === "published" || updateData.status === "rejected") {
       updateData.reviewedAt = FieldValue.serverTimestamp();

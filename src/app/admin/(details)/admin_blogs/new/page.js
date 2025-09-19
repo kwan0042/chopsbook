@@ -1,144 +1,116 @@
-// ✅ 這是移除後端 API 依賴的完整程式碼
-// src/app/admin/blogs/new/page.js
-
 "use client";
 
-import React, { useState, useContext } from "react";
-import BlogForm from "@/components/admin/blogsManagement/blogForm";
-import { AuthContext } from "@/lib/auth-context";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import BlogForm from "@/components/admin/blogsManagement/blogForm";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { AuthContext } from "@/lib/auth-context";
 import { toast } from "react-toastify";
-import { getAuth } from "firebase/auth";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"; // ✅ 新增 Firebase Storage 客戶端 SDK
+import {
+  doc,
+  setDoc,
+  collection,
+  getFirestore,
+} from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const BlogNewPage = () => {
-  const { loadingUser } = useContext(AuthContext);
+  const { loadingUser, auth, db, storage, currentUser, appId } = useContext(AuthContext);
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [coverImageFile, setCoverImageFile] = useState(null);
-  const [coverPreviewUrl, setCoverPreviewUrl] = useState(null);
+  const [coverImage, setCoverImage] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  // 檢查使用者是否已登入
+  useEffect(() => {
+    if (!auth) return;
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (!user && !loadingUser) {
+        toast.error("未授權，請重新登入。");
+        router.push("/admin");
+      }
+    });
+    return () => unsubscribe();
+  }, [auth, loadingUser, router]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setCoverImageFile(file);
-      setCoverPreviewUrl(URL.createObjectURL(file));
+      setCoverImage(file);
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
-  const handleSave = async (formData) => {
-    if (!formData.title || !formData.content) {
-      toast.error("文章標題與內容為必填欄位。");
-      setSaving(false);
-      return;
-    }
+  const handleSaveBlog = useCallback(
+    async (formData) => {
+      if (saving || loadingUser) return;
+      setSaving(true);
+      try {
+        // 使用從 AuthContext 傳入的 currentUser
+        if (!currentUser || !currentUser.uid) {
+          throw new Error("使用者資訊未載入。請重新登入。");
+        }
+        
+        // 使用正確的 Firestore 路徑
+        const blogsCollectionRef = collection(db, `artifacts/${appId}/public/data/blogs`);
+        
+        // 確保 blogId 存在
+        let finalData = { ...formData };
+        if (!finalData.id) {
+          const newDocRef = doc(blogsCollectionRef);
+          finalData.id = newDocRef.id;
+        }
 
-    const currentUser = getAuth().currentUser;
-    if (loadingUser || !currentUser) {
-      toast.error("無法提交文章：使用者未登入或資料載入中。");
-      return;
-    }
+        let coverImageUrl = finalData.coverImage;
+        if (coverImage) {
+          const imageRef = ref(storage, `public/blogs/${finalData.id}/cover/${coverImage.name}`);
+          await uploadBytes(imageRef, coverImage);
+          coverImageUrl = await getDownloadURL(imageRef);
+        }
 
-    setSaving(true);
+        const blogData = {
+          ...finalData,
+          coverImage: coverImageUrl,
+          authorId: currentUser.uid, // 使用 currentUser.uid
+          submittedAt: new Date(),
+        };
 
-    try {
-      // 步驟1: 建立文章草稿並取得 blogId
-      const token = await currentUser.getIdToken();
-      const createResponse = await fetch("/api/blogs", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: formData.title,
-          content: formData.content,
-          status: formData.status,
-        }),
-      });
+        const docRef = doc(blogsCollectionRef, finalData.id);
+        await setDoc(docRef, blogData, { merge: true });
 
-      const responseData = await createResponse.json();
-      if (!createResponse.ok) {
-        const errorMessage = responseData.error || "建立文章失敗";
-        throw new Error(errorMessage);
+        toast.success("文章已成功發布！");
+        router.push("/admin/admin_blogs");
+      } catch (error) {
+        console.error("儲存文章失敗：", error);
+        toast.error(`儲存文章失敗: ${error.message}`);
+      } finally {
+        setSaving(false);
       }
-      const { id: blogId } = responseData;
+    },
+    [saving, loadingUser, auth, db, storage, coverImage, router, currentUser, appId]
+  );
 
-      let coverImageUrl = null;
-      // ✅ 新的步驟: 如果有封面圖，使用前端直接上傳
-      if (coverImageFile && blogId) {
-        const storage = getStorage();
-        const storageRef = ref(storage, `public/blogs/${blogId}/cover`);
-
-        await uploadBytes(storageRef, coverImageFile);
-        coverImageUrl = await getDownloadURL(storageRef);
-      }
-
-      // ✅ 步驟3: 更新文章，將封面圖 URL 寫入
-      const finalData = {
-        id: blogId,
-        ...formData,
-      };
-      // 將封面圖 URL 併入最終的資料中
-      if (coverImageUrl) {
-        finalData.coverImage = coverImageUrl;
-      }
-
-      const updateResponse = await fetch("/api/blogs", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(finalData),
-      });
-
-      if (!updateResponse.ok) {
-        const updateErrorData = await updateResponse.json();
-        const errorMessage = updateErrorData.error || "更新文章失敗";
-        throw new Error(errorMessage);
-      }
-
-      const message =
-        formData.status === "draft" ? "草稿已成功儲存！" : "文章已成功提交！";
-      toast.success(message);
-      router.push("/admin/admin_blogs");
-    } catch (error) {
-      console.error("提交文章失敗:", error);
-      toast.error(`提交文章失敗：${error.message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCancel = () => {
-    router.back();
-  };
-
-  const initialData = {
-    title: "",
-    content: "",
-    status: "draft",
-  };
+  const handleCancel = useCallback(() => {
+    router.push("/admin/admin_blogs");
+  }, [router]);
 
   if (loadingUser) {
     return (
       <div className="flex items-center justify-center p-8">
         <LoadingSpinner />
-        <p className="text-gray-600 ml-4">載入使用者資訊...</p>
+        <p className="text-gray-600 ml-4">正在載入使用者資訊...</p>
       </div>
     );
   }
 
   return (
     <BlogForm
-      initialData={initialData}
-      onSave={handleSave}
+      initialData={null}
+      onSave={handleSaveBlog}
       onCancel={handleCancel}
       saving={saving}
       onImageChange={handleImageChange}
-      previewUrl={coverPreviewUrl}
+      previewUrl={previewUrl}
     />
   );
 };

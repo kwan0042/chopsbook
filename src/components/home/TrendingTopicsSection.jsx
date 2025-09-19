@@ -8,6 +8,7 @@ import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Link from "next/link";
 
+
 const TrendingTopicsSection = () => {
   const { db, appId, loadingUser } = useContext(AuthContext);
   const [blogs, setBlogs] = useState([]);
@@ -68,7 +69,7 @@ const TrendingTopicsSection = () => {
   }, [db, appId, loadingUser]);
 
   return (
-    <section className="py-12  bg-white shadow-md rounded-lg">
+    <section className="pt-8 pb-6  bg-white shadow-md rounded-lg">
       <h2 className="text-3xl font-extrabold text-gray-900 text-center mb-8">
         熱門話題或文章
       </h2>
@@ -157,6 +158,9 @@ const TrendingTopicsSection = () => {
           </button>
         </div>
       )}
+      <div className="text-right pt-3 px-5">
+        <Link className="text-blue-600 hover:text-blue-800 hover:underline transition" href="/blogs">更多文章</Link>
+      </div>
     </section>
   );
 };

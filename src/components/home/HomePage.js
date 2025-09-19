@@ -98,7 +98,7 @@ const HomePage = ({
             </div>
             <div className="col-span-1 grid grid-cols-1 gap-4 h-fit">
               <InteractivePollSection />
-              <RandomPickerSection />
+              {/* <RandomPickerSection /> */}
               <LatestReviewsSection />
             </div>
           </div>

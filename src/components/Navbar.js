@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser, faBookmark } from "@fortawesome/free-solid-svg-icons";
 import { useRouter, usePathname } from "next/navigation";
 import { getAuth, signOut } from "firebase/auth";
+import Image from "next/image";
 
 // 從新的 hook 檔案中導入 RankDisplay 組件
 import { RankDisplay } from "@/hooks/cx-ranks";
@@ -75,19 +76,24 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
 
   return (
     <nav className="bg-gray-900 text-white sticky top-0 z-50 shadow-md">
-      <div className="flex flex-col lg:flex-row items-center w-full p-3 px-4 sm:px-6 lg:px-8 lg:justify-between">
+      <div className="flex flex-col lg:flex-row items-center w-full p-3 px-4 sm:px-4 lg:px-4 lg:justify-between">
         <div className="flex items-center justify-between w-full lg:w-[30%] mb-2 lg:mb-0 lg:justify-start">
           <button
             onClick={handleGoHome}
-            className="flex items-center bg-transparent border-none p-0 cursor-pointer"
+            className="flex items-center bg-transparent border-none "
             aria-label="回首頁"
           >
-            <h1 className="text-base font-bold text-yellow-500 hover:text-yellow-400 transition duration-200">
+            <Image
+              src="/Chopsbook_logo_white2.png"
+              width={70}
+              height={40}
+              alt="ChopsBook logo"
+              className="px-2"
+            />
+
+            <h1 className="text-base font-bold text-yellow-500 hover:text-yellow-400 pr-3 transition duration-200">
               ChopsBook
             </h1>
-            <span className="ml-1 text-sm text-gray-300 hidden sm:block">
-              .ca
-            </span>
           </button>
 
           <div className="ml-3 border-l border-white pl-3">
