@@ -1,3 +1,4 @@
+// src/components/Navbar.js
 "use client";
 
 import React, { useContext, useState, useCallback } from "react";
@@ -45,9 +46,10 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
     router.push("/");
   }, [router]);
 
+  // 修改此處：導向動態路徑 /user/[userId]
   const handleGoToPersonalPage = useCallback(() => {
     if (currentUser) {
-      router.push("/personal");
+      router.push(`/user/${currentUser.uid}`);
     } else {
       setModalMessage("請先登入才能訪問個人主頁。");
     }
@@ -85,10 +87,10 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
           >
             <Image
               src="/Chopsbook_logo_white2.png"
-              width={70}
-              height={40}
+              width={60}
+              height={30}
               alt="ChopsBook logo"
-              className="px-2"
+              className="px-2 pb-2"
             />
 
             <h1 className="text-base font-bold text-yellow-500 hover:text-yellow-400 pr-3 transition duration-200">

@@ -5,6 +5,7 @@ import { app } from "@/lib/firebase-admin";
 
 export async function GET(request, { params }) {
   const userId = params.userId;
+  const appId = process.env.FIREBASE_ADMIN_APP_ID;
 
   if (!userId) {
     return new Response(JSON.stringify({ message: "Missing user ID" }), {
@@ -15,7 +16,7 @@ export async function GET(request, { params }) {
 
   try {
     const db = getFirestore(app);
-    const userDocRef = db.doc(`artifacts/default-app-id/users/${userId}`);
+    const userDocRef = db.doc(`artifacts/${appId}/users/${userId}`);
     const userDocSnap = await userDocRef.get();
 
     if (!userDocSnap.exists) {
@@ -35,7 +36,7 @@ export async function GET(request, { params }) {
       const restaurantNamesPromises = userData.favoriteRestaurants.map(
         async (restaurantId) => {
           const restaurantDocRef = db.doc(
-            `artifacts/default-app-id/public/data/restaurants/${restaurantId}`
+            `artifacts/${appId}/public/data/restaurants/${restaurantId}`
           );
           const restaurantDocSnap = await restaurantDocRef.get();
           if (restaurantDocSnap.exists) {

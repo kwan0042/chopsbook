@@ -33,7 +33,7 @@ const App = () => {
   }
 
   // 頁面現在只負責渲染主頁內容。
-  // 所有導航邏輯都由 Navbar 或其他組件處理。
+  
   return (
     <div className="min-h-screen bg-gray-100 font-inter">
       <HomePage onShowLoginPage={handleShowLoginPage} />

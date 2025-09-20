@@ -9,10 +9,10 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   GoogleAuthProvider,
-  FacebookAuthProvider, // <-- 新增: 導入 FacebookAuthProvider
+  FacebookAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore"; // <-- 新增: 導入 updateDoc
+import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import { isValidEmail } from "./useUtils";
 
 /**
@@ -66,32 +66,39 @@ export const useAuthOperations = (
           password
         );
         await sendEmailVerification(userCredential.user);
+        const user = userCredential.user;
 
-        const userDocRef = doc(
-          db,
-          `artifacts/${appId}/users/${userCredential.user.uid}`
-        );
-
+        // 公開資料
+        const userDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
         const defaultUsername = email.split("@")[0];
-        const isAdmin = false;
-
-        const additionalProfileData = {
-          email: email,
-          createdAt: new Date().toISOString(),
-          isAdmin: isAdmin,
+        const publicData = {
           username: defaultUsername,
           rank: "7",
           publishedReviews: [],
           favoriteRestaurants: [],
-          phoneNumber: phoneNumber || null,
           isRestaurantOwner: isRestaurantOwner || false,
         };
-
         if (isRestaurantOwner) {
-          additionalProfileData.ownedRest = ownedRest || null;
+          publicData.ownedRest = ownedRest || null;
         }
 
-        await setDoc(userDocRef, additionalProfileData, { merge: true });
+        // 私人資料
+        const privateDocRef = doc(
+          db,
+          `artifacts/${appId}/users/${user.uid}/privateData/${user.uid}`
+        );
+        const privateData = {
+          email: email, // Email 現在是私人資料
+          createdAt: new Date().toISOString(),
+          isAdmin: false,
+          isSuperAdmin: false,
+          phoneNumber: phoneNumber || null,
+          isGoogleUser: false,
+          isFacebookUser: false,
+        };
+
+        await setDoc(userDocRef, publicData);
+        await setDoc(privateDocRef, privateData);
 
         setModalMessage(
           "註冊成功！請檢查您的電子郵件以完成驗證，然後再次登入。",
@@ -146,40 +153,48 @@ export const useAuthOperations = (
       const user = result.user;
 
       const userDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
+      const privateDocRef = doc(
+        db,
+        `artifacts/${appId}/users/${user.uid}/privateData/${user.uid}`
+      );
       const userDocSnap = await getDoc(userDocRef);
 
-      let fullUserData = {};
       const currentTime = new Date().toISOString();
 
       if (!userDocSnap.exists()) {
         const defaultUsername = user.displayName || user.email.split("@")[0];
-        fullUserData = {
-          email: user.email,
-          createdAt: currentTime,
-          isAdmin: false,
+        const publicData = {
           username: defaultUsername,
           rank: "7",
           publishedReviews: [],
           favoriteRestaurants: [],
-          phoneNumber: user.phoneNumber || null,
           isRestaurantOwner: false,
-          isGoogleUser: true,
           lastLogin: currentTime,
         };
-        await setDoc(userDocRef, fullUserData);
+        const privateData = {
+          email: user.email,
+          createdAt: currentTime,
+          isAdmin: false,
+          isSuperAdmin: false,
+          phoneNumber: user.phoneNumber || null,
+          isGoogleUser: true,
+          isFacebookUser: false,
+        };
+        await setDoc(userDocRef, publicData);
+        await setDoc(privateDocRef, privateData);
       } else {
-        fullUserData = {
-          ...userDocSnap.data(),
-          isGoogleUser: true,
-          lastLogin: currentTime,
-        };
-        await updateDoc(userDocRef, {
-          isGoogleUser: true,
-          lastLogin: currentTime,
-        });
+        await updateDoc(userDocRef, { lastLogin: currentTime });
+        await setDoc(privateDocRef, { isGoogleUser: true }, { merge: true });
       }
 
-      const userWithProfile = { ...user, ...fullUserData };
+      const userDocSnapUpdated = await getDoc(userDocRef);
+      const privateDocSnap = await getDoc(privateDocRef);
+      const mergedData = {
+        ...userDocSnapUpdated.data(),
+        ...privateDocSnap.data(),
+      };
+      const userWithProfile = { ...user, ...mergedData };
+
       setCurrentUser(userWithProfile);
       return userWithProfile;
     } catch (error) {
@@ -197,53 +212,58 @@ export const useAuthOperations = (
     }
   }, [auth, db, appId, setModalMessage, setCurrentUser]);
 
-  // --- 新增: Facebook 登入/註冊函式 ---
   const loginWithFacebook = useCallback(async () => {
     try {
       const facebookProvider = new FacebookAuthProvider();
-      facebookProvider.addScope("email"); // 請求 email 權限
-      facebookProvider.addScope("public_profile"); // 請求公開個人資料權限
+      facebookProvider.addScope("email");
+      facebookProvider.addScope("public_profile");
 
       const result = await signInWithPopup(auth, facebookProvider);
       const user = result.user;
 
       const userDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
+      const privateDocRef = doc(
+        db,
+        `artifacts/${appId}/users/${user.uid}/privateData/${user.uid}`
+      );
       const userDocSnap = await getDoc(userDocRef);
 
-      let fullUserData = {};
       const currentTime = new Date().toISOString();
 
       if (!userDocSnap.exists()) {
-        // 新用戶，創建個人資料
         const defaultUsername = user.displayName || user.email.split("@")[0];
-        fullUserData = {
-          email: user.email,
-          createdAt: currentTime,
-          isAdmin: false,
+        const publicData = {
           username: defaultUsername,
           rank: "10",
           publishedReviews: [],
           favoriteRestaurants: [],
-          phoneNumber: user.phoneNumber || null,
           isRestaurantOwner: false,
-          isFacebookUser: true,
           lastLogin: currentTime,
         };
-        await setDoc(userDocRef, fullUserData);
+        const privateData = {
+          email: user.email,
+          createdAt: currentTime,
+          isAdmin: false,
+          isSuperAdmin: false,
+          phoneNumber: user.phoneNumber || null,
+          isFacebookUser: true,
+          isGoogleUser: false,
+        };
+        await setDoc(userDocRef, publicData);
+        await setDoc(privateDocRef, privateData);
       } else {
-        // 現有用戶，更新登入時間
-        fullUserData = {
-          ...userDocSnap.data(),
-          isFacebookUser: true,
-          lastLogin: currentTime,
-        };
-        await updateDoc(userDocRef, {
-          isFacebookUser: true,
-          lastLogin: currentTime,
-        });
+        await updateDoc(userDocRef, { lastLogin: currentTime });
+        await setDoc(privateDocRef, { isFacebookUser: true }, { merge: true });
       }
 
-      const userWithProfile = { ...user, ...fullUserData };
+      const userDocSnapUpdated = await getDoc(userDocRef);
+      const privateDocSnap = await getDoc(privateDocRef);
+      const mergedData = {
+        ...userDocSnapUpdated.data(),
+        ...privateDocSnap.data(),
+      };
+      const userWithProfile = { ...user, ...mergedData };
+
       setCurrentUser(userWithProfile);
       setModalMessage("Facebook 註冊/登入成功！", "success");
       return userWithProfile;
@@ -268,6 +288,6 @@ export const useAuthOperations = (
     logout,
     sendPasswordReset,
     signupWithGoogle,
-    loginWithFacebook, // <-- 新增: 將新函式暴露出去
+    loginWithFacebook,
   };
 };

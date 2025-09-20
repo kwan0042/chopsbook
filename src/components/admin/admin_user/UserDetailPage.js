@@ -26,9 +26,9 @@ const UserDetailPage = ({ userId }) => {
   const {
     currentUser,
     loadingUser,
-    updateUserProfile,
-    sendPasswordResetLink,
     formatDateTime,
+    auth,
+    setGlobalModalMessage,
   } = useContext(AuthContext);
   const router = useRouter();
 
@@ -56,16 +56,21 @@ const UserDetailPage = ({ userId }) => {
       setModalType("");
 
       if (!currentUser?.isAdmin) {
-        setModalMessage("您沒有權限查看此用戶資料。");
-        setModalType("error");
+        setModalMessage("您沒有權限查看此用戶資料。", "error");
         setLoading(false);
         router.push("/admin");
         return;
       }
 
       try {
-        // 修正點：呼叫後端 API 路由
-        const response = await fetch(`/api/user/${userId}`);
+        const token = await auth.currentUser.getIdToken();
+        // ✅ 修正點: 呼叫一個新的後端 API 端點來獲取用戶資料
+        const response = await fetch(`/api/admin/get-user/${userId}`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -77,15 +82,14 @@ const UserDetailPage = ({ userId }) => {
         setFormData(data); // 初始化表單數據
       } catch (error) {
         console.error("獲取用戶資料失敗:", error);
-        setModalMessage(`獲取用戶資料失敗: ${error.message}`);
-        setModalType("error");
+        setModalMessage(`獲取用戶資料失敗: ${error.message}`, "error");
       } finally {
         setLoading(false);
       }
     };
 
     fetchUserData();
-  }, [userId, currentUser, loadingUser, router]);
+  }, [userId, currentUser, loadingUser, router, auth, setGlobalModalMessage]);
 
   // 清除儲存成功訊息的 useEffect
   useEffect(() => {
@@ -112,8 +116,7 @@ const UserDetailPage = ({ userId }) => {
     setSaveSuccessMessage(null);
 
     if (!currentUser?.isAdmin) {
-      setModalMessage("您沒有權限修改此用戶資料。");
-      setModalType("error");
+      setModalMessage("您沒有權限修改此用戶資料。", "error");
       setIsSaving(false);
       return;
     }
@@ -131,21 +134,39 @@ const UserDetailPage = ({ userId }) => {
         updates.photoURL = formData.photoURL;
 
       if (Object.keys(updates).length > 0) {
-        await updateUserProfile(userId, updates);
-        setUserData((prev) => ({ ...prev, ...updates }));
+        const token = await auth.currentUser.getIdToken();
+        const response = await fetch(`/api/admin/manage-users`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            action: "updateUserProfile",
+            targetUid: userId,
+            updates: updates,
+          }),
+        });
 
-        setModalType("success");
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "更新用戶資料失敗。");
+        }
+
+        // ✅ 成功後更新前端狀態，這才是安全的做法
+        const updatedData = { ...userData, ...updates };
+        setUserData(updatedData);
+        setFormData(updatedData);
+
         setSaveSuccessMessage("更改已儲存！");
         setEditing(false);
       } else {
-        setModalMessage("沒有任何變更需要儲存。");
-        setModalType("info");
+        setModalMessage("沒有任何變更需要儲存。", "info");
         setEditing(false);
       }
     } catch (error) {
       console.error("更新用戶資料失敗:", error);
-      setModalMessage(`更新失敗: ${error.message}`);
-      setModalType("error");
+      setModalMessage(`更新失敗: ${error.message}`, "error");
     } finally {
       setIsSaving(false);
     }
@@ -158,25 +179,36 @@ const UserDetailPage = ({ userId }) => {
     setModalType("");
 
     if (!currentUser?.isAdmin) {
-      setModalMessage("您沒有權限向其他用戶發送密碼重設電郵。");
-      setModalType("error");
+      setModalMessage("您沒有權限向其他用戶發送密碼重設電郵。", "error");
       setIsSendingResetLink(false);
       return;
     }
 
     try {
       if (userData?.email) {
-        await sendPasswordResetLink(userData.email);
-        setModalMessage(`已向 ${userData.email} 發送密碼重設電郵。`);
-        setModalType("success");
+        const token = await auth.currentUser.getIdToken();
+        const response = await fetch(`/api/admin/manage-users`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            action: "sendPasswordResetLink",
+            email: userData.email,
+          }),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "發送密碼重設電郵失敗。");
+        }
+        setModalMessage(`已向 ${userData.email} 發送密碼重設電郵。`, "success");
       } else {
-        setModalMessage("該用戶沒有有效的電郵地址可發送重設鏈接。");
-        setModalType("error");
+        setModalMessage("該用戶沒有有效的電郵地址可發送重設鏈接。", "error");
       }
     } catch (error) {
       console.error("發送密碼重設電郵失敗:", error);
-      setModalMessage(`發送失敗: ${error.message}`);
-      setModalType("error");
+      setModalMessage(`發送失敗: ${error.message}`, "error");
     } finally {
       setIsSendingResetLink(false);
     }

@@ -7,7 +7,7 @@ import { AuthContext } from "../../lib/auth-context";
 import { useRouter } from "next/navigation";
 
 // 導入所有現在獨立的組件
-import Navbar from "../Navbar";
+
 import FilterModal from "../filters/FilterModal";
 import HeroSection from "./HeroSection";
 import PromotionsSection from "./PromotionsSection";
@@ -77,11 +77,7 @@ const HomePage = ({
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 font-inter">
-      <Navbar
-        onShowFilterModal={handleShowFilterModal}
-        onShowMerchantPage={onShowMerchantPage}
-        onShowAdminPage={onShowAdminPage}
-      />
+      
       <main className="flex-grow">
         <HeroSection />
 

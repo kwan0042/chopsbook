@@ -1,11 +1,12 @@
+// src/components/UserManagement.js
 "use client";
 
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useContext, useEffect, useCallback } from "react";
 import { AuthContext } from "../../../lib/auth-context";
-import { collection, onSnapshot, query } from "firebase/firestore";
+import { collection, onSnapshot, query, doc, getDoc } from "firebase/firestore";
 import LoadingSpinner from "../../LoadingSpinner";
 import { useRouter } from "next/navigation";
-import Modal from "../../Modal"; // 導入 Modal 組件
+import Modal from "../../Modal";
 
 /**
  * UserManagement: 管理員用戶管理區塊組件。
@@ -19,65 +20,80 @@ const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [updatingUserStatus, setUpdatingUserStatus] = useState(false);
-  const [modalMessage, setModalMessage] = useState(""); // 新增本地訊息狀態
+  const [modalMessage, setModalMessage] = useState("");
+  const [modalType, setModalType] = useState("");
 
-  const closeModal = () => setModalMessage(""); // 關閉模態框
+  const closeModal = () => {
+    setModalMessage("");
+    setModalType("");
+  };
 
-  // 實時獲取所有用戶資料
+  // 實時獲取所有用戶資料，包含來自 privateData 的數據
   useEffect(() => {
     if (!db || !appId) {
       setLoadingUsers(false);
       setModalMessage("Firebase 資料庫服務未初始化或應用程式ID不可用。");
+      setModalType("error");
       return;
     }
 
     setLoadingUsers(true);
 
-    // 監聽頂層的 users 集合
     const usersCollectionRef = collection(db, `artifacts/${appId}/users`);
     const q = query(usersCollectionRef);
 
-    // 設置實時監聽
     const unsubscribe = onSnapshot(
       q,
-      (querySnapshot) => {
-        const fetchedUsersData = [];
-
+      async (querySnapshot) => {
         if (querySnapshot.empty) {
           setUsers([]);
           setLoadingUsers(false);
-          setModalMessage("沒有找到任何用戶資料。");
+          setModalMessage("沒有找到任何用戶資料。", "info");
           return;
         }
 
-        querySnapshot.forEach((userDoc) => {
-          const userData = userDoc.data();
-          fetchedUsersData.push({
-            uid: userDoc.id,
-            ...userData,
-            email: userData.email || `未知郵箱`,
-            isAdmin: userData.isAdmin || false,
-            isSuperAdmin: userData.isSuperAdmin || false, // 確保從 Firestore 獲取此權限
+        const userPromises = querySnapshot.docs.map(async (userDoc) => {
+          const publicData = userDoc.data();
+          const uid = userDoc.id;
+
+          const privateDocRef = doc(
+            db,
+            `artifacts/${appId}/users/${uid}/privateData/${uid}`
+          );
+          const privateDocSnap = await getDoc(privateDocRef);
+          const privateData = privateDocSnap.exists()
+            ? privateDocSnap.data()
+            : {};
+
+          const mergedData = {
+            ...publicData,
+            ...privateData,
+            uid,
+            email: privateData.email || `未知郵箱`,
+            isAdmin: privateData.isAdmin || false,
+            isSuperAdmin: privateData.isSuperAdmin || false,
             username:
-              userData.username ||
-              (userData.email ? userData.email.split("@")[0] : "N/A"),
-            rank: userData.rank ?? "7",
-            lastLogin: userData.lastLogin || "N/A",
-            publishedReviews: Array.isArray(userData.publishedReviews)
-              ? userData.publishedReviews
+              publicData.username ||
+              (privateData.email ? privateData.email.split("@")[0] : "N/A"),
+            rank: publicData.rank ?? "7",
+            lastLogin: publicData.lastLogin || "N/A",
+            publishedReviews: Array.isArray(publicData.publishedReviews)
+              ? publicData.publishedReviews
               : [],
-            favoriteRestaurants: Array.isArray(userData.favoriteRestaurants)
-              ? userData.favoriteRestaurants
+            favoriteRestaurants: Array.isArray(publicData.favoriteRestaurants)
+              ? publicData.favoriteRestaurants
               : [],
-          });
+          };
+          return mergedData;
         });
 
-        setUsers(fetchedUsersData);
+        const fetchedUsers = await Promise.all(userPromises);
+        setUsers(fetchedUsers);
         setLoadingUsers(false);
       },
       (error) => {
         console.error("實時監聽用戶資料失敗:", error);
-        setModalMessage(`實時監聽用戶資料失敗: ${error.message}`);
+        setModalMessage(`實時監聽用戶資料失敗: ${error.message}`, "error");
         setLoadingUsers(false);
       }
     );
@@ -85,59 +101,73 @@ const UserManagement = () => {
     return () => unsubscribe();
   }, [db, appId]);
 
-  const handleUpdateAdminStatus = async (user, newIsAdmin) => {
-    if (!auth?.currentUser) {
-      setModalMessage("您尚未登入。");
-      return;
-    }
-
-    // 前端權限檢查：如果你不是超級管理員，不能修改超級管理員
-    if (user.isSuperAdmin && !currentUser?.isSuperAdmin) {
-      setModalMessage("您沒有權限修改超級管理員的權限。");
-      return;
-    }
-
-    // 確保不是試圖修改自己的權限
-    if (user.uid === currentUser.uid) {
-      setModalMessage("您不能修改自己的管理員權限。");
-      return;
-    }
-
-    setUpdatingUserStatus(true);
-    try {
-      const token = await auth.currentUser.getIdToken();
-      const response = await fetch("/api/admin/set-claims", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          targetUserUid: user.uid,
-          // 修正點：保留目標用戶的 isSuperAdmin 權限
-          newClaims: { isAdmin: newIsAdmin, isSuperAdmin: user.isSuperAdmin },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "更新權限失敗");
+  const handleUpdateAdminStatus = useCallback(
+    async (user, newIsAdmin) => {
+      if (!auth?.currentUser) {
+        setModalMessage("您尚未登入。", "error");
+        return;
       }
 
-      setModalMessage(
-        `用戶權限已更新為: ${newIsAdmin ? "管理員" : "普通用戶"}`
-      );
-    } catch (error) {
-      setModalMessage(`更新失敗: ${error.message}`);
-      console.error("更新管理員權限失敗:", error);
-    } finally {
-      setUpdatingUserStatus(false);
-    }
-  };
+      if (user.isSuperAdmin && !currentUser?.isSuperAdmin) {
+        setModalMessage("您沒有權限修改超級管理員的權限。", "error");
+        return;
+      }
 
-  const handleViewUserDetails = (uid) => {
-    router.push(`/admin/admin_users/${uid}`);
-  };
+      if (user.uid === currentUser.uid) {
+        setModalMessage("您不能修改自己的管理員權限。", "error");
+        return;
+      }
+
+      setUpdatingUserStatus(true);
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const response = await fetch("/api/admin/set-claims", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            targetUserUid: user.uid,
+            newClaims: { isAdmin: newIsAdmin, isSuperAdmin: user.isSuperAdmin },
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "更新權限失敗");
+        }
+
+        // 強制刷新當前登入管理員的 ID Token，以即時反映權限變更
+        await auth.currentUser.getIdToken(true);
+
+        // ✅ 修正點: 手動更新前端狀態
+        setUsers((prevUsers) =>
+          prevUsers.map((u) =>
+            u.uid === user.uid ? { ...u, isAdmin: newIsAdmin } : u
+          )
+        );
+
+        setModalMessage(
+          `用戶權限已更新為: ${newIsAdmin ? "管理員" : "普通用戶"}`,
+          "success"
+        );
+      } catch (error) {
+        setModalMessage(`更新失敗: ${error.message}`, "error");
+        console.error("更新管理員權限失敗:", error);
+      } finally {
+        setUpdatingUserStatus(false);
+      }
+    },
+    [auth, currentUser]
+  );
+
+  const handleViewUserDetails = useCallback(
+    (uid) => {
+      router.push(`/admin/editUsers?uid=${uid}`);
+    },
+    [router]
+  );
 
   if (loadingUsers) {
     return (
@@ -241,8 +271,7 @@ const UserManagement = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                       {user.uid === currentUser?.uid ? (
                         <span className="text-gray-400">當前用戶</span>
-                      ) : // 修正點：如果當前用戶是超級管理員，或目標用戶不是超級管理員，則顯示按鈕
-                      currentUser?.isSuperAdmin || !user.isSuperAdmin ? (
+                      ) : currentUser?.isSuperAdmin || !user.isSuperAdmin ? (
                         <div className="flex flex-col items-center space-y-2">
                           <button
                             onClick={() => handleUpdateAdminStatus(user, true)}
@@ -286,7 +315,7 @@ const UserManagement = () => {
           </table>
         </div>
       </div>
-      <Modal message={modalMessage} onClose={closeModal} /> {/* 新增 Modal */}
+      <Modal message={modalMessage} onClose={closeModal} type={modalType} />
     </>
   );
 };

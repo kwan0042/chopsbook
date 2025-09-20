@@ -30,7 +30,7 @@ import { AuthContext } from "../../../lib/auth-context";
 import { RestaurantContext } from "../../../lib/restaurant-context";
 import Link from "next/link";
 import LoadingSpinner from "../../../components/LoadingSpinner";
-import Navbar from "@/components/Navbar";
+
 
 // 導入新的 Hook
 import useRestaurantStatus from "@/hooks/useRestaurantStatus";
@@ -191,7 +191,7 @@ export default function RestaurantDetailLayout({ children }) {
   return (
     <RestaurantContext.Provider value={{ restaurant }}>
       <div className="flex flex-col min-h-screen">
-        <Navbar onShowFilterModal={() => {}} onSearch={() => {}} />
+        
         <div className="flex-grow py-8 px-4 sm:px-6 lg:px-8 bg-gray-50">
           <div className=" mx-auto bg-white shadow-xl rounded-xl overflow-hidden">
             {/* 頂部名稱和收藏按鈕 */}

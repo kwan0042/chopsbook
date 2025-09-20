@@ -1,11 +1,11 @@
-// src/app/admin/layout.js
-
+// src/app/admin/(console)/layout.js
 "use client";
 
 import React, { useContext, useEffect, useState } from "react";
-import { AuthContext } from "../../../lib/auth-context";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
+import { AuthContext } from "../../../lib/auth-context";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import Modal from "../../../components/Modal";
 
@@ -27,7 +27,6 @@ function isInsideDynamicFolder(pathname) {
  */
 export default function AdminLayout({ children }) {
   const { currentUser, loadingUser, isAdmin } = useContext(AuthContext);
-  const router = useRouter();
   const pathname = usePathname();
 
   const [localModalMessage, setLocalModalMessage] = useState("");
@@ -40,19 +39,18 @@ export default function AdminLayout({ children }) {
 
     // 如果未登入，重導向到登入頁
     if (!currentUser) {
-      router.push("/login");
-      return;
+      redirect("/login");
     }
 
     // 如果已登入但不是管理員，顯示訊息並重導向到首頁
     if (!isAdmin) {
       setLocalModalMessage("您沒有權限訪問管理員頁面。請使用管理員帳戶登入。");
       const timer = setTimeout(() => {
-        router.push("/");
+        redirect("/");
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [currentUser, loadingUser, isAdmin, router]);
+  }, [currentUser, loadingUser, isAdmin]);
 
   // ⏳ 載入中 (在權限檢查前，如果 loadingUser 為 true，顯示載入狀態)
   if (loadingUser) {
@@ -96,7 +94,7 @@ export default function AdminLayout({ children }) {
             管理員控制台
           </h1>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => redirect("/")}
             className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 shadow-md flex items-center space-x-2"
           >
             <svg

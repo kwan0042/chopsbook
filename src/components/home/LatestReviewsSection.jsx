@@ -52,7 +52,7 @@ const LatestReviewsSection = () => {
             if (review.restaurantId) {
               const restaurantDocRef = doc(
                 db,
-                `artifacts/default-app-id/public/data/restaurants/${review.restaurantId}` // ✅ 修正路徑
+                `artifacts/${appId}/public/data/restaurants/${review.restaurantId}` // ✅ 修正路徑，使用動態 appId
               );
               return getDoc(restaurantDocRef);
             }

@@ -8,7 +8,10 @@ if (!appId) {
   throw new Error("環境變數 FIREBASE_ADMIN_APP_ID 未設定。");
 }
 
-// 輔助函式：驗證使用者是否為管理員
+/**
+ * 輔助函式：驗證使用者是否為管理員
+ * 直接從 ID Token 中讀取 customClaims，無需額外的 getUser 呼叫
+ */
 async function verifyAdmin(request) {
   try {
     const authorization = request.headers.get("Authorization");
@@ -17,13 +20,21 @@ async function verifyAdmin(request) {
     }
     const idToken = authorization.split(" ")[1];
     const decodedToken = await auth.verifyIdToken(idToken);
-    const user = await auth.getUser(decodedToken.uid);
-    if (user.customClaims && user.customClaims.isAdmin) {
-      return { isAdmin: true, uid: user.uid };
+    const isAdmin = decodedToken.isAdmin || false;
+    const uid = decodedToken.uid;
+    if (isAdmin) {
+      return { isAdmin: true, uid };
     }
     return { isAdmin: false, error: "禁止訪問：使用者不是管理員" };
   } catch (error) {
     console.error("令牌驗證失敗：", error);
+    // 根據 Firebase Auth 錯誤碼提供更具體的訊息
+    if (error.code === "auth/id-token-expired") {
+      return { isAdmin: false, error: "未經授權：令牌已過期" };
+    }
+    if (error.code === "auth/argument-error") {
+      return { isAdmin: false, error: "未經授權：無效的令牌格式" };
+    }
     return { isAdmin: false, error: "未經授權：無效的令牌" };
   }
 }
@@ -36,16 +47,18 @@ export async function POST(request) {
 
   try {
     const data = await request.json();
-    if (!data.title || !data.content) {
+    const { title, content, status } = data;
+    if (!title || !content || !status) {
       return NextResponse.json(
-        { success: false, error: "缺少必要欄位" },
+        { success: false, error: "缺少必要欄位：title, content, 或 status" },
         { status: 400 }
       );
     }
     const newBlog = {
-      ...data,
+      title,
+      content,
+      status,
       submittedAt: FieldValue.serverTimestamp(),
-      status: data.status,
       authorId: uid,
     };
     const docRef = await db
@@ -66,8 +79,6 @@ export async function POST(request) {
 
 export async function PUT(request) {
   const { isAdmin, uid, error } = await verifyAdmin(request);
-  console.log("後端：接收到 PUT 請求。授權結果：", { isAdmin, uid, error });
-
   if (!isAdmin) {
     return NextResponse.json({ success: false, error }, { status: 403 });
   }
@@ -76,10 +87,7 @@ export async function PUT(request) {
     const data = await request.json();
     const { id, ...updateData } = data;
 
-    console.log("後端：從請求中接收到的資料：", data);
-
     if (!id) {
-      console.error("後端：更新失敗，缺少文件 ID。");
       return NextResponse.json(
         { success: false, error: "缺少文件 ID" },
         { status: 400 }
@@ -90,36 +98,28 @@ export async function PUT(request) {
       .collection(`artifacts/${appId}/public/data/blogs`)
       .doc(id);
 
-    console.log("後端：正在尋找文件，路徑為：", docRef.path);
-
     const docSnap = await docRef.get();
     if (!docSnap.exists) {
-      console.error("後端：更新失敗，找不到文件。");
       return NextResponse.json(
         { success: false, error: "找不到文件" },
         { status: 404 }
       );
     }
 
-    // 關鍵修正：檢查前端發來的狀態是否為 "published" 或 "rejected"
-    // 只有在狀態為這兩種時，才寫入 reviewedAt 和 reviewedBy
+    // 只有當狀態被明確設置為 "published" 或 "rejected" 時，才更新 reviewedAt 和 reviewedBy
     if (updateData.status === "published" || updateData.status === "rejected") {
       updateData.reviewedAt = FieldValue.serverTimestamp();
       updateData.reviewedBy = uid;
     }
 
-    console.log("後端：準備執行更新，最終資料為：", updateData);
-
     await docRef.update(updateData);
-
-    console.log("後端：文件更新成功。");
 
     return NextResponse.json(
       { success: true, message: "文章已成功更新" },
       { status: 200 }
     );
   } catch (error) {
-    console.error("後端：更新文章時發生內部錯誤：", error);
+    console.error("更新文章時發生內部錯誤：", error);
     return NextResponse.json(
       { success: false, error: "內部伺服器錯誤" },
       { status: 500 }

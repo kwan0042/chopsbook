@@ -1,24 +1,25 @@
 // src/app/api/admin/set-claims/route.js
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
-import { auth, app } from "../../../../lib/firebase-admin";
+import { NextResponse } from "next/server";
+import { auth, db } from "@/lib/firebase-admin";
+
+const appId = process.env.FIREBASE_ADMIN_APP_ID;
+if (!appId) {
+  throw new Error("環境變數 FIREBASE_ADMIN_APP_ID 未設定。");
+}
 
 export async function POST(req) {
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ message: "Method Not Allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
+    return NextResponse.json(
+      { message: "Method Not Allowed" },
+      { status: 405 }
+    );
   }
 
   const idToken = req.headers.get("Authorization")?.split("Bearer ")[1];
   if (!idToken) {
-    return new Response(
-      JSON.stringify({ message: "Unauthorized: No token provided" }),
-      {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      }
+    return NextResponse.json(
+      { message: "Unauthorized: No token provided" },
+      { status: 401 }
     );
   }
 
@@ -29,83 +30,66 @@ export async function POST(req) {
     const callerIsSuperAdmin = decodedToken.isSuperAdmin === true;
     const callerIsAdmin = decodedToken.isAdmin === true;
 
-    // 檢查呼叫者是否具備管理員權限
     if (!callerIsAdmin && !callerIsSuperAdmin) {
-      return new Response(
-        JSON.stringify({ message: "Forbidden: Insufficient permissions" }),
-        {
-          status: 403,
-          headers: { "Content-Type": "application/json" },
-        }
+      return NextResponse.json(
+        { message: "Forbidden: Insufficient permissions" },
+        { status: 403 }
       );
     }
 
     if (!targetUserUid || typeof newClaims !== "object") {
-      return new Response(
-        JSON.stringify({ message: "Missing target user UID or claims" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
+      return NextResponse.json(
+        { message: "Missing target user UID or claims" },
+        { status: 400 }
       );
     }
 
-    // 修正點：獲取目標用戶的當前 claims
+    // 確保呼叫者不是試圖修改自己的權限
+    if (targetUserUid === decodedToken.uid) {
+      return NextResponse.json(
+        { message: "Forbidden: You cannot modify your own claims." },
+        { status: 403 }
+      );
+    }
+
     const targetUser = await auth.getUser(targetUserUid);
     const targetIsSuperAdmin = targetUser.customClaims?.isSuperAdmin === true;
 
-    // 新增：如果目標用戶是超級管理員，只有超級管理員能修改他的權限
     if (targetIsSuperAdmin && !callerIsSuperAdmin) {
-      return new Response(
-        JSON.stringify({
+      return NextResponse.json(
+        {
           message:
             "Forbidden: Only a super admin can manage another super admin's claims.",
-        }),
-        {
-          status: 403,
-          headers: { "Content-Type": "application/json" },
-        }
+        },
+        { status: 403 }
       );
     }
 
-    // 新增：防止普通管理員試圖給任何人設定超級管理員權限
     if (!callerIsSuperAdmin && newClaims.isSuperAdmin) {
-      return new Response(
-        JSON.stringify({
-          message: "Forbidden: Only a super admin can create a super admin.",
-        }),
+      return NextResponse.json(
         {
-          status: 403,
-          headers: { "Content-Type": "application/json" },
-        }
+          message: "Forbidden: Only a super admin can create a super admin.",
+        },
+        { status: 403 }
       );
     }
 
-    // 更新 Firebase Auth 中的 Custom Claims
     await auth.setCustomUserClaims(targetUserUid, newClaims);
-
-    // 更新 Firestore 中的用戶資料
-    const db = getFirestore(app);
-    // 修正點：使用正確的 App ID
     await db
-      .doc(`artifacts/default-app-id/users/${targetUserUid}`)
+      .doc(
+        `artifacts/${appId}/users/${targetUserUid}/privateData/${targetUserUid}`
+      )
       .update(newClaims);
 
-    return new Response(
-      JSON.stringify({ message: "Successfully updated user claims" }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
+    return NextResponse.json(
+      { message: "Successfully updated user claims" },
+      { status: 200 }
     );
   } catch (error) {
     console.error("Error setting custom claims:", error);
-    return new Response(
-      JSON.stringify({ message: `Internal Server Error: ${error.message}` }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
+    return NextResponse.json(
+      { message: `Internal Server Error: ${error.message}` },
+      { status: 500 }
     );
   }
 }

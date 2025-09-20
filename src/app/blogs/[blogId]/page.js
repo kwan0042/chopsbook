@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useContext } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { AuthContext } from "../../../lib/auth-context";
-import Navbar from "@/components/Navbar";
+
 
 // Utility function to format timestamp
 const formatDateTime = (timestamp) => {
@@ -201,7 +201,7 @@ const BlogPage = () => {
 
   return (
     <>
-      <Navbar />
+      
       <div className="flex justify-center bg-gray-100 min-h-screen p-6 font-sans">
         <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl overflow-hidden border border-gray-200 p-6">
           <img src={blog?.coverImage} />

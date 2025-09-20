@@ -34,7 +34,7 @@ export async function POST(request) {
       );
     }
 
-    const appId = "default-app-id";
+    const appId = process.env.FIREBASE_ADMIN_APP_ID;
     const reviewsCollectionPath = `artifacts/${appId}/public/data/reviews`;
     const restaurantsCollectionPath = `artifacts/${appId}/public/data/restaurants`;
 
@@ -90,7 +90,7 @@ export async function POST(request) {
         uploadedImageUrls,
         createdAt: FieldValue.serverTimestamp(),
         status: "published",
-        visitCount, // 2. 在這裡將 visitCount 加入新文件
+        visitCount,
       });
 
       return { success: true };

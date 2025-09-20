@@ -210,7 +210,7 @@ export default function LoginPage() {
                 返回登入畫面
               </button>
               <div className="mt-6 text-center">
-                <Link href="/signUp" passHref>
+                <Link href="/sign-up" passHref>
                   <button
                     type="button"
                     className="font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none"
@@ -346,7 +346,7 @@ export default function LoginPage() {
 
         <p className="mt-6 text-center text-sm text-gray-600">
           還沒有帳戶？
-          <Link href="/signUp" passHref>
+          <Link href="/sign-up" passHref>
             <button
               type="button"
               className="font-medium text-indigo-600 hover:text-indigo-500 ml-1 focus:outline-none"

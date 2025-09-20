@@ -1,7 +1,8 @@
+// src/app/admin/restaurants/page.js
 "use client";
 
 import React, { useContext, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { redirect } from "next/navigation";
 import { AuthContext } from "@/lib/auth-context";
 import RestaurantManagement from "@/components/admin/RestaurantManagement";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -12,14 +13,15 @@ import LoadingSpinner from "@/components/LoadingSpinner";
  */
 export default function AdminRestaurantsPage() {
   const { currentUser, loadingUser, isAdmin } = useContext(AuthContext);
-  const router = useRouter();
 
   useEffect(() => {
+    // 當用戶狀態載入完成後，如果不是管理員，則重定向到首頁
     if (!loadingUser && (!currentUser || !isAdmin)) {
-      router.push("/");
+      redirect("/");
     }
-  }, [currentUser, loadingUser, isAdmin, router]);
+  }, [currentUser, loadingUser, isAdmin]);
 
+  // 在用戶狀態載入中或非管理員時顯示載入畫面
   if (loadingUser || !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -28,6 +30,7 @@ export default function AdminRestaurantsPage() {
     );
   }
 
+  // 如果是管理員，則渲染 RestaurantManagement 組件
   return (
     <div className="min-h-screen font-inter">
       <RestaurantManagement />

@@ -49,19 +49,28 @@ export const useUserProfile = (
         const data = await response.json();
 
         if (response.ok) {
-          // 在 API 請求成功後，同時更新 Firestore 中的 isAdmin 欄位
-          // 現在直接更新頂層文檔
-          const userDocRef = doc(db, `artifacts/${appId}/users/${userId}`);
-          await setDoc(userDocRef, { isAdmin: isAdmin }, { merge: true });
+          // 只更新 privateData 子集合中的 isAdmin 欄位
+          const privateDocRef = doc(
+            db,
+            `artifacts/${appId}/users/${userId}/privateData/${userId}`
+          );
+          await setDoc(privateDocRef, { isAdmin: isAdmin }, { merge: true });
 
           setModalMessage(data.message, "success");
 
-          // 如果更新的是當前登入的使用者自己，也更新客戶端狀態
+          // 如果更新的是當前登入的使用者自己，則更新客戶端狀態
           if (currentUser.uid === userId) {
+            const userDocRef = doc(db, `artifacts/${appId}/users/${userId}`);
             const userDocSnap = await getDoc(userDocRef);
+
+            const privateDocSnap = await getDoc(privateDocRef);
+
             if (userDocSnap.exists()) {
               const userData = userDocSnap.data();
-              setCurrentUser({ ...currentUser, ...userData });
+              const privateData = privateDocSnap.exists()
+                ? privateDocSnap.data()
+                : {};
+              setCurrentUser({ ...currentUser, ...userData, ...privateData });
             }
           }
         } else {
@@ -88,9 +97,40 @@ export const useUserProfile = (
           throw new Error("您沒有權限更新此用戶資料。");
         }
 
-        // 修正點：只更新頂層文檔，避免資料庫不一致
+        const publicUpdates = {};
+        const privateUpdates = {};
+        const privateFields = [
+          "email",
+          "isAdmin",
+          "isSuperAdmin",
+          "phoneNumber",
+          "isGoogleUser",
+          "isFacebookUser",
+        ];
+
+        // 根據欄位將 updates 分類
+        for (const key in updates) {
+          if (privateFields.includes(key)) {
+            privateUpdates[key] = updates[key];
+          } else {
+            publicUpdates[key] = updates[key];
+          }
+        }
+
+        // 更新公開資料 (主文件)
         const userDocRef = doc(db, `artifacts/${appId}/users/${userId}`);
-        await updateDoc(userDocRef, updates);
+        if (Object.keys(publicUpdates).length > 0) {
+          await updateDoc(userDocRef, publicUpdates);
+        }
+
+        // 更新私有資料 (privateData 子集合)
+        const privateDocRef = doc(
+          db,
+          `artifacts/${appId}/users/${userId}/privateData/${userId}`
+        );
+        if (Object.keys(privateUpdates).length > 0) {
+          await setDoc(privateDocRef, privateUpdates, { merge: true });
+        }
 
         if (currentUser && currentUser.uid === userId) {
           setCurrentUser((prevUser) => ({ ...prevUser, ...updates }));

@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase-admin"; // ✅ 從統一檔案匯入 db
+import { db } from "@/lib/firebase-admin";
 
 // 判斷營業時間邏輯
 const isRestaurantOpen = (businessHours, date, time) => {
   if (!businessHours || businessHours.length === 0) return false;
 
-  // 使用伺服器本地時區（目前為東岸時間/EDT）來判斷日期
   const correctedDate = new Date(`${date}T12:00:00`);
   const dayOfWeek = correctedDate.getDay();
 
@@ -75,7 +74,6 @@ const parseSeatingCapacity = (seatingCapacityData) => {
     max = seatingCapacityData;
   }
 
-  // 修正：確保返回值是有效的數字，若為 NaN 則設為預設值
   const result = {
     min: isNaN(min) ? 0 : min,
     max: isNaN(max) ? Infinity : max,
@@ -102,7 +100,6 @@ const passesSeatingFilter = (restaurant, partySize) => {
   const { max: restaurantMaxCapacity } =
     parseSeatingCapacity(seatingCapacityData);
 
-  // 核心篩選邏輯
   const pass = partySize <= restaurantMaxCapacity;
   console.log(
     `[Seating Filter] 餐廳 "${restaurant.restaurantNameZh}" - 人數: ${partySize}, 最大容量: ${restaurantMaxCapacity}, 結果: ${pass}`
@@ -113,23 +110,37 @@ const passesSeatingFilter = (restaurant, partySize) => {
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
+
+    // ✅ 修正：只解析實際的篩選條件，排除分頁參數
     const filters = {};
+    const searchQuery = searchParams.get("search");
+    const favoriteRestaurantIds = searchParams.getAll(
+      "favoriteRestaurantIds[]"
+    );
+
+    // 遍歷所有參數，只處理篩選相關的
     for (const [key, value] of searchParams.entries()) {
-      if (key.endsWith("[]")) {
-        const paramKey = key.replace("[]", "");
-        filters[paramKey] = searchParams.getAll(key);
-      } else {
-        filters[key] = value;
+      if (
+        key !== "limit" &&
+        key !== "startAfterDocId" &&
+        key !== "search" &&
+        key !== "favoriteRestaurantIds[]"
+      ) {
+        if (key.endsWith("[]")) {
+          filters[key.replace("[]", "")] = searchParams.getAll(key);
+        } else {
+          filters[key] = value;
+        }
       }
     }
 
-    console.log("[API] 接收到的篩選條件:", filters);
 
+    const appId = process.env.FIREBASE_ADMIN_APP_ID;
     const restaurantsColRef = db.collection(
-      "artifacts/default-app-id/public/data/restaurants"
+      `artifacts/${appId}/public/data/restaurants`
     );
     let q = restaurantsColRef;
-
+    
     // 進行 Firestore 伺服器端篩選
     if (filters.province) {
       q = q.where("province", "==", filters.province);
@@ -147,21 +158,25 @@ export async function GET(request) {
       q = q.where("rating", ">=", parseFloat(filters.minRating));
     }
 
-    // --- 新增分頁邏輯 ---
+    // 如果有搜尋文字，則進行搜尋過濾
+    if (searchQuery) {
+      q = q
+        .where("restaurantNameZh", ">=", searchQuery)
+        .where("restaurantNameZh", "<=", searchQuery + "\uf8ff");
+    }
+
+    // 新增分頁邏輯
     const limit = parseInt(searchParams.get("limit") || 10, 10);
     const startAfterDocId = searchParams.get("startAfterDocId");
 
-    // 分頁必須依賴一個排序欄位，這裡使用 restaurantNameEn
     q = q.orderBy("restaurantNameEn").limit(limit + 1);
 
     if (startAfterDocId) {
-      // 獲取起始文件
       const startAfterDoc = await restaurantsColRef.doc(startAfterDocId).get();
       if (startAfterDoc.exists) {
         q = q.startAfter(startAfterDoc);
       }
     }
-    // --- 分頁邏輯結束 ---
 
     const snapshot = await q.get();
 
@@ -171,19 +186,37 @@ export async function GET(request) {
       restaurants.push({ id: doc.id, ...data });
     });
 
-    // 在伺服器端進行二次篩選，處理 Firestore 無法直接處理的複雜邏輯
+    // 在伺服器端進行二次篩選
     const partySizeFilter = parseInt(filters.partySize, 10);
-    const searchQuery = filters.search || "";
-    // 新增：安全地獲取收藏餐廳 ID
-    const favoriteRestaurantIds = filters.favoriteRestaurantIds || [];
 
-    // 將所有篩選邏輯整合到一個 filter 函數中
+    const hasFilters =
+      Object.keys(filters).length > 0 ||
+      searchQuery ||
+      favoriteRestaurantIds.length > 0;
+
+    // ✅ 核心修正：當沒有任何篩選時，直接返回所有餐廳。
+    // 否則，再執行後續的程式碼篩選。
+    if (!hasFilters) {
+      // 如果沒有任何篩選條件，直接使用從 Firestore 讀取到的所有餐廳
+      const hasMore = restaurants.length > limit;
+      const paginatedRestaurants = hasMore
+        ? restaurants.slice(0, limit)
+        : restaurants;
+      const lastDocId =
+        paginatedRestaurants.length > 0
+          ? paginatedRestaurants[paginatedRestaurants.length - 1].id
+          : null;
+
+      return NextResponse.json({
+        success: true,
+        restaurants: paginatedRestaurants,
+        hasMore,
+        lastDocId,
+      });
+    }
+
+    // 進行伺服器端二次篩選，處理複雜邏輯
     const filteredRestaurants = restaurants.filter((restaurant) => {
-      const hasFilters = Object.keys(filters).length > 0 || searchQuery;
-      if (!hasFilters && favoriteRestaurantIds.length === 0) {
-        return true;
-      }
-
       const passesFavorites =
         favoriteRestaurantIds.length === 0 ||
         favoriteRestaurantIds.includes(restaurant.id);
@@ -240,7 +273,6 @@ export async function GET(request) {
       );
     });
 
-    // --- 調整回傳值以符合分頁邏輯 ---
     const hasMore = filteredRestaurants.length > limit;
     const paginatedRestaurants = hasMore
       ? filteredRestaurants.slice(0, limit)
@@ -256,7 +288,6 @@ export async function GET(request) {
       hasMore,
       lastDocId,
     });
-    // --- 回傳值調整結束 ---
   } catch (error) {
     console.error("API Filter Error:", error);
     return NextResponse.json(

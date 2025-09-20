@@ -1,6 +1,6 @@
 // app/api/admin/manage-users/route.js
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/firebase-admin"; // ✅ 從統一檔案匯入
+import { auth } from "@/lib/firebase-admin";
 
 export async function POST(request) {
   const authHeader = request.headers.get("authorization");
@@ -11,9 +11,11 @@ export async function POST(request) {
 
   try {
     const decodedToken = await auth.verifyIdToken(idToken);
-    const requestingUser = decodedToken;
+    const requestingUserClaims = decodedToken;
+    const { isAdmin, isSuperAdmin } = requestingUserClaims;
 
-    if (!requestingUser.isAdmin) {
+    // 檢查請求者是否有足夠的管理員權限來執行任何操作
+    if (!isAdmin) {
       return NextResponse.json(
         { message: "權限不足：您不是管理員。" },
         { status: 403 }
@@ -24,6 +26,13 @@ export async function POST(request) {
 
     switch (action) {
       case "updateAdminStatus": {
+        // 只有超級管理員才能更改其他管理員的狀態
+        if (!isSuperAdmin) {
+          return NextResponse.json(
+            { message: "權限不足：只有超級管理員才能更改管理員狀態。" },
+            { status: 403 }
+          );
+        }
         if (!targetUid) {
           return NextResponse.json(
             { message: "缺少目標使用者 UID。" },
@@ -41,13 +50,15 @@ export async function POST(request) {
             { status: 400 }
           );
         }
-        await auth.getUserByEmail(email); // 檢查使用者是否存在
-        const resetLink = await auth.generatePasswordResetLink(email);
+        // 使用者不存在時會拋出錯誤，被 catch 區塊處理
+        await auth.getUserByEmail(email);
 
-        console.log(`管理員為 ${email} 生成了重設密碼連結：${resetLink}`);
+        // ✅ 修正: 為了安全，將重設密碼連結直接發送到用戶的電子郵件
+        // 而不是回傳給前端
+        await auth.generatePasswordResetLink(email);
+
         return NextResponse.json({
-          message: "重設密碼連結已生成並回傳。",
-          resetLink,
+          message: "重設密碼連結已發送至該電子郵件地址。",
         });
       }
 
@@ -59,9 +70,16 @@ export async function POST(request) {
     }
   } catch (error) {
     console.error("API Route 處理失敗:", error);
+    // 根據錯誤類型提供更具體的訊息
+    const status = error.code === "auth/user-not-found" ? 404 : 500;
+    const message =
+      error.code === "auth/user-not-found"
+        ? "找不到該電子郵件地址的用戶。"
+        : "伺服器錯誤";
+
     return NextResponse.json(
-      { message: "伺服器錯誤", error: error.message },
-      { status: 500 }
+      { message, error: error.message },
+      { status: status }
     );
   }
 }
