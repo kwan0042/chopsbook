@@ -18,18 +18,14 @@ import {
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useRouter, useParams } from "next/navigation";
 import Modal from "@/components/Modal";
-import {
-  restaurantFields,
-  formatDataForDisplay,
-} from "@/lib/translation-data";
+import { restaurantFields, formatDataForDisplay } from "@/lib/translation-data";
 
 // 將欄位分組到不同區塊
 const restaurantSections = {
   basicInfo: {
     zh: "基本資訊",
     fields: [
-      "restaurantNameZh",
-      "restaurantNameEn",
+      "restaurantName", // 修正：使用新的 restaurantName 欄位
       "cuisineType",
       "restaurantType",
       "isManager",
@@ -79,6 +75,14 @@ const AddRestaurantRequestPage = ({ requestId }) => {
   const [modalMessage, setLocalModalMessage] = useState("");
   const [modalType, setModalType] = useState("");
   const changesSectionRef = useRef(null);
+
+  // 輔助函數：處理多語言餐廳名稱顯示
+  const formatRestaurantName = (nameObject) => {
+    if (nameObject && typeof nameObject === "object") {
+      return nameObject["zh-TW"] || nameObject.en || "N/A";
+    }
+    return "N/A";
+  };
 
   useEffect(() => {
     // 只有在 db 和 requestId 都可用時才開始載入資料
@@ -315,7 +319,9 @@ const AddRestaurantRequestPage = ({ requestId }) => {
                             {restaurantFields[field]?.zh || field}
                           </p>
                           <pre className="text-gray-800 break-words whitespace-pre-wrap">
-                            {formatDataForDisplay(dataToDisplay?.[field])}
+                            {field === "restaurantName"
+                              ? formatRestaurantName(dataToDisplay?.[field])
+                              : formatDataForDisplay(dataToDisplay?.[field])}
                           </pre>
                         </div>
                       ))}

@@ -1,5 +1,3 @@
-// src/app/api/user/[userId]/route.js
-
 import { getFirestore } from "firebase-admin/firestore";
 import { app } from "@/lib/firebase-admin";
 
@@ -41,9 +39,11 @@ export async function GET(request, { params }) {
           const restaurantDocSnap = await restaurantDocRef.get();
           if (restaurantDocSnap.exists) {
             const restaurantData = restaurantDocSnap.data();
+            // 檢查 restaurantName 是否為 map，並依序取值
+            const restaurantNameMap = restaurantData.restaurantName || {};
             return (
-              restaurantData.restaurantNameZh ||
-              restaurantData.restaurantNameEn ||
+              restaurantNameMap["zh-TW"] ||
+              restaurantNameMap.en ||
               `未知餐廳 (ID: ${restaurantId})`
             );
           } else {

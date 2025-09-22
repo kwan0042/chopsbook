@@ -3,7 +3,7 @@ import { db } from "@/lib/firebase-admin";
 
 // 判斷營業時間邏輯
 const isRestaurantOpen = (businessHours, date, time) => {
-  if (!businessHours || businessHours.length === 0) return false;
+  if (!businessHours || Object.keys(businessHours).length === 0) return false;
 
   const correctedDate = new Date(`${date}T12:00:00`);
   const dayOfWeek = correctedDate.getDay();
@@ -102,7 +102,7 @@ const passesSeatingFilter = (restaurant, partySize) => {
 
   const pass = partySize <= restaurantMaxCapacity;
   console.log(
-    `[Seating Filter] 餐廳 "${restaurant.restaurantNameZh}" - 人數: ${partySize}, 最大容量: ${restaurantMaxCapacity}, 結果: ${pass}`
+    `[Seating Filter] 餐廳 "${restaurant.restaurantName?.["zh-TW"]}" - 人數: ${partySize}, 最大容量: ${restaurantMaxCapacity}, 結果: ${pass}`
   );
   return pass;
 };
@@ -134,13 +134,12 @@ export async function GET(request) {
       }
     }
 
-
     const appId = process.env.FIREBASE_ADMIN_APP_ID;
     const restaurantsColRef = db.collection(
       `artifacts/${appId}/public/data/restaurants`
     );
     let q = restaurantsColRef;
-    
+
     // 進行 Firestore 伺服器端篩選
     if (filters.province) {
       q = q.where("province", "==", filters.province);
@@ -158,33 +157,46 @@ export async function GET(request) {
       q = q.where("rating", ">=", parseFloat(filters.minRating));
     }
 
+    // 將 restaurants 變數的宣告移到這裡，確保它在所有邏輯分支中都可用。
+    let restaurants = [];
+
     // 如果有搜尋文字，則進行搜尋過濾
     if (searchQuery) {
-      q = q
-        .where("restaurantNameZh", ">=", searchQuery)
-        .where("restaurantNameZh", "<=", searchQuery + "\uf8ff");
-    }
+      const normalizedQuery = searchQuery.toLowerCase();
+      const allRestaurants = await q.get();
+      allRestaurants.forEach((doc) => {
+        const data = doc.data();
+        const restaurantNameZh = data.restaurantName?.["zh-TW"] || "";
+        const restaurantNameEn = data.restaurantName?.en || "";
+        if (
+          restaurantNameZh.toLowerCase().includes(normalizedQuery) ||
+          restaurantNameEn.toLowerCase().includes(normalizedQuery)
+        ) {
+          restaurants.push({ id: doc.id, ...data });
+        }
+      });
+    } else {
+      // 新增分頁邏輯
+      const limit = parseInt(searchParams.get("limit") || 10, 10);
+      const startAfterDocId = searchParams.get("startAfterDocId");
 
-    // 新增分頁邏輯
-    const limit = parseInt(searchParams.get("limit") || 10, 10);
-    const startAfterDocId = searchParams.get("startAfterDocId");
+      q = q.orderBy("restaurantName.en").limit(limit + 1);
 
-    q = q.orderBy("restaurantNameEn").limit(limit + 1);
-
-    if (startAfterDocId) {
-      const startAfterDoc = await restaurantsColRef.doc(startAfterDocId).get();
-      if (startAfterDoc.exists) {
-        q = q.startAfter(startAfterDoc);
+      if (startAfterDocId) {
+        const startAfterDoc = await restaurantsColRef
+          .doc(startAfterDocId)
+          .get();
+        if (startAfterDoc.exists) {
+          q = q.startAfter(startAfterDoc);
+        }
       }
+
+      const snapshot = await q.get();
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        restaurants.push({ id: doc.id, ...data });
+      });
     }
-
-    const snapshot = await q.get();
-
-    let restaurants = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      restaurants.push({ id: doc.id, ...data });
-    });
 
     // 在伺服器端進行二次篩選
     const partySizeFilter = parseInt(filters.partySize, 10);
@@ -197,7 +209,7 @@ export async function GET(request) {
     // ✅ 核心修正：當沒有任何篩選時，直接返回所有餐廳。
     // 否則，再執行後續的程式碼篩選。
     if (!hasFilters) {
-      // 如果沒有任何篩選條件，直接使用從 Firestore 讀取到的所有餐廳
+      const limit = parseInt(searchParams.get("limit") || 10, 10);
       const hasMore = restaurants.length > limit;
       const paginatedRestaurants = hasMore
         ? restaurants.slice(0, limit)
@@ -248,10 +260,10 @@ export async function GET(request) {
 
       const passesSearch =
         !searchQuery ||
-        (restaurant.restaurantNameZh || "")
+        (restaurant.restaurantName?.["zh-TW"] || "")
           .toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
-        (restaurant.restaurantNameEn || "")
+        (restaurant.restaurantName?.en || "")
           .toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
         (restaurant.cuisineType || "")
@@ -273,6 +285,7 @@ export async function GET(request) {
       );
     });
 
+    const limit = parseInt(searchParams.get("limit") || 10, 10);
     const hasMore = filteredRestaurants.length > limit;
     const paginatedRestaurants = hasMore
       ? filteredRestaurants.slice(0, limit)

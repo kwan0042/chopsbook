@@ -1,4 +1,3 @@
-// src/components/RestaurantCard.js
 "use client";
 
 import React from "react";
@@ -32,19 +31,21 @@ const RestaurantCard = ({
   const { text: operatingStatus, color: operatingStatusColor } =
     useRestaurantStatus(restaurant);
 
+  // ✅ 根據您的要求，已移除 facadePhotoUrl
   const facadePhotoUrls = Array.isArray(restaurant.facadePhotoUrls)
     ? restaurant.facadePhotoUrls
-    : restaurant.facadePhotoUrl
-    ? [restaurant.facadePhotoUrl]
     : [];
 
   const hasAnyImage = facadePhotoUrls.length > 0;
   const placeholderSize = isGridView ? "400x240" : "400x200";
 
+  // ✅ 修正：使用新的多語言 restaurantName map
   const displayImageUrl = hasAnyImage
     ? facadePhotoUrls[0]
     : `https://placehold.co/${placeholderSize}/CCCCCC/333333?text=${encodeURIComponent(
-        restaurant.restaurantNameZh || restaurant.restaurantNameEn || "餐廳圖片"
+        restaurant.restaurantName?.["zh-TW"] ||
+          restaurant.restaurantName?.en ||
+          "餐廳圖片"
       )}`;
 
   const handleFavoriteClick = (e) => {
@@ -72,8 +73,9 @@ const RestaurantCard = ({
             <img
               src={displayImageUrl}
               alt={
-                restaurant.restaurantNameZh ||
-                restaurant.restaurantNameEn ||
+                // ✅ 修正：使用新的多語言 restaurantName map
+                restaurant.restaurantName?.["zh-TW"] ||
+                restaurant.restaurantName?.en ||
                 "餐廳圖片"
               }
               className="w-full h-full object-cover"
@@ -94,8 +96,9 @@ const RestaurantCard = ({
                 isGridView ? "text-base" : "text-base"
               }`}
             >
-              {restaurant.restaurantNameZh ||
-                restaurant.restaurantNameEn ||
+              {/* ✅ 修正：使用新的多語言 restaurantName map */}
+              {restaurant.restaurantName?.["zh-TW"] ||
+                restaurant.restaurantName?.en ||
                 `未知餐廳`}
             </h3>
 

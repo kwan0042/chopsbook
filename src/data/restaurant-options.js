@@ -149,3 +149,150 @@ export const provinceOptions = [
   "育空地區(YK)",
   "努納武特地區(NU)",
 ];
+
+// ✅ 新增城市數據，與 provinceOptions 的值對應
+export const citiesByProvince = {
+  選擇省份: ["選擇城市"],
+
+  "安大略省(ON)": [
+    "選擇城市",
+    "多倫多(Toronto)",
+    "萬錦(Markham)",
+    "列治文山(Richmond Hill)",
+    "旺市(Vaughan)",
+    "密西沙加(Mississauga)",
+    "渥太華(Ottawa)",
+    "布蘭普頓(Brampton)",
+    "漢密爾頓(Hamilton)",
+    "倫敦(London)",
+    "基秦拿(Kitchener)",
+    "溫莎(Windsor)",
+    "奧克維爾(Oakville)",
+    "伯靈頓(Burlington)",
+    "巴里(Barrie)",
+    "聖嘉芙蓮(St. Catharines)",
+    "奧沙華(Oshawa)",
+    "貴湖(Guelph)",
+    "惠特比(Whitby)",
+    "劍橋(Cambridge)",
+  ],
+
+  "魁北克省(QC)": [
+    "選擇城市",
+    "滿地可(Montreal)",
+    "魁北克市(Quebec City)",
+    "拉瓦爾(Laval)",
+    "加蒂諾(Gatineau)",
+    "隆格伊(Longueuil)",
+    "舍布魯克(Sherbrooke)",
+    "薩格奈(Saguenay)",
+    "三河市(Trois-Rivières)",
+    "德拉蒙維爾(Drummondville)",
+    "聖若望(Saint-Jean-sur-Richelieu)",
+  ],
+
+  "卑詩省(BC)": [
+    "選擇城市",
+    "列治文(Richmond)",
+    "溫哥華(Vancouver)",
+    "素里(Surrey)",
+    "本那比(Burnaby)",
+    "高貴林(Coquitlam)",
+    "薩尼奇(Saanich)",
+    "基隆拿(Kelowna)",
+    "阿布斯福(Abbotsford)",
+    "維多利亞(Victoria)",
+    "楓樹嶺(Maple Ridge)",
+    "蘭里(Langley)",
+    "北溫(North Vancouver)",
+    "納奈摩(Nanaimo)",
+    "甘露市(Kamloops)",
+    "喬治王子城(Prince George)",
+  ],
+
+  "亞伯達省(AB)": [
+    "選擇城市",
+    "卡加利(Calgary)",
+    "愛民頓(Edmonton)",
+    "紅鹿市(Red Deer)",
+    "烈治文堡(Lethbridge)",
+    "聖艾伯(St. Albert)",
+    "麥迪辛哈特(Medicine Hat)",
+    "大草原市(Grande Prairie)",
+    "艾德里(Airdrie)",
+    "斯普魯斯格羅夫(Spruce Grove)",
+  ],
+
+  "曼尼托巴省(MB)": [
+    "選擇城市",
+    "溫尼伯(Winnipeg)",
+    "布蘭登(Brandon)",
+    "施泰因巴赫(Steinbach)",
+    "草原城(Portage la Prairie)",
+    "湯普森(Thompson)",
+    "温克勒(Winkler)",
+    "瑟爾柯克(Selkirk)",
+  ],
+
+  "薩斯喀徹溫省(SK)": [
+    "選擇城市",
+    "薩斯卡通(Saskatoon)",
+    "里賈納(Regina)",
+    "阿伯王子城(Prince Albert)",
+    "慕斯喬(Moose Jaw)",
+    "斯威夫特卡倫特(Swift Current)",
+    "約克頓(Yorkton)",
+  ],
+
+  "新斯科細亞省(NS)": [
+    "選擇城市",
+    "哈利法斯(Halifax)",
+    "悉尼(Sydney)",
+    "達特茅斯(Dartmouth)",
+    "特魯羅(Truro)",
+    "新格拉斯哥(New Glasgow)",
+  ],
+
+  "新不倫瑞克省(NB)": [
+    "選擇城市",
+    "聖約翰(Saint John)",
+    "蒙克頓(Moncton)",
+    "費特烈頓(Fredericton)",
+    "迪耶普(Dieppe)",
+    "巴瑟斯特(Bathurst)",
+    "米拉米契(Miramichi)",
+  ],
+
+  "紐芬蘭與拉布拉多省(NL)": [
+    "選擇城市",
+    "聖約翰斯(St. John's)",
+    "南康山灣(Conception Bay South)",
+    "蒙特珍(Mount Pearl)",
+    "天堂鎮(Paradise)",
+    "康納布魯克(Corner Brook)",
+  ],
+
+  "愛德華王子島省(PE)": [
+    "選擇城市",
+    "夏洛特城(Charlottetown)",
+    "薩默塞德(Summerside)",
+    "史特拉特福(Stratford)",
+    "康沃爾(Cornwall)",
+  ],
+
+  "西北地區(NT)": [
+    "選擇城市",
+    "黃刀鎮(Yellowknife)",
+    "海河鎮(Hay River)",
+    "伊努維克(Inuvik)",
+  ],
+
+  "育空地區(YK)": ["選擇城市", "白馬市(Whitehorse)", "道森市(Dawson City)"],
+
+  "努納武特地區(NU)": [
+    "選擇城市",
+    "伊魁特(Iqaluit)",
+    "蘭金灣(Rankin Inlet)",
+    "劉易克霍爾(Lieuk Hall)", // 呢個唔太常見，可能要再查證
+  ],
+};

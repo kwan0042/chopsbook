@@ -15,18 +15,14 @@ import {
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useRouter, useParams } from "next/navigation";
 import Modal from "@/components/Modal";
-import {
-  restaurantFields,
-  formatDataForDisplay,
-} from "@/lib/translation-data";
+import { restaurantFields, formatDataForDisplay } from "@/lib/translation-data";
 
 // 將欄位分組到不同區塊
 const restaurantSections = {
   basicInfo: {
     zh: "基本資訊",
     fields: [
-      "restaurantNameZh",
-      "restaurantNameEn",
+      "restaurantName", // 修正：使用新的 restaurantName 欄位
       "cuisineType",
       "restaurantType",
       "isManager",
@@ -83,6 +79,14 @@ const EditRestaurantRequestPage = ({ requestId }) => {
   const [modalType, setModalType] = useState("");
   const [showIncompleteWarning, setShowIncompleteWarning] = useState(false);
   const changesSectionRef = useRef(null);
+
+  // 輔助函數：處理多語言餐廳名稱顯示
+  const formatRestaurantName = (nameObject) => {
+    if (nameObject && typeof nameObject === "object") {
+      return nameObject["zh-TW"] || nameObject.en || "N/A";
+    }
+    return "N/A";
+  };
 
   useEffect(() => {
     // 只有在 db 和 requestId 都可用時才開始載入資料
@@ -465,9 +469,13 @@ const EditRestaurantRequestPage = ({ requestId }) => {
                               {restaurantFields[field]?.zh || field}
                             </p>
                             <pre className="text-gray-800 break-words whitespace-pre-wrap">
-                              {formatDataForDisplay(
-                                originalRestaurantData?.[field]
-                              )}
+                              {field === "restaurantName"
+                                ? formatRestaurantName(
+                                    originalRestaurantData?.[field]
+                                  )
+                                : formatDataForDisplay(
+                                    originalRestaurantData?.[field]
+                                  )}
                             </pre>
                           </div>
                         ))}
@@ -528,7 +536,13 @@ const EditRestaurantRequestPage = ({ requestId }) => {
                           原始值:
                         </p>
                         <pre className="text-gray-800 break-words whitespace-pre-wrap text-sm">
-                          {formatDataForDisplay(originalRestaurantData?.[key])}
+                          {key === "restaurantName"
+                            ? formatRestaurantName(
+                                originalRestaurantData?.[key]
+                              )
+                            : formatDataForDisplay(
+                                originalRestaurantData?.[key]
+                              )}
                         </pre>
                       </div>
                       {/* 右側：變更值 */}
@@ -539,7 +553,9 @@ const EditRestaurantRequestPage = ({ requestId }) => {
                       >
                         <p className="font-medium text-gray-600 mb-1">新值:</p>
                         <pre className="text-gray-800 break-words whitespace-pre-wrap text-sm">
-                          {formatDataForDisplay(valueObject.value)}
+                          {key === "restaurantName"
+                            ? formatRestaurantName(valueObject.value)
+                            : formatDataForDisplay(valueObject.value)}
                         </pre>
                       </div>
                     </div>

@@ -1,4 +1,3 @@
-// src/app/restaurants/[restaurantId]/RestaurantDetailLayout.js
 "use client";
 
 import React, { useState, useEffect, useCallback, useContext } from "react";
@@ -189,6 +188,20 @@ export default function RestaurantDetailLayout({ children }) {
     );
   }
 
+  // 處理多語言名稱
+  const getRestaurantName = (restaurant) => {
+    if (
+      restaurant.restaurantName &&
+      typeof restaurant.restaurantName === "object"
+    ) {
+      return (
+        restaurant.restaurantName["zh-TW"] ||
+        restaurant.restaurantName.en ||
+        `未知餐廳 (ID: ${restaurant.id})`
+      );
+    }
+  };
+
   return (
     <RestaurantContext.Provider value={{ restaurant }}>
       <div className="flex flex-col min-h-screen bg-cbbg">
@@ -197,7 +210,7 @@ export default function RestaurantDetailLayout({ children }) {
             {/* 頂部名稱和收藏按鈕 */}
             <div className="relative p-6 border-b border-gray-200">
               <h1 className="text-4xl font-extrabold text-gray-900 mb-2 leading-tight">
-                {restaurant.restaurantNameZh || restaurant.restaurantNameEn}
+                {getRestaurantName(restaurant)}
               </h1>
               <button
                 onClick={handleToggleFavorite}

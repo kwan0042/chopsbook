@@ -46,27 +46,33 @@ const AddRestaurantPage = ({ onBackToHome }) => {
   const { db, currentUser, appId } = useContext(AuthContext);
   const router = useRouter();
 
-  // 初始表單數據 - 已修改為陣列結構
+  // 初始表單數據
   const initialFormData = {
-    restaurantNameZh: "",
-    restaurantNameEn: "",
+    // ✅ 新增 restaurantName 物件
+    restaurantName: {
+      "zh-TW": "",
+      en: "",
+    },
     province: "",
     city: "",
+    postalCode: "", // 新增
     fullAddress: "",
     phone: "",
     website: "",
     cuisineType: "",
     restaurantType: "",
     avgSpending: "",
-    facadePhotoUrls: [], // 確保這裡使用陣列，因為 RestaurantForm 期望如此
+    facadePhotoUrls: [],
     seatingCapacity: "",
     businessHours: DAYS_OF_WEEK.map((day) => ({
-      // 關鍵變動：初始化為陣列
       day,
       isOpen: false,
       startTime: "10:00",
       endTime: "20:00",
     })),
+    closedDates: "",
+    isHolidayOpen: false,
+    holidayHours: "", // ✅ 新增
     reservationModes: [],
     paymentMethods: [],
     facilitiesServices: [],
@@ -75,6 +81,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     contactName: "",
     contactPhone: "",
     contactEmail: "",
+    awards: "",
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -93,11 +100,15 @@ const AddRestaurantPage = ({ onBackToHome }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    // 這裡處理 facadePhotoUrl 的特殊情況
-    if (name === "facadePhotoUrl") {
+    // 處理 nested object 的情況
+    if (name.startsWith("restaurantName")) {
+      const lang = name.split(".")[1]; // Ex: "zh-TW" or "en"
       setFormData((prev) => ({
         ...prev,
-        facadePhotoUrls: value ? [value] : [],
+        restaurantName: {
+          ...prev.restaurantName,
+          [lang]: value,
+        },
       }));
     } else {
       setFormData((prev) => ({
@@ -145,7 +156,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
       return;
     }
 
-    const dataToSubmit = updatedFormData || formData;
+    const dataToSubmit = { ...(updatedFormData || formData) };
 
     try {
       await addDoc(

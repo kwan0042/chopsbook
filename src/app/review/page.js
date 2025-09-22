@@ -1,21 +1,18 @@
-// src/app/personal/reviews/page.js
 "use client";
 
-import React, { useContext, useCallback, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { useContext, useCallback, useEffect, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { AuthContext } from "@/lib/auth-context";
-import ReviewForm from "@/components/reviews/ReviewForm.jsx";
+import ReviewFormDraftLoader from "@/components/reviews/ReviewFormDraftLoader"; // 更新：導入新組件
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 /**
  * PersonalReviewsPage: 用戶撰寫食評的頁面。
- * 處理用戶認證狀態、載入草稿，並渲染食評表單。
+ * 處理用戶認證狀態、並渲染食評表單。
  */
 export default function PersonalReviewsPage() {
   const { currentUser, loadingUser, authReady } = useContext(AuthContext);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const draftId = searchParams.get("draftId");
 
   const handleBackToPersonal = useCallback(() => {
     router.push("/");
@@ -48,7 +45,10 @@ export default function PersonalReviewsPage() {
   // 如果用戶已登入，則渲染 ReviewForm
   return (
     <div className="min-h-screen bg-cbbg p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center font-inter">
-      <ReviewForm onBack={handleBackToPersonal} draftId={draftId} />
+      <Suspense fallback={<LoadingSpinner />}>
+        {/* 更新：渲染 ReviewFormDraftLoader 並將 onBack 傳入 */}
+        <ReviewFormDraftLoader onBack={handleBackToPersonal} />
+      </Suspense>
     </div>
   );
 }

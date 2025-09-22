@@ -1,4 +1,3 @@
-// src/components/personal/FavRestaurantCard.js
 "use client";
 
 import React, { useContext, useCallback } from "react";
@@ -114,8 +113,9 @@ const FavRestaurantCard = ({ restaurant, onRemove, index }) => {
             <div className="flex-grow text-left py-1">
               <div className="flex items-center mb-1">
                 <h3 className="font-bold text-gray-900 leading-tight text-wrap text-base mr-2">
-                  {restaurant.restaurantNameZh ||
-                    restaurant.restaurantNameEn ||
+                  {/* ✅ 修正：使用新的多語言 restaurantName map */}
+                  {restaurant.restaurantName?.["zh-TW"] ||
+                    restaurant.restaurantName?.en ||
                     `未知餐廳`}
                 </h3>
                 {renderRatingStars(restaurant.averageRating)}

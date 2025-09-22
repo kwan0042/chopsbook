@@ -116,17 +116,19 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       }
     };
     fetchAllRestaurants();
-  }, [db, appId]); // 只在 db 和 appId 變化時執行一次
+  }, [db, appId, searchParams]); // 調整依賴項，確保 URL 參數變動時會觸發
 
   // 根據搜尋框輸入過濾建議列表
   useEffect(() => {
     if (searchQuery) {
       const filtered = allRestaurants.filter(
         (r) =>
-          r.restaurantNameZh
+          r.restaurantName?.["zh-TW"]
             ?.toLowerCase()
             .includes(searchQuery.toLowerCase()) ||
-          r.restaurantNameEn?.toLowerCase().includes(searchQuery.toLowerCase())
+          r.restaurantName?.en
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase())
       );
       setFilteredSuggestions(filtered);
     } else {
@@ -204,6 +206,15 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
         ...prev,
         facadePhotoUrls: value ? [value] : [],
       }));
+    } else if (name.startsWith("restaurantName.")) {
+      const lang = name.split(".")[1];
+      setFormData((prev) => ({
+        ...prev,
+        restaurantName: {
+          ...prev.restaurantName,
+          [lang]: value,
+        },
+      }));
     } else {
       setFormData((prev) => ({
         ...prev,
@@ -259,6 +270,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
 
       const changes = {};
       const fieldsToCheck = Object.keys(updatedFormDataWithImageUrl);
+
       fieldsToCheck.forEach((field) => {
         if (field === "id") return;
 
@@ -270,6 +282,19 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
             JSON.stringify([...formValue].sort()) !==
             JSON.stringify([...originalValue].sort())
           ) {
+            changes[field] = {
+              value: formValue,
+              status: "pending",
+            };
+          }
+        } else if (
+          typeof formValue === "object" &&
+          typeof originalValue === "object" &&
+          formValue !== null &&
+          originalValue !== null
+        ) {
+          // 針對巢狀物件（如 restaurantName）進行比較
+          if (JSON.stringify(formValue) !== JSON.stringify(originalValue)) {
             changes[field] = {
               value: formValue,
               status: "pending",
@@ -386,8 +411,8 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
                     onClick={() => handleSelectRestaurant(restaurant.id)}
                     className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
                   >
-                    {restaurant.restaurantNameZh} ({restaurant.restaurantNameEn}
-                    )
+                    {restaurant.restaurantName?.["zh-TW"]} (
+                    {restaurant.restaurantName?.en})
                   </li>
                 ))}
               </ul>

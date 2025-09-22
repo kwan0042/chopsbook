@@ -18,6 +18,14 @@ export default function RestaurantOverviewPage() {
   const { promotions, topMenus, topPhotos, recentReviews, loading, error } =
     useRestaurantData(db, appId, restaurantId);
 
+  // 處理多語言名稱
+  const getRestaurantName = (restaurant) => {
+    if (restaurant?.restaurantName && typeof restaurant.restaurantName === 'object') {
+      return restaurant.restaurantName['zh-TW'] || restaurant.restaurantName.en || `未知餐廳 (ID: ${restaurant.id})`;
+    }
+    
+  };
+  
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[300px]">
@@ -35,10 +43,11 @@ export default function RestaurantOverviewPage() {
   }
 
   // 從 RestaurantContext 獲取餐廳資料
+  const restaurantName = getRestaurantName(restaurant);
   const displayImageUrl =
     (restaurant?.facadePhotoUrls && restaurant.facadePhotoUrls[0]) ||
     `https://placehold.co/800x400/CCCCCC/333333?text=${encodeURIComponent(
-      restaurant?.restaurantNameZh || "餐廳圖片"
+      restaurantName
     )}`;
 
   return (
@@ -49,7 +58,7 @@ export default function RestaurantOverviewPage() {
           <h2 className="text-base font-bold text-gray-800 mb-4">餐廳門面</h2>
           <img
             src={displayImageUrl}
-            alt={restaurant?.restaurantNameZh || "餐廳門面"}
+            alt={restaurantName}
             className="w-full h-80 object-cover rounded-lg shadow-md"
             onError={(e) => {
               e.target.onerror = null;

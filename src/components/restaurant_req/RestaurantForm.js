@@ -11,6 +11,7 @@ import {
   paymentMethodOptions,
   facilitiesServiceOptions,
   provinceOptions,
+  citiesByProvince, // ✅ 引入城市數據
 } from "../../data/restaurant-options";
 
 // 營業時間 UI 相關的輔助資料
@@ -157,14 +158,30 @@ const RestaurantForm = ({
     }
   };
 
+  const handleProvinceChange = (e) => {
+    const newProvince = e.target.value;
+    handleChange({
+      target: { name: "province", value: newProvince },
+    });
+    // 當省份改變時，重置城市為空
+    handleChange({
+      target: { name: "city", value: "" },
+    });
+  };
+
+  // 根據選擇的省份動態獲取城市列表
+  const citiesForSelectedProvince = citiesByProvince[formData.province] || [
+    "選擇城市",
+  ];
+
   return (
     <form onSubmit={localHandleSubmit} className="space-y-6">
       {isUpdateForm && selectedRestaurantData && (
         <p className="text-lg font-semibold text-gray-800 mb-4">
           您正在為以下餐廳提交更新申請：
           <br />
-          **{selectedRestaurantData?.restaurantNameZh}** (
-          {selectedRestaurantData?.restaurantNameEn})
+          **{selectedRestaurantData?.restaurantName?.["zh-TW"]}** (
+          {selectedRestaurantData?.restaurantName?.en})
         </p>
       )}
 
@@ -178,20 +195,20 @@ const RestaurantForm = ({
               className="block text-gray-700 text-sm font-bold mb-2"
             >
               餐廳名稱 (中文) <span className="text-red-500">*</span>
-              {errors.restaurantNameZh && (
+              {errors.restaurantName?.["zh-TW"] && (
                 <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.restaurantNameZh}
+                  {errors.restaurantName?.["zh-TW"]}
                 </span>
               )}
             </label>
             <input
               type="text"
               id="restaurantNameZh"
-              name="restaurantNameZh"
-              value={formData.restaurantNameZh || ""}
+              name="restaurantName.zh-TW"
+              value={formData.restaurantName?.["zh-TW"] || ""}
               onChange={handleChange}
               className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                errors.restaurantNameZh
+                errors.restaurantName?.["zh-TW"]
                   ? "border-red-500 focus:ring-red-500"
                   : "border-gray-300 focus:ring-blue-500"
               }`}
@@ -204,20 +221,20 @@ const RestaurantForm = ({
               className="block text-gray-700 text-sm font-bold mb-2"
             >
               餐廳名稱 (英文) <span className="text-red-500">*</span>
-              {errors.restaurantNameEn && (
+              {errors.restaurantName?.en && (
                 <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.restaurantNameEn}
+                  {errors.restaurantName?.en}
                 </span>
               )}
             </label>
             <input
               type="text"
               id="restaurantNameEn"
-              name="restaurantNameEn"
-              value={formData.restaurantNameEn || ""}
+              name="restaurantName.en"
+              value={formData.restaurantName?.en || ""}
               onChange={handleChange}
               className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                errors.restaurantNameEn
+                errors.restaurantName?.en
                   ? "border-red-500 focus:ring-red-500"
                   : "border-gray-300 focus:ring-blue-500"
               }`}
@@ -243,7 +260,7 @@ const RestaurantForm = ({
               id="province"
               name="province"
               value={formData.province || ""}
-              onChange={handleChange}
+              onChange={handleProvinceChange}
               className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
                 errors.province
                   ? "border-red-500 focus:ring-red-500"
@@ -272,8 +289,7 @@ const RestaurantForm = ({
                 </span>
               )}
             </label>
-            <input
-              type="text"
+            <select
               id="city"
               name="city"
               value={formData.city || ""}
@@ -282,9 +298,19 @@ const RestaurantForm = ({
                 errors.city
                   ? "border-red-500 focus:ring-red-500"
                   : "border-gray-300 focus:ring-blue-500"
-              }`}
-              placeholder="例如：多倫多"
-            />
+              }
+              disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
+              disabled={!formData.province || formData.province === "選擇省份"} // ✅ 新增這行
+            >
+              {citiesForSelectedProvince.map((option) => (
+                <option
+                  key={option}
+                  value={option === "選擇城市" ? "" : option}
+                >
+                  {option}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -640,19 +666,42 @@ const RestaurantForm = ({
                 placeholder="例如：元旦、聖誕節、每年農曆除夕"
               />
             </div>
+            {/* ✅ 正確處理 isHolidayOpen */}
             <div className="flex items-center space-x-2 h-8">
               <input
                 type="checkbox"
-                checked={formData.businessHours?.isOpen || false}
-                onChange={(e) =>
-                  handleBusinessHoursChange(index, "isOpen", e.target.checked)
-                }
+                id="isHolidayOpen"
+                name="isHolidayOpen"
+                checked={formData.isHolidayOpen || false}
+                onChange={handleChange}
                 className="form-checkbox h-5 w-5 text-blue-600 rounded"
               />
-              <label className="block text-gray-700 text-sm font-bold ">
+              <label
+                htmlFor="isHolidayOpen"
+                className="block text-gray-700 text-sm font-bold "
+              >
                 公眾假期營業
               </label>
             </div>
+            {/* ✅ 根據 isHolidayOpen 顯示 textarea */}
+            {formData.isHolidayOpen && (
+              <div>
+                <label
+                  htmlFor="holidayHours"
+                  className="block text-gray-700 text-sm font-bold mb-2"
+                >
+                  公眾假期營業時間說明
+                </label>
+                <textarea
+                  id="holidayHours"
+                  name="holidayHours"
+                  value={formData.holidayHours || ""}
+                  onChange={handleChange}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
+                  placeholder="例如：公眾假期由 12:00PM 營業至 10:00PM"
+                />
+              </div>
+            )}
           </div>
         </div>
 

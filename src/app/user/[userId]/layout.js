@@ -1,7 +1,6 @@
-// src/app/user/[userId]/layout.js
 "use client";
 
-import React, { useContext, useEffect, useState, useCallback,use } from "react";
+import React, { useContext, useEffect, useState, useCallback } from "react";
 import { AuthContext } from "@/lib/auth-context";
 import { doc, getDoc } from "firebase/firestore";
 import { usePathname, useRouter } from "next/navigation";
@@ -11,13 +10,16 @@ import UserProfileHeader from "@/components/personal/UserProfileHeader";
 import PersonalPageNav from "@/components/personal/PersonalPageNav";
 import UserStatsCard from "@/components/personal/UserStatsCard";
 import Modal from "@/components/Modal";
+import PersonalControls from "@/components/personal/PersonalControls";
 
 /**
  * User Profile Layout: 用於包裝所有用戶個人主頁的子路由。
  * 統一管理用戶資料獲取、頁首、導航欄和側邊欄。
  */
 export default function UserProfileLayout({ children, params }) {
-  const { userId } = use(params);
+  // 修正：使用 React.use() 來解構 Promise
+  const { userId } = React.use(params);
+
   const {
     currentUser,
     loadingUser,
@@ -29,19 +31,15 @@ export default function UserProfileLayout({ children, params }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // 判斷是否為自己的主頁
   const isMyProfile = currentUser?.uid === userId;
 
-  // 頁面狀態管理
   const [profileUser, setProfileUser] = useState(null);
   const [loadingProfileUser, setLoadingProfileUser] = useState(true);
 
-  // 編輯相關狀態，僅當 isMyProfile 為 true 時才需要
   const [isEditingIntro, setIsEditingIntro] = useState(false);
   const [introText, setIntroText] = useState(currentUser?.intro || "");
   const [profilePhoto, setProfilePhoto] = useState(currentUser?.photoURL || "");
 
-  // 獲取當前頁面顯示的用戶資料
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!db || !userId) {
@@ -72,7 +70,6 @@ export default function UserProfileLayout({ children, params }) {
     fetchUserProfile();
   }, [db, userId, appId, setModalMessage]);
 
-  // 處理編輯功能的 callback
   const handleSaveIntro = useCallback(async () => {
     if (!isMyProfile) return;
     try {
@@ -92,8 +89,6 @@ export default function UserProfileLayout({ children, params }) {
       if (!file) return;
       setModalMessage("頭像上傳中，請稍候...");
       try {
-        // Logic to upload photo to Firebase Storage
-        // For now, let's use a placeholder URL
         const newPhotoUrl = "https://example.com/new-photo.jpg";
         await updateUserProfile({ photoURL: newPhotoUrl });
         setProfilePhoto(newPhotoUrl);
@@ -106,7 +101,6 @@ export default function UserProfileLayout({ children, params }) {
     [isMyProfile, setModalMessage, updateUserProfile]
   );
 
-  // 渲染邏輯
   if (loadingUser || loadingProfileUser) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
@@ -134,16 +128,8 @@ export default function UserProfileLayout({ children, params }) {
   const currentNav = pathname.split("/").pop();
 
   return (
-    <div className="min-h-screen bg-cbbg p-4 sm:p-6 lg:p-8 flex flex-col items-center font-inter">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-6xl relative">
-        <button
-          onClick={() => router.push("/")}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-3xl font-light leading-none"
-          aria-label="返回首頁"
-        >
-          &times;
-        </button>
-
+    <div className=" bg-cbbg p-4 sm:p-6 lg:p-8 flex flex-col items-center font-inter ">
+      <div className="w-full px-20 relative ">
         <UserProfileHeader
           currentUser={profileUser}
           profilePhoto={profilePhoto}
@@ -157,28 +143,35 @@ export default function UserProfileLayout({ children, params }) {
           stats={userStats}
         />
 
-        <div className="mt-8 border-t border-gray-200 pt-8">
+        <div className="mt-2 ">
           <div className="flex flex-col md:flex-row gap-8">
+            {/* 左側控制區塊，僅在自己的主頁時顯示 */}
+
+            <div className="md:w-1/4 flex-shrink-0 mt-5">
+              {isMyProfile && <PersonalControls userId={userId} />}
+              <div className="mb-4">
+                <div className="bg-white rounded-xl shadow-xl sticky top-8 p-6">
+                  <h2 className="text-xl font-bold text-gray-800 mb-4">
+                    用戶數據
+                  </h2>
+                  <UserStatsCard stats={userStats} />
+                </div>
+              </div>
+            </div>
+
             {/* 主內容區 */}
             <div className="flex-1">
               <PersonalPageNav
                 selectedNav={currentNav}
                 setSelectedNav={(nav) => router.push(`/user/${userId}/${nav}`)}
                 isMyProfile={isMyProfile}
+                userId={userId}
               />
+
               <div className="mt-8">{children}</div>
             </div>
 
             {/* 右側欄位 */}
-            <div className="md:w-1/3 flex-shrink-0">
-              <div className="bg-white rounded-xl shadow-xl sticky top-8 p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">
-                  用戶數據
-                </h2>
-                <UserStatsCard stats={userStats} />
-                {/* 可以在這裡添加其他個人資訊組件，如獎勵或徽章 */}
-              </div>
-            </div>
           </div>
         </div>
       </div>

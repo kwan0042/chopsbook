@@ -48,11 +48,16 @@ const UserRequestManagement = () => {
 
   // 根據請求類型獲取餐廳名稱
   const getRestaurantName = (request) => {
-    if (request.type === "add") {
-      return request.restaurantNameZh || request.restaurantNameEn || "N/A";
-    }
-    if (request.type === "update") {
-      return request.originalRestaurantName || "N/A";
+    if (request.type === "add" || request.type === "update") {
+      if (
+        request.restaurantName &&
+        typeof request.restaurantName === "object"
+      ) {
+        return (
+          request.restaurantName["zh-TW"] || request.restaurantName.en || "N/A"
+        );
+      }
+      return "N/A";
     }
     return "N/A";
   };
@@ -102,8 +107,7 @@ const UserRequestManagement = () => {
               snapshot.docs.map(async (docSnap) => {
                 const reqData = docSnap.data();
                 const type = reqData.type;
-                let restaurantName =
-                  reqData.restaurantNameZh || reqData.restaurantNameEn || "N/A";
+                let restaurantName;
 
                 if (type === "update" && reqData.restaurantId) {
                   const restaurantDocRef = doc(
@@ -115,8 +119,17 @@ const UserRequestManagement = () => {
                   if (restaurantDocSnap.exists()) {
                     const rData = restaurantDocSnap.data();
                     restaurantName =
-                      rData.restaurantNameZh || rData.restaurantNameEn || "N/A";
+                      rData.restaurantName?.["zh-TW"] ||
+                      rData.restaurantName?.en ||
+                      "N/A";
+                  } else {
+                    restaurantName = "N/A";
                   }
+                } else {
+                  restaurantName =
+                    reqData.restaurantName?.["zh-TW"] ||
+                    reqData.restaurantName?.en ||
+                    "N/A";
                 }
 
                 return {
@@ -159,8 +172,7 @@ const UserRequestManagement = () => {
             docsToDisplay.map(async (docSnap) => {
               const reqData = docSnap.data();
               const type = reqData.type;
-              let restaurantName =
-                reqData.restaurantNameZh || reqData.restaurantNameEn || "N/A";
+              let restaurantName;
 
               if (type === "update" && reqData.restaurantId) {
                 const restaurantDocRef = doc(
@@ -172,8 +184,17 @@ const UserRequestManagement = () => {
                 if (restaurantDocSnap.exists()) {
                   const rData = restaurantDocSnap.data();
                   restaurantName =
-                    rData.restaurantNameZh || rData.restaurantNameEn || "N/A";
+                    rData.restaurantName?.["zh-TW"] ||
+                    rData.restaurantName?.en ||
+                    "N/A";
+                } else {
+                  restaurantName = "N/A";
                 }
+              } else {
+                restaurantName =
+                  reqData.restaurantName?.["zh-TW"] ||
+                  reqData.restaurantName?.en ||
+                  "N/A";
               }
 
               return {

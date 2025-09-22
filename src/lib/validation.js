@@ -6,10 +6,10 @@
 export const validateRestaurantForm = (formData) => {
   const errors = {};
 
-  if (!formData.restaurantNameZh) {
+  if (!formData.restaurantName?.["zh-TW"]) {
     errors.restaurantNameZh = "此為必填欄位。";
   }
-  if (!formData.restaurantNameEn) {
+  if (!formData.restaurantName?.en) {
     errors.restaurantNameEn = "此為必填欄位。";
   }
   if (!formData.province) {

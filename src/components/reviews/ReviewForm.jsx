@@ -186,8 +186,10 @@ const ReviewForm = ({ onBack, draftId }) => {
       setFilteredRestaurants(
         restaurants.filter(
           (r) =>
-            r.restaurantNameZh?.toLowerCase().includes(normalizedQuery) ||
-            r.restaurantNameEn?.toLowerCase().includes(normalizedQuery)
+            r.restaurantName?.["zh-TW"]
+              ?.toLowerCase()
+              .includes(normalizedQuery) ||
+            r.restaurantName?.en?.toLowerCase().includes(normalizedQuery)
         )
       );
     } else {
@@ -314,8 +316,8 @@ const ReviewForm = ({ onBack, draftId }) => {
       const draftData = {
         restaurantId: selectedRestaurant.id,
         restaurantName:
-          selectedRestaurant.restaurantNameZh ||
-          selectedRestaurant.restaurantNameEn,
+          selectedRestaurant.restaurantName?.["zh-TW"] ||
+          selectedRestaurant.restaurantName?.en,
         reviewTitle,
         reviewContent,
         overallRating,

@@ -15,9 +15,9 @@ const UserProfileHeader = ({
   stats,
 }) => {
   return (
-    <div className="flex flex-col md:flex-row items-center justify-between mb-8">
+    <div className="flex flex-col md:flex-row items-center justify-between ">
       {/* 左側：頭像與用戶名 */}
-      <div className="flex items-center space-x-6 mb-4 md:mb-0">
+      <div className="flex items-center space-x-6 ">
         <div className="relative group cursor-pointer w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-white shadow-lg flex-shrink-0">
           <img
             src={profilePhoto || "/default-avatar.png"}

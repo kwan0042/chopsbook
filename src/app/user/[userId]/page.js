@@ -1,11 +1,17 @@
-// src/app/user/[userId]/page.js
 "use client";
 
-import React, { useContext, useEffect, useState,use } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { AuthContext } from "@/lib/auth-context";
-import { collection, query, onSnapshot, orderBy } from "firebase/firestore";
+import {
+  collection,
+  query,
+  onSnapshot,
+  orderBy,
+  limit,
+} from "firebase/firestore";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ProfileContent from "@/components/personal/ProfileContent";
+import Link from "next/link";
 
 /**
  * User Profile Page: 顯示用戶的個人主頁內容。
@@ -13,9 +19,9 @@ import ProfileContent from "@/components/personal/ProfileContent";
  * 所有公共 UI (Header, Nav, Sidebar) 都由 layout.js 管理。
  */
 export default function UserReviewsPage({ params }) {
-  const { userId } = use(params);
+  // 修正：使用 React.use() 來解構 Promise
+  const { userId } = React.use(params);
 
-  // 使用者認證相關資訊
   const {
     currentUser,
     loadingUser,
@@ -25,14 +31,14 @@ export default function UserReviewsPage({ params }) {
     appId,
   } = useContext(AuthContext);
 
-  // 判斷是否為自己的主頁
   const isMyProfile = currentUser?.uid === userId;
 
-  // 評論相關狀態
   const [publishedReviews, setPublishedReviews] = useState([]);
   const [draftReviews, setDraftReviews] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
   const [loadingContent, setLoadingContent] = useState(true);
   const [loadingDrafts, setLoadingDrafts] = useState(true);
+  const [loadingActivities, setLoadingActivities] = useState(true);
 
   // 1. 獲取當前頁面顯示的用戶的已發布食評
   useEffect(() => {
@@ -104,7 +110,39 @@ export default function UserReviewsPage({ params }) {
     return () => unsubscribe();
   }, [isMyProfile, db, currentUser, appId, setModalMessage]);
 
-  if (loadingContent || loadingDrafts) {
+  // 3. 獲取最近動態 (假設有一個 activities 集合)
+  useEffect(() => {
+    if (!db || !userId) {
+      setLoadingActivities(false);
+      return;
+    }
+    // 假設有一個名為 'activities' 的集合，記錄所有動態
+    const activitiesCollectionRef = collection(db, "activities");
+    const q = query(
+      activitiesCollectionRef,
+      orderBy("timestamp", "desc"),
+      limit(5) // 只獲取最近 5 則
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const fetchedActivities = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setRecentActivities(fetchedActivities);
+        setLoadingActivities(false);
+      },
+      (error) => {
+        console.error("獲取最近動態失敗:", error);
+        setLoadingActivities(false);
+      }
+    );
+    return () => unsubscribe();
+  }, [db, userId]);
+
+  if (loadingContent || loadingDrafts || loadingActivities) {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <LoadingSpinner />
@@ -112,11 +150,67 @@ export default function UserReviewsPage({ params }) {
     );
   }
 
+  // 渲染動態的輔助函數
+  const renderActivity = (activity) => {
+    switch (activity.type) {
+      case "like":
+        return (
+          <>
+            讚賞了
+            <Link
+              href={`/review/${activity.reviewId}`}
+              className="text-blue-600 hover:underline ml-1"
+            >
+              {activity.reviewTitle || "某則食評"}
+            </Link>
+          </>
+        );
+      case "follow":
+        return (
+          <>
+            追蹤了
+            <Link
+              href={`/user/${activity.targetUserId}`}
+              className="text-blue-600 hover:underline ml-1"
+            >
+              {activity.targetUsername || "某位用戶"}
+            </Link>
+          </>
+        );
+      case "favorite":
+        return (
+          <>
+            收藏了
+            <Link
+              href={`/restaurant/${activity.restaurantId}`}
+              className="text-blue-600 hover:underline ml-1"
+            >
+              {activity.restaurantName || "某間餐廳"}
+            </Link>
+          </>
+        );
+      case "review":
+        return (
+          <>
+            發佈了
+            <Link
+              href={`/review/${activity.reviewId}`}
+              className="text-blue-600 hover:underline ml-1"
+            >
+              {activity.reviewTitle || "新食評"}
+            </Link>
+          </>
+        );
+      default:
+        return "進行了一項新動態";
+    }
+  };
+
   return (
     <ProfileContent
       selectedNav="reviews"
-      currentUser={{ id: userId }} // 只傳遞必要的 id
-      loadingContent={loadingContent || loadingDrafts}
+      currentUser={{ id: userId }}
+      loadingContent={loadingContent || loadingDrafts || loadingActivities}
       publishedReviews={publishedReviews}
       draftReviews={draftReviews}
       setModalMessage={setModalMessage}
@@ -124,6 +218,8 @@ export default function UserReviewsPage({ params }) {
       appId={appId}
       formatDateTime={formatDateTime}
       isMyProfile={isMyProfile}
+      recentActivities={recentActivities}
+      renderActivity={renderActivity}
     />
   );
 }

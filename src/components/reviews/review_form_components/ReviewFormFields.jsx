@@ -43,8 +43,8 @@ const ReviewFormFields = ({
           {selectedRestaurant ? (
             <div className="flex items-center justify-between p-3 border border-gray-300 rounded-md bg-indigo-50 text-indigo-800 h-10">
               <span className="font-semibold text-base">
-                {selectedRestaurant.restaurantNameZh ||
-                  selectedRestaurant.restaurantNameEn}
+                {selectedRestaurant.restaurantName?.["zh-TW"] ||
+                  selectedRestaurant.restaurantName?.en}
               </span>
               <button
                 type="button"
@@ -72,7 +72,7 @@ const ReviewFormFields = ({
                       onClick={() => handleSelectRestaurant(r)}
                       className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
                     >
-                      {r.restaurantNameZh} ({r.restaurantNameEn})
+                      {r.restaurantName?.["zh-TW"]} ({r.restaurantName?.en})
                     </li>
                   ))}
                 </ul>
@@ -80,9 +80,9 @@ const ReviewFormFields = ({
               {searchQuery && filteredRestaurants.length === 0 && (
                 <p className="mt-2 text-base text-red-500">
                   沒有找到匹配的餐廳。
-                  <a href="/merchant/add" className="text-blue-500">
+                  <Link href="/merchant/add" className="text-blue-500">
                     新增餐廳？
-                  </a>
+                  </Link>
                 </p>
               )}
             </>

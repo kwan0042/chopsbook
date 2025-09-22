@@ -52,7 +52,7 @@ const LatestReviewsSection = () => {
             if (review.restaurantId) {
               const restaurantDocRef = doc(
                 db,
-                `artifacts/${appId}/public/data/restaurants/${review.restaurantId}` // ✅ 修正路徑，使用動態 appId
+                `artifacts/${appId}/public/data/restaurants/${review.restaurantId}`
               );
               return getDoc(restaurantDocRef);
             }
@@ -66,10 +66,15 @@ const LatestReviewsSection = () => {
         const combinedReviews = reviewsData.map((review, index) => {
           const restaurantData = restaurantSnapshots[index]?.data();
 
+          // ✅ 讀取新的多語言 restaurantName map
+          const restaurantName =
+            restaurantData?.restaurantName?.["zh-TW"] ||
+            restaurantData?.restaurantName?.en ||
+            "未知餐廳";
+
           return {
             ...review,
-            // ✅ 讀取中文名稱
-            restaurantName: restaurantData?.restaurantNameZh || "未知餐廳",
+            restaurantName,
           };
         });
 
