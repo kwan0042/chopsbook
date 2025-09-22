@@ -134,7 +134,7 @@ export default function UserProfileLayout({ children, params }) {
   const currentNav = pathname.split("/").pop();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 flex flex-col items-center font-inter">
+    <div className="min-h-screen bg-cbbg p-4 sm:p-6 lg:p-8 flex flex-col items-center font-inter">
       <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-6xl relative">
         <button
           onClick={() => router.push("/")}

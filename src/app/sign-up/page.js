@@ -84,7 +84,7 @@ export default function RegisterPage() {
   }, [router, signupWithGoogle]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-inter">
+    <div className="min-h-screen flex items-center justify-center bg-cbbg p-4 font-inter">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
         <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">
           註冊帳戶

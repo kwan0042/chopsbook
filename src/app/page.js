@@ -35,7 +35,7 @@ const App = () => {
   // 頁面現在只負責渲染主頁內容。
   
   return (
-    <div className="min-h-screen bg-gray-100 font-inter">
+    <div className="min-h-screen bg-cbbg font-inter">
       <HomePage onShowLoginPage={handleShowLoginPage} />
       {modalMessage && (
         <Modal

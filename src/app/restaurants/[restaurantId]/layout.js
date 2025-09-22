@@ -31,7 +31,6 @@ import { RestaurantContext } from "../../../lib/restaurant-context";
 import Link from "next/link";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 
-
 // 導入新的 Hook
 import useRestaurantStatus from "@/hooks/useRestaurantStatus";
 
@@ -119,7 +118,9 @@ export default function RestaurantDetailLayout({ children }) {
       {Array.from({ length: 5 }, (_, index) => (
         <FontAwesomeIcon
           key={index}
-          icon={index < Math.floor(averageRating || 0) ? faSolidStar : faRegularStar}
+          icon={
+            index < Math.floor(averageRating || 0) ? faSolidStar : faRegularStar
+          }
           className={`text-base ${
             index < Math.floor(averageRating || 0)
               ? "text-yellow-500"
@@ -190,15 +191,13 @@ export default function RestaurantDetailLayout({ children }) {
 
   return (
     <RestaurantContext.Provider value={{ restaurant }}>
-      <div className="flex flex-col min-h-screen">
-        
-        <div className="flex-grow py-8 px-4 sm:px-6 lg:px-8 bg-gray-50">
+      <div className="flex flex-col min-h-screen bg-cbbg">
+        <div className="flex-grow py-8 px-4 sm:px-6 lg:px-8 ">
           <div className=" mx-auto bg-white shadow-xl rounded-xl overflow-hidden">
             {/* 頂部名稱和收藏按鈕 */}
             <div className="relative p-6 border-b border-gray-200">
               <h1 className="text-4xl font-extrabold text-gray-900 mb-2 leading-tight">
-                {restaurant.restaurantNameZh ||
-                  restaurant.restaurantNameEn }
+                {restaurant.restaurantNameZh || restaurant.restaurantNameEn}
               </h1>
               <button
                 onClick={handleToggleFavorite}
@@ -332,11 +331,7 @@ export default function RestaurantDetailLayout({ children }) {
             </div>
             <div className="p-6">
               <div className="flex flex-col md:flex-row mt-4 gap-4">
-                <div className="flex-1">
-                  
-                    {children}
-                  
-                </div>
+                <div className="flex-1">{children}</div>
                 <div className="md:w-1/3 flex-shrink-0">
                   <div className="bg-white rounded-xl shadow-xl sticky top-8">
                     <section className="bg-gray-50 p-4 rounded-lg shadow-sm space-y-4">

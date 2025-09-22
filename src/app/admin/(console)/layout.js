@@ -86,7 +86,7 @@ export default function AdminLayout({ children }) {
 
   // 🌟 一般情況：完整 Admin Layout
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-100 p-4 font-inter">
+    <div className="min-h-screen bg-cbbg p-4 font-inter">
       <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 lg:p-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-8 pb-4 border-b border-gray-200">

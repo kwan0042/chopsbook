@@ -6,7 +6,6 @@ import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { toast } from "react-toastify";
 
-
 // 使用 Tailwind CSS 來進行樣式設計，不需要外部 CSS 檔案
 const BlogsPage = () => {
   const { db, appId, loadingUser, formatDateTime } = useContext(AuthContext);
@@ -138,7 +137,6 @@ const BlogsPage = () => {
   if (allBlogs.length === 0) {
     return (
       <>
-        
         <div className="flex justify-center items-center h-screen p-8 text-center text-gray-500">
           <p>目前沒有已發布的文章。</p>
         </div>
@@ -148,8 +146,7 @@ const BlogsPage = () => {
 
   return (
     <>
-      
-      <div className="container mx-auto p-4 md:p-8">
+      <div className="container bg-cbbg  mx-auto p-4 md:p-8">
         <h1 className="text-3xl font-bold text-center mb-8 text-gray-800">
           所有文章
         </h1>

@@ -172,7 +172,7 @@ export default function RestaurantOverviewPage() {
                   </span>
                 </div>
                 <p className="text-gray-700 leading-relaxed">
-                  {review.reviewContent}
+                  {review.reviewTitle}
                 </p>
               </div>
             ))}

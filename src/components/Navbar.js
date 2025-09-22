@@ -121,7 +121,9 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
                     icon={faBookmark}
                     className="text-xl text-yellow-500 cursor-pointer hover:text-white transition-colors"
                     title="我的收藏"
-                    onClick={() => router.push("/personal/favorites")}
+                    onClick={() =>
+                      router.push(`/user/${currentUser.uid}/favorite-list`)
+                    }
                   />
                   {favoriteRestaurantsCount !== undefined && (
                     <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
@@ -207,7 +209,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
         <div className="flex items-center w-full lg:w-[30%] justify-end space-x-2 mt-2 lg:mt-0">
           <button
             onClick={() => {
-              router.push("/personal/reviews");
+              router.push("/review");
             }}
             className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-3 m-0 text-sm"
           >

@@ -2,31 +2,39 @@ import { NextResponse } from "next/server";
 import { db } from "../../../lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 
+// Helper function to get the start of the current day in UTC
+const getStartOfToday = () => {
+  const now = new Date();
+  now.setUTCHours(0, 0, 0, 0); // Set to midnight UTC
+  return now;
+};
+
 export async function POST(request) {
   try {
     const body = await request.json();
-
     const {
       restaurantId,
       reviewTitle,
       overallRating,
-      reviewContent,
+      reviewContent, // reviewContent 現在是可選的
       ratings,
       costPerPerson,
       timeOfDay,
       serviceType,
+      recommendedDishes,
       uploadedImageUrls,
       userId,
       username,
     } = body;
 
+    // 1. 基本欄位驗證
     if (
       !userId ||
       !restaurantId ||
       typeof overallRating !== "number" ||
       overallRating === 0 ||
       !reviewTitle ||
-      !reviewContent
+      !costPerPerson
     ) {
       return NextResponse.json(
         { success: false, message: "Missing or invalid required fields." },
@@ -37,45 +45,71 @@ export async function POST(request) {
     const appId = process.env.FIREBASE_ADMIN_APP_ID;
     const reviewsCollectionPath = `artifacts/${appId}/public/data/reviews`;
     const restaurantsCollectionPath = `artifacts/${appId}/public/data/restaurants`;
+    const usersCollectionPath = `artifacts/${appId}/users`;
 
-    // 1. 在交易之前計算 visitCount
-    // 查詢該用戶為該餐廳提交的所有食評
+    // 2. 提交次數限制邏輯
+    const startOfToday = getStartOfToday();
+    const todayReviewsQuery = db
+      .collection(reviewsCollectionPath)
+      .where("userId", "==", userId)
+      .where("createdAt", ">=", startOfToday)
+      .orderBy("createdAt", "desc");
+
+    const todayReviewsSnapshot = await todayReviewsQuery.get();
+
+    if (todayReviewsSnapshot.size >= 10) {
+      return NextResponse.json(
+        {
+          success: false,
+          isLimitReached: true,
+          message: "每日提交次數已達上限。",
+        },
+        { status: 200 }
+      );
+    }
+
+    // 3. 計算 visitCount
     const existingReviewsQuery = db
       .collection(reviewsCollectionPath)
       .where("userId", "==", userId)
       .where("restaurantId", "==", restaurantId);
 
     const existingReviewsSnapshot = await existingReviewsQuery.get();
-
-    // visitCount = 現有食評數量 + 1 (這次的食評)
     const visitCount = existingReviewsSnapshot.size + 1;
 
+    // 4. 執行 Firestore 交易
     const result = await db.runTransaction(async (transaction) => {
       const restaurantRef = db
         .collection(restaurantsCollectionPath)
         .doc(restaurantId);
-      const restaurantDoc = await transaction.get(restaurantRef);
+      const userRef = db.collection(usersCollectionPath).doc(userId);
+      const reviewRef = db.collection(reviewsCollectionPath).doc();
+
+      const [restaurantDoc, userDoc] = await Promise.all([
+        transaction.get(restaurantRef),
+        transaction.get(userRef),
+      ]);
 
       if (!restaurantDoc.exists) {
         throw new Error("Restaurant not found.");
       }
+      if (!userDoc.exists) {
+        throw new Error("User not found.");
+      }
 
-      const data = restaurantDoc.data();
-      const currentReviewCount = data.reviewCount || 0;
-      const currentRatingSum = data.ratingSum || 0;
-
+      const restaurantData = restaurantDoc.data();
+      const currentReviewCount = restaurantData.reviewCount || 0;
+      const currentRatingSum = restaurantData.ratingSum || 0;
       const newReviewCount = currentReviewCount + 1;
       const newRatingSum = currentRatingSum + overallRating;
       const newAverageRating = newRatingSum / newReviewCount;
 
-      // 更新餐廳文件
       transaction.update(restaurantRef, {
         reviewCount: newReviewCount,
         ratingSum: newRatingSum,
         averageRating: newAverageRating,
       });
 
-      const reviewRef = db.collection(reviewsCollectionPath).doc();
       transaction.set(reviewRef, {
         userId,
         username,
@@ -87,13 +121,19 @@ export async function POST(request) {
         costPerPerson,
         timeOfDay,
         serviceType,
+        recommendedDishes,
         uploadedImageUrls,
         createdAt: FieldValue.serverTimestamp(),
         status: "published",
         visitCount,
       });
 
-      return { success: true };
+      // **更新：將新創建的 reviewId 加入用戶的 publishedReviews 陣列**
+      transaction.update(userRef, {
+        publishedReviews: FieldValue.arrayUnion(reviewRef.id),
+      });
+
+      return { success: true, reviewId: reviewRef.id };
     });
 
     return NextResponse.json(result, { status: 200 });

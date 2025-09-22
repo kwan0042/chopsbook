@@ -17,6 +17,7 @@
   --color-jp-text-dark: var(--jp-text-dark);
   --color-jp-warning: var(--jp-warning);
   --color-jp-neutral-light: var(--jp-neutral-light);
+  --color-cbbg: #FDF4E2;
 
   /* 擴展字體，確保 Inter 字體可用 */
   --font-inter: 'Inter', sans-serif;
@@ -44,6 +45,7 @@ body {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -58,29 +60,39 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  border-radius: 9999px; /* Tailwind's rounded-full */
+  border-radius: 9999px;
+  /* Tailwind's rounded-full */
   z-index: 0;
   /* 為了防止被父元素 overflow: hidden 裁切，稍微放大偽元素 */
   transform: scale(1.1);
 }
 
 .rank-0-effect::before {
-  background-image: conic-gradient(
-    from 0deg,
-    #e879f9,   /* 紫色 */
-    #9333ea,   /* 深紫色 */
-    #3b82f6,   /* 藍色 */
-    #14b8a6,   /* 綠松石色 */
-    #fcd34d,   /* 黃色 */
-    #f97316,   /* 橘色 */
-    #ef4444,   /* 紅色 */
-    #e879f9    /* 回到紫色，形成無縫循環 */
-  );
-  animation: spin-fast 2s linear infinite; /* 套用快速旋轉動畫 */
+  background-image: conic-gradient(from 0deg,
+      #e879f9,
+      /* 紫色 */
+      #9333ea,
+      /* 深紫色 */
+      #3b82f6,
+      /* 藍色 */
+      #14b8a6,
+      /* 綠松石色 */
+      #fcd34d,
+      /* 黃色 */
+      #f97316,
+      /* 橘色 */
+      #ef4444,
+      /* 紅色 */
+      #e879f9
+      /* 回到紫色，形成無縫循環 */
+    );
+  animation: spin-fast 2s linear infinite;
+  /* 套用快速旋轉動畫 */
 }
 
 .rank-other-effect::before {
-  background-color: rgba(243, 244, 246, 1); /* bg-gray-100/80 */
+  background-color: rgba(243, 244, 246, 1);
+  /* bg-gray-100/80 */
 
 }
 
@@ -195,6 +207,7 @@ body {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }

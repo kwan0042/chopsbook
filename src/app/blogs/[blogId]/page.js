@@ -202,7 +202,7 @@ const BlogPage = () => {
   return (
     <>
       
-      <div className="flex justify-center bg-gray-100 min-h-screen p-6 font-sans">
+      <div className="flex justify-center bg-cbbg min-h-screen p-6 font-sans">
         <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl overflow-hidden border border-gray-200 p-6">
           <img src={blog?.coverImage} />
           <h1 className="text-4xl font-extrabold text-gray-900 mb-2">

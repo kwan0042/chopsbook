@@ -76,7 +76,7 @@ const HomePage = ({
   const closeModal = () => setModalMessage("");
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 font-inter">
+    <div className="min-h-screen flex flex-col  font-inter">
       
       <main className="flex-grow">
         <HeroSection />

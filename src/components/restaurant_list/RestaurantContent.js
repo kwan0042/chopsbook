@@ -143,7 +143,7 @@ const RestaurantContent = () => {
     appliedFilters.favoriteRestaurantIds.length > 0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100 font-inter">
+    <div className="min-h-screen flex flex-col bg-cbbg font-inter">
       <main className="flex-grow pt-[140px]">
         <div className="max-w-screen-xl mx-auto flex gap-x-8">
           <div className="w-1/4 flex-shrink-0 relative">
