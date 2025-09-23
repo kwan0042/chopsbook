@@ -1,3 +1,4 @@
+// src/components/reviews/review_form_components/ReviewFormFields.js
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSun } from "@fortawesome/free-solid-svg-icons";
@@ -9,6 +10,7 @@ import {
   IconMoped,
   IconPaperBag,
 } from "@tabler/icons-react";
+import Link from "next/link";
 
 const ReviewFormFields = ({
   searchQuery,
@@ -29,6 +31,7 @@ const ReviewFormFields = ({
   setReviewContent,
   errors,
   setErrors,
+  isRestaurantPreselected, // 新增：判斷是否預先選擇了餐廳
 }) => {
   return (
     <>
@@ -46,13 +49,15 @@ const ReviewFormFields = ({
                 {selectedRestaurant.restaurantName?.["zh-TW"] ||
                   selectedRestaurant.restaurantName?.en}
               </span>
-              <button
-                type="button"
-                onClick={handleRemoveSelectedRestaurant}
-                className="text-indigo-600 hover:text-indigo-800 focus:outline-none"
-              >
-                移除
-              </button>
+              {!isRestaurantPreselected && (
+                <button
+                  type="button"
+                  onClick={handleRemoveSelectedRestaurant}
+                  className="text-indigo-600 hover:text-indigo-800 focus:outline-none"
+                >
+                  移除
+                </button>
+              )}
             </div>
           ) : (
             <>

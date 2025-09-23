@@ -12,7 +12,7 @@ import {
 } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import ProfileContent from "@/components/personal/ProfileContent";
+import ReviewsList from "@/components/personal/ReviewsList";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft, faArrowRight } from "@fortawesome/free-solid-svg-icons";
 
@@ -80,7 +80,7 @@ export default function UserReviewsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className=" p-4 sm:p-6 lg:p-8">
       <h2 className="text-2xl font-bold mb-6 text-gray-800">所有食評</h2>
       {publishedReviews.length === 0 && reviewsCount === 0 ? (
         <div className="text-center text-gray-600 p-8 border-2 border-dashed border-gray-300 rounded-lg">
@@ -88,7 +88,7 @@ export default function UserReviewsPage() {
         </div>
       ) : (
         <div className="space-y-6 mx-auto">
-          <ProfileContent publishedReviews={publishedReviews} />
+          <ReviewsList publishedReviews={publishedReviews} />
 
           {/* 分頁按鈕 */}
           <div className="flex justify-between items-center mt-8">

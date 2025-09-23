@@ -1,3 +1,4 @@
+// src/components/personal/FavRestaurantCard.js
 "use client";
 
 import React, { useContext, useCallback } from "react";
@@ -25,22 +26,21 @@ import {
  * @param {object} props.restaurant - 包含餐廳資料的物件。
  * @param {function} props.onRemove - 移除收藏時的回調函數。
  * @param {number} props.index - 餐廳在列表中的索引（從 0 開始）。
+ * @param {boolean} props.isMyProfile - 判斷是否為當前用戶。
  */
-const FavRestaurantCard = ({ restaurant, onRemove, index }) => {
-  const { toggleFavoriteRestaurant, setModalMessage } = useContext(AuthContext);
+const FavRestaurantCard = ({ restaurant, onRemove, index, isMyProfile }) => {
+  const { setModalMessage } = useContext(AuthContext);
 
   const handleRemoveFavorite = useCallback(async () => {
     try {
       if (onRemove) {
         onRemove(restaurant.id);
       }
-      await toggleFavoriteRestaurant(restaurant.id);
-      setModalMessage("已從收藏清單中移除。");
     } catch (error) {
       console.error("Failed to remove from favorites:", error);
       setModalMessage(`移除收藏失敗: ${error.message}`);
     }
-  }, [restaurant.id, onRemove, toggleFavoriteRestaurant, setModalMessage]);
+  }, [restaurant.id, onRemove, setModalMessage]);
 
   const renderRatingStars = (averageRating) => {
     return (
@@ -91,7 +91,6 @@ const FavRestaurantCard = ({ restaurant, onRemove, index }) => {
     if (IconComponent) {
       return (
         <div
-          // ✅ 修正這裡：使用 flex items-center justify-center 進行雙向置中
           className={`flex-shrink-0 w-12 flex items-center justify-center ${backgroundColor}`}
         >
           <IconComponent className="w-8 h-8 text-white" stroke={2} />
@@ -113,7 +112,6 @@ const FavRestaurantCard = ({ restaurant, onRemove, index }) => {
             <div className="flex-grow text-left py-1">
               <div className="flex items-center mb-1">
                 <h3 className="font-bold text-gray-900 leading-tight text-wrap text-base mr-2">
-                  {/* ✅ 修正：使用新的多語言 restaurantName map */}
                   {restaurant.restaurantName?.["zh-TW"] ||
                     restaurant.restaurantName?.en ||
                     `未知餐廳`}
@@ -138,14 +136,17 @@ const FavRestaurantCard = ({ restaurant, onRemove, index }) => {
         </div>
       </Link>
 
-      <button
-        onClick={handleRemoveFavorite}
-        className="absolute top-1 right-1 p-1 text-red-500 hover:text-gray-700 rounded-full group-hover:opacity-100"
-        aria-label="從收藏清單中移除"
-        type="button"
-      >
-        <FontAwesomeIcon icon={faXmark} />
-      </button>
+      {/* ✅ 關鍵修正：根據 isMyProfile 條件渲染移除按鈕 */}
+      {isMyProfile && (
+        <button
+          onClick={handleRemoveFavorite}
+          className="absolute top-1 right-1 p-1 text-red-500 hover:text-gray-700 rounded-full group-hover:opacity-100"
+          aria-label="從收藏清單中移除"
+          type="button"
+        >
+          <FontAwesomeIcon icon={faXmark} />
+        </button>
+      )}
     </div>
   );
 };

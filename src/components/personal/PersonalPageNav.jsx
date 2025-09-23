@@ -1,17 +1,22 @@
 import React from "react";
 import Link from "next/link";
 
+/**
+ * PersonalPageNav: 用於個人頁面導航的組件。
+ * @param {string} selectedNav - 當前選中的導航項目的 id (e.g., "overview", "reviews")。
+ * @param {string} userId - 當前頁面所屬的用戶 ID。
+ */
 const PersonalPageNav = ({ selectedNav, userId }) => {
   const navItems = [
     { id: "overview", label: "總覽" },
     { id: "reviews", label: "食評" },
     { id: "favorite-list", label: "最愛餐廳" },
-    { id: "awards", label: "獎項" },
+    { id: "awards", label: "成就" },
     // 更多導航選項
   ];
 
   return (
-    <div className="flex justify-start p-4  border-b-1 border-white rounded-t-lg">
+    <div className="flex justify-start p-4 border-b border-gray-200">
       {navItems.map((item) => (
         <Link
           key={item.id}

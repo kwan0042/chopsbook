@@ -172,9 +172,7 @@ const RestaurantContent = () => {
           </div>
         </div>
       </main>
-      <footer className="mt-5 bg-gray-800 text-white text-center py-6 text-sm font-light">
-        &copy; {new Date().getFullYear()} ChopsBook. 版權所有.
-      </footer>
+      
       {modalMessage && (
         <Modal
           message={modalMessage}

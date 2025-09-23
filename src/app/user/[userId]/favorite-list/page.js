@@ -11,13 +11,15 @@ import Link from "next/link";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 export default function FavoriteListPage() {
-  const { currentUser, loadingUser, setModalMessage } = useContext(AuthContext);
+  const { currentUser, loadingUser, setModalMessage, appId } =
+    useContext(AuthContext);
   const { userId } = useParams();
 
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [allFavoriteIds, setAllFavoriteIds] = useState([]);
+  const [totalFavorites, setTotalFavorites] = useState(0);
 
   const isMyProfile = currentUser?.uid === userId;
   const ITEMS_PER_PAGE = 10;
@@ -30,16 +32,10 @@ export default function FavoriteListPage() {
   }, []);
 
   const fetchFavorites = useCallback(
-    async (pageToFetch) => {
-      const startIndex = pageToFetch * ITEMS_PER_PAGE;
-      const favoriteIdsToFetch = allFavoriteIds.slice(
-        startIndex,
-        startIndex + ITEMS_PER_PAGE
-      );
-
-      if (favoriteIdsToFetch.length === 0) {
+    async (idsToFetch) => {
+      if (idsToFetch.length === 0) {
+        setRestaurants([]);
         setLoading(false);
-        if (pageToFetch === 0) setRestaurants([]);
         return;
       }
 
@@ -51,7 +47,7 @@ export default function FavoriteListPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ favoriteRestaurantIds: favoriteIdsToFetch }),
+          body: JSON.stringify({ favoriteRestaurantIds: idsToFetch }),
         });
 
         if (!response.ok) {
@@ -59,14 +55,13 @@ export default function FavoriteListPage() {
         }
 
         const data = await response.json();
-        if (pageToFetch === 0) {
-          setRestaurants(data.restaurants);
-        } else {
-          setRestaurants((prevRestaurants) => [
-            ...prevRestaurants,
-            ...data.restaurants,
-          ]);
-        }
+        setRestaurants((prevRestaurants) => {
+          if (page === 0) {
+            return data.restaurants;
+          } else {
+            return [...prevRestaurants, ...data.restaurants];
+          }
+        });
       } catch (err) {
         console.error("Failed to fetch favorite restaurants:", err);
         setModalMessage("載入收藏餐廳時發生錯誤。");
@@ -74,29 +69,74 @@ export default function FavoriteListPage() {
         setLoading(false);
       }
     },
-    [allFavoriteIds, setModalMessage]
+    [setModalMessage, page]
   );
 
   useEffect(() => {
-    if (currentUser?.uid === userId && currentUser?.favoriteRestaurants) {
-      setAllFavoriteIds(currentUser.favoriteRestaurants);
+    if (isMyProfile && currentUser?.favoriteRestaurants) {
+      const storedIds = currentUser.favoriteRestaurants;
+      setAllFavoriteIds(storedIds);
+      setTotalFavorites(storedIds.length);
+
+      const idsToFetch = storedIds.slice(
+        page * ITEMS_PER_PAGE,
+        (page + 1) * ITEMS_PER_PAGE
+      );
+      fetchFavorites(idsToFetch);
     }
-  }, [currentUser, userId]);
+  }, [currentUser, isMyProfile, page, fetchFavorites]);
 
   useEffect(() => {
-    if (allFavoriteIds.length > 0) {
-      fetchFavorites(page);
-    }
-  }, [allFavoriteIds, page, fetchFavorites]);
+    if (!isMyProfile && !loadingUser) {
+      const fetchOtherUserFavorites = async () => {
+        setLoading(true);
+        try {
+          // ✅ 關鍵修正: 更新 API 路徑並加入 appId 參數
+          const response = await fetch(
+            `/api/reviews/get-user-favorites?userId=${userId}&appId=${appId}`
+          );
+          if (!response.ok) {
+            throw new Error("無法載入用戶收藏列表");
+          }
+          const data = await response.json();
+          const storedIds = data.favoriteRestaurants || [];
+          setAllFavoriteIds(storedIds);
+          setTotalFavorites(storedIds.length);
 
-  const hasMore = (page + 1) * ITEMS_PER_PAGE < allFavoriteIds.length;
+          const idsToFetch = storedIds.slice(
+            page * ITEMS_PER_PAGE,
+            (page + 1) * ITEMS_PER_PAGE
+          );
+          fetchFavorites(idsToFetch);
+        } catch (error) {
+          console.error("Failed to fetch other user favorites:", error);
+          setModalMessage("無法載入此用戶的收藏清單。");
+          setLoading(false);
+        }
+      };
+      fetchOtherUserFavorites();
+    }
+  }, [
+    isMyProfile,
+    loadingUser,
+    userId,
+    page,
+    setModalMessage,
+    fetchFavorites,
+    appId,
+  ]);
+
+  const hasMore = (page + 1) * ITEMS_PER_PAGE < totalFavorites;
 
   const handleNextPage = () => {
-    setPage((prevPage) => prevPage + 1);
+    if (hasMore) {
+      setPage((prevPage) => prevPage + 1);
+    }
   };
 
   const onDragEnd = (result) => {
     if (!result.destination) return;
+    if (!isMyProfile) return;
 
     const items = Array.from(restaurants);
     const [reorderedItem] = items.splice(result.source.index, 1);
@@ -124,8 +164,6 @@ export default function FavoriteListPage() {
       if (!response.ok) {
         throw new Error("無法更新收藏順序");
       }
-
-      
     } catch (error) {
       console.error("Failed to update favorite order:", error);
       setModalMessage("更新收藏順序失敗。");
@@ -140,21 +178,12 @@ export default function FavoriteListPage() {
     );
   }
 
-  if (!isMyProfile) {
-    return (
-      <div className="text-center p-8 bg-gray-50 rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold text-gray-800">未授權</h2>
-        <p className="mt-2 text-gray-600">您無權查看此頁面。</p>
-      </div>
-    );
-  }
-
-  if (allFavoriteIds.length === 0 && !loading) {
+  if (!loading && totalFavorites === 0) {
     return (
       <div className="text-center text-gray-500 p-4">
-        目前沒有收藏的餐廳。
+        {isMyProfile ? "你" : "此用戶"}目前沒有收藏的餐廳。
         <div className="mt-4">
-          <Link href="/" className="text-blue-500 hover:underline">
+          <Link href="/restaurants" className="text-blue-500 hover:underline">
             探索新餐廳
           </Link>
         </div>
@@ -173,7 +202,7 @@ export default function FavoriteListPage() {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">
-        我的收藏 ({allFavoriteIds.length} 間)
+        {isMyProfile ? "我的收藏" : "最愛餐廳"} ({totalFavorites} 間)
       </h2>
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable droppableId="favorite-list">
@@ -188,6 +217,7 @@ export default function FavoriteListPage() {
                   key={restaurant.id}
                   draggableId={restaurant.id}
                   index={index}
+                  isDragDisabled={!isMyProfile}
                 >
                   {(provided) => (
                     <div
@@ -199,6 +229,7 @@ export default function FavoriteListPage() {
                         restaurant={restaurant}
                         onRemove={handleRemoveFavorite}
                         index={index}
+                        isMyProfile={isMyProfile}
                       />
                     </div>
                   )}

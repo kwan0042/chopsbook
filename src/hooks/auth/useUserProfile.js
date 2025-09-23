@@ -94,6 +94,7 @@ export const useUserProfile = (
           throw new Error("Firebase 資料庫服務未初始化");
         }
         if (!currentUser?.isAdmin && currentUser?.uid !== userId) {
+          console.log(userId);
           throw new Error("您沒有權限更新此用戶資料。");
         }
 

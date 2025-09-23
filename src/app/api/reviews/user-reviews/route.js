@@ -1,5 +1,15 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase-admin";
+// ✅ 引入必要的 Firestore 函式
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  getDocs,
+} from "firebase/firestore";
+import { db, FieldPath } from "@/lib/firebase-admin";
 
 // 每頁顯示的食評數量
 const REVIEWS_PER_PAGE = 10;
@@ -8,13 +18,17 @@ const IN_QUERY_LIMIT = 10;
 
 /**
  * GET 請求處理函數，用於獲取用戶的食評及相關餐廳資訊。
- * URL 範例: /api/reviews/user-reviews?userId=someUserId&page=1&appId=someAppId
+ * URL 範例: /api/reviews/user-reviews?userId=someUserId&appId=someAppId&lastCreatedAt=someTimestamp
+ *
+ * @param {object} request - Next.js Request object.
+ * @returns {NextResponse} The JSON response containing reviews and total count.
  */
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
-    const page = parseInt(searchParams.get("page") || "1", 10);
+    // ✅ 關鍵：使用 lastCreatedAt 參數來實現游標式分頁
+    const lastCreatedAt = searchParams.get("lastCreatedAt");
     const appId = searchParams.get("appId");
 
     if (!userId || !appId) {
@@ -24,84 +38,81 @@ export async function GET(request) {
       );
     }
 
-    // 1. 從用戶文件獲取所有食評 ID
-    const userDocRef = db.collection(`artifacts/${appId}/users`).doc(userId);
-    const userDocSnap = await userDocRef.get();
+    // 1. 建立 Firestore 查詢
+    // 直接查詢食評集合，按時間戳降序排列，並限制數量
+    let reviewsQuery = db
+      .collection(`artifacts/${appId}/public/data/reviews`)
+      .where("userId", "==", userId)
+      .orderBy("createdAt", "desc")
+      .limit(REVIEWS_PER_PAGE);
 
-    if (!userDocSnap.exists) {
+    // 2. 應用游標分頁
+    // 如果有提供上一個食評的時間戳，就從它之後開始獲取
+    if (lastCreatedAt) {
+      // ✅ 從上一個食評的時間戳之後開始獲取
+      reviewsQuery = reviewsQuery.startAfter(new Date(lastCreatedAt));
+    }
+
+    const reviewsSnapshot = await reviewsQuery.get();
+
+    let reviewsData = reviewsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // 如果沒有獲取到任何評論，直接返回
+    if (reviewsData.length === 0) {
       return NextResponse.json(
         { reviews: [], totalReviews: 0 },
         { status: 200 }
       );
     }
 
-    const userData = userDocSnap.data();
-    const allReviewIds = (userData.publishedReviews || []).reverse();
-    const reviewsCount = allReviewIds.length;
-
-    // 2. 根據頁碼篩選出當前頁的食評 ID
-    const startIndex = (page - 1) * REVIEWS_PER_PAGE;
-    const endIndex = startIndex + REVIEWS_PER_PAGE;
-    const idsToFetch = allReviewIds.slice(startIndex, endIndex);
-
-    if (idsToFetch.length === 0) {
-      return NextResponse.json(
-        { reviews: [], totalReviews: reviewsCount },
-        { status: 200 }
-      );
-    }
-
-    // 3. 批次查詢當前頁的所有食評
-    const reviewsCollectionRef = db.collection(
-      `artifacts/${appId}/public/data/reviews`
-    );
-    const reviewsQuery = reviewsCollectionRef.where(
-      "__name__",
-      "in",
-      idsToFetch
-    );
-    const reviewsSnapshot = await reviewsQuery.get();
-    let fetchedReviews = reviewsSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    // 4. 根據 ID 列表對食評進行排序
-    fetchedReviews = idsToFetch
-      .map((id) => fetchedReviews.find((review) => review.id === id))
-      .filter(Boolean);
-
-    // 5. 提取所有唯一的餐廳 ID
+    // 3. 提取所有唯一的餐廳 ID
     const uniqueRestaurantIds = [
-      ...new Set(fetchedReviews.map((review) => review.restaurantId)),
+      ...new Set(reviewsData.map((review) => review.restaurantId)),
     ];
 
-    // 6. 批次查詢所有相關的餐廳名稱
+    // 4. 批次查詢所有相關的餐廳名稱
     const restaurantNamesMap = {};
     if (uniqueRestaurantIds.length > 0) {
-      // 將 ID 分成最多 10 個的區塊，以符合 'in' 查詢的限制
       for (let i = 0; i < uniqueRestaurantIds.length; i += IN_QUERY_LIMIT) {
         const batchIds = uniqueRestaurantIds.slice(i, i + IN_QUERY_LIMIT);
         const restaurantsQuery = db
           .collection(`artifacts/${appId}/public/data/restaurants`)
-          .where("__name__", "in", batchIds);
+          .where(FieldPath.documentId(), "in", batchIds);
         const restaurantsSnapshot = await restaurantsQuery.get();
         restaurantsSnapshot.docs.forEach((doc) => {
           const data = doc.data();
-          restaurantNamesMap[doc.id] = data.name;
+          restaurantNamesMap[doc.id] = data.restaurantName;
         });
       }
     }
 
-    // 7. 將餐廳名稱合併到食評資料中
-    const reviewsWithNames = fetchedReviews.map((review) => ({
+    // 5. 將餐廳名稱合併到食評資料中，並轉換日期格式
+    const reviewsWithNames = reviewsData.map((review) => ({
       ...review,
-      restaurantName: restaurantNamesMap[review.restaurantId] || "餐廳名稱未知",
+      restaurantName: restaurantNamesMap[review.restaurantId] || {
+        "zh-TW": "餐廳名稱未知",
+        en: "Unknown Restaurant",
+      },
+      // ✅ 轉換日期格式
+      createdAt: review.createdAt.toDate().toISOString(),
     }));
+
+    // 6. 獲取總食評數
+    const totalReviewsQuery = db
+      .collection(`artifacts/${appId}/public/data/reviews`)
+      .where("userId", "==", userId)
+      .count();
+    const totalSnapshot = await totalReviewsQuery.get();
+    const totalReviews = totalSnapshot.data().count;
 
     return NextResponse.json({
       reviews: reviewsWithNames,
-      totalReviews: reviewsCount,
+      totalReviews: totalReviews,
+      // ✅ 返回下一頁的游標 (最後一個食評的時間戳)
+      lastCreatedAt: reviewsWithNames[reviewsWithNames.length - 1]?.createdAt,
     });
   } catch (error) {
     console.error("API 錯誤:", error);

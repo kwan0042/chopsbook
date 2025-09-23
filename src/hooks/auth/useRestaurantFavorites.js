@@ -85,10 +85,10 @@ export const useRestaurantFavorites = (
         let message;
         if (currentFavorites.includes(restaurantId)) {
           newFavorites = currentFavorites.filter((id) => id !== restaurantId);
-          message = "已從收藏移除！";
+          
         } else {
           newFavorites = [...currentFavorites, restaurantId];
-          message = "已加入收藏！";
+          
         }
 
         await updateDoc(userDocRef, {

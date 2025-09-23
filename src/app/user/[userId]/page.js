@@ -1,148 +1,161 @@
+// src/app/user/[userId]/page.js
 "use client";
 
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useCallback } from "react";
 import { AuthContext } from "@/lib/auth-context";
 import {
   collection,
   query,
   onSnapshot,
-  orderBy,
-  limit,
+  doc,
+  getDocs,
+  where,
+  documentId,
 } from "firebase/firestore";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import ProfileContent from "@/components/personal/ProfileContent";
+import Activities from "@/components/personal/Activities";
+import ProfileSection from "@/components/personal/ProfileSection";
+import { checkModeration } from "@/lib/config/moderationConfig";
 import Link from "next/link";
 
 /**
  * User Profile Page: 顯示用戶的個人主頁內容。
- * 這是 /user/[userId] 路徑下的預設頁面，專門用於顯示已發布的評論。
- * 所有公共 UI (Header, Nav, Sidebar) 都由 layout.js 管理。
+ * 這是 /user/[userId] 路徑下的預設頁面。
  */
 export default function UserReviewsPage({ params }) {
-  // 修正：使用 React.use() 來解構 Promise
   const { userId } = React.use(params);
-
   const {
     currentUser,
     loadingUser,
     setModalMessage,
-    formatDateTime,
     db,
     appId,
+    updateUserProfile,
   } = useContext(AuthContext);
 
   const isMyProfile = currentUser?.uid === userId;
 
-  const [publishedReviews, setPublishedReviews] = useState([]);
-  const [draftReviews, setDraftReviews] = useState([]);
-  const [recentActivities, setRecentActivities] = useState([]);
-  const [loadingContent, setLoadingContent] = useState(true);
-  const [loadingDrafts, setLoadingDrafts] = useState(true);
-  const [loadingActivities, setLoadingActivities] = useState(true);
+  const [profileUser, setProfileUser] = useState(null);
+  const [loadingProfileUser, setLoadingProfileUser] = useState(true);
 
-  // 1. 獲取當前頁面顯示的用戶的已發布食評
+  const [publishedReviews, setPublishedReviews] = useState([]);
+  const [recentFavorites, setRecentFavorites] = useState([]);
+  const [mostLikedReviews, setMostLikedReviews] = useState([]);
+  const [mostCheckIns, setMostCheckIns] = useState([]);
+
+  // 1. 獲取當前頁面顯示的用戶的個人資料
   useEffect(() => {
     if (!db || !userId) {
-      setLoadingContent(false);
+      setLoadingProfileUser(false);
       return;
     }
-    const reviewsCollectionRef = collection(
-      db,
-      `artifacts/${appId}/users/${userId}/published_reviews`
-    );
-    const q = query(reviewsCollectionRef);
+    const userDocRef = doc(db, `artifacts/${appId}/users/${userId}`);
     const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const fetchedReviews = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setPublishedReviews(fetchedReviews);
-        setLoadingContent(false);
+      userDocRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const userData = docSnap.data();
+          setProfileUser({ id: docSnap.id, ...userData });
+
+          fetchReviewsAndFavorites(userData);
+        } else {
+          setProfileUser(null);
+        }
+        setLoadingProfileUser(false);
       },
       (error) => {
-        console.error("獲取已發布評論失敗:", error);
-        setModalMessage(`獲取評論失敗: ${error.message}`);
-        setLoadingContent(false);
+        console.error("獲取用戶資料失敗:", error);
+        setModalMessage(`獲取用戶資料失敗: ${error.message}`);
+        setLoadingProfileUser(false);
       }
     );
     return () => unsubscribe();
   }, [db, userId, appId, setModalMessage]);
 
-  // 2. 獲取當前頁面顯示的用戶的草稿食評 (只在是自己的主頁時獲取)
-  useEffect(() => {
-    if (!isMyProfile || !db || !currentUser) {
-      setLoadingDrafts(false);
-      return;
-    }
+  // ✅ 核心修正：將所有資料獲取邏輯整合到一個函式中
+  const fetchReviewsAndFavorites = async (userData) => {
+    if (!db || !userId) return;
 
-    const draftsCollectionRef = collection(
-      db,
-      `artifacts/${appId}/users/${currentUser.uid}/draft_reviews`
-    );
-    const q = query(draftsCollectionRef, orderBy("createdAt", "desc"));
+    // ================== 獲取最近食評 ==================
+    try {
+      // ✅ 使用 API 路由獲取最近的食評
+      const response = await fetch(
+        `/api/reviews/user-reviews?userId=${userId}&appId=${appId}`
+      );
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const fetchedDrafts = snapshot.docs
-          .map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }))
-          .filter((draft) => {
-            const expiresAt = draft.expiresAt
-              ? new Date(draft.expiresAt)
-              : new Date(0);
-            return new Date() < expiresAt;
-          });
-        setDraftReviews(fetchedDrafts);
-        setLoadingDrafts(false);
-      },
-      (error) => {
-        console.error("獲取草稿食評失敗:", error);
-        setModalMessage(`獲取草稿食評失敗: ${error.message}`);
-        setLoadingDrafts(false);
+      if (!response.ok) {
+        throw new Error(`API 請求失敗: ${response.statusText}`);
       }
-    );
 
-    return () => unsubscribe();
-  }, [isMyProfile, db, currentUser, appId, setModalMessage]);
-
-  // 3. 獲取最近動態 (假設有一個 activities 集合)
-  useEffect(() => {
-    if (!db || !userId) {
-      setLoadingActivities(false);
-      return;
+      const data = await response.json();
+      // API 已經處理了排序和限制，我們直接使用返回的 reviews 陣列
+      setPublishedReviews(data.reviews);
+    } catch (error) {
+      console.error("獲取評論失敗:", error);
+      setModalMessage(`獲取評論失敗: ${error.message}`);
+      setPublishedReviews([]);
     }
-    // 假設有一個名為 'activities' 的集合，記錄所有動態
-    const activitiesCollectionRef = collection(db, "activities");
-    const q = query(
-      activitiesCollectionRef,
-      orderBy("timestamp", "desc"),
-      limit(5) // 只獲取最近 5 則
-    );
+    // ================== 獲取最愛餐廳 (使用 API 路由) ==================
+    if (
+      userData.favoriteRestaurants &&
+      userData.favoriteRestaurants.length > 0
+    ) {
+      try {
+        const response = await fetch("/api/restaurants", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            favoriteRestaurantIds: userData.favoriteRestaurants,
+          }),
+        });
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const fetchedActivities = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setRecentActivities(fetchedActivities);
-        setLoadingActivities(false);
-      },
-      (error) => {
-        console.error("獲取最近動態失敗:", error);
-        setLoadingActivities(false);
+        if (!response.ok) {
+          throw new Error(`API 請求失敗: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const restaurants = data.restaurants.slice(0, 3); // 只取前 3 個
+        setRecentFavorites(restaurants);
+      } catch (error) {
+        console.error("獲取最愛餐廳失敗:", error);
+        setModalMessage(`獲取最愛餐廳失敗: ${error.message}`);
+        setRecentFavorites([]);
       }
-    );
-    return () => unsubscribe();
-  }, [db, userId]);
+    } else {
+      setRecentFavorites([]);
+    }
+  };
 
-  if (loadingContent || loadingDrafts || loadingActivities) {
+  // 舊有的監聽器，現在不需要了，因為我們從主文件獲取資料
+  useEffect(() => {
+    setMostLikedReviews([]);
+    setMostCheckIns([]);
+  }, [userId]);
+
+  const handleUpdate = useCallback(
+    async (updates) => {
+      for (const key in updates) {
+        if (key === "intro") {
+          const moderationCheck = checkModeration(updates[key]);
+          if (moderationCheck) {
+            setModalMessage(moderationCheck, "warning");
+            return;
+          }
+        }
+      }
+      try {
+        await updateUserProfile(userId, updates);
+      } catch (error) {
+        setModalMessage(`更新失敗: ${error.message}`);
+        console.error("更新失敗:", error);
+      }
+    },
+    [userId, updateUserProfile, setModalMessage]
+  );
+
+  if (loadingUser || loadingProfileUser) {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <LoadingSpinner />
@@ -150,76 +163,88 @@ export default function UserReviewsPage({ params }) {
     );
   }
 
-  // 渲染動態的輔助函數
-  const renderActivity = (activity) => {
-    switch (activity.type) {
-      case "like":
-        return (
-          <>
-            讚賞了
-            <Link
-              href={`/review/${activity.reviewId}`}
-              className="text-blue-600 hover:underline ml-1"
-            >
-              {activity.reviewTitle || "某則食評"}
-            </Link>
-          </>
-        );
-      case "follow":
-        return (
-          <>
-            追蹤了
-            <Link
-              href={`/user/${activity.targetUserId}`}
-              className="text-blue-600 hover:underline ml-1"
-            >
-              {activity.targetUsername || "某位用戶"}
-            </Link>
-          </>
-        );
-      case "favorite":
-        return (
-          <>
-            收藏了
-            <Link
-              href={`/restaurant/${activity.restaurantId}`}
-              className="text-blue-600 hover:underline ml-1"
-            >
-              {activity.restaurantName || "某間餐廳"}
-            </Link>
-          </>
-        );
-      case "review":
-        return (
-          <>
-            發佈了
-            <Link
-              href={`/review/${activity.reviewId}`}
-              className="text-blue-600 hover:underline ml-1"
-            >
-              {activity.reviewTitle || "新食評"}
-            </Link>
-          </>
-        );
-      default:
-        return "進行了一項新動態";
-    }
-  };
+  const hasProfileContent =
+    profileUser?.intro ||
+    profileUser?.occupation ||
+    profileUser?.favoriteCuisine ||
+    profileUser?.tastes ||
+    profileUser?.city;
 
   return (
-    <ProfileContent
-      selectedNav="reviews"
-      currentUser={{ id: userId }}
-      loadingContent={loadingContent || loadingDrafts || loadingActivities}
-      publishedReviews={publishedReviews}
-      draftReviews={draftReviews}
-      setModalMessage={setModalMessage}
-      db={db}
-      appId={appId}
-      formatDateTime={formatDateTime}
-      isMyProfile={isMyProfile}
-      recentActivities={recentActivities}
-      renderActivity={renderActivity}
-    />
+    <div className="space-y-8">
+      {/* 整合後的個人檔案區塊 */}
+      {(isMyProfile || hasProfileContent) && (
+        <ProfileSection
+          title="個人檔案"
+          isEditable={isMyProfile}
+          onSave={handleUpdate}
+          mainField={{
+            key: "intro",
+            label: "個人簡介",
+            value: profileUser?.intro,
+            isTextArea: true,
+            placeholder: "例如：我是一個熱愛美食的冒險家...",
+          }}
+          sideFields={[
+            {
+              key: "occupation",
+              label: "職業",
+              value: profileUser?.occupation,
+              placeholder: "例如：科技業",
+            },
+            {
+              key: "city",
+              label: "居住城市",
+              value: profileUser?.city,
+              placeholder: "例如：香港",
+            },
+            {
+              key: "favoriteCuisine",
+              label: "最愛菜系",
+              value: profileUser?.favoriteCuisine,
+              placeholder: "例如：日本料理",
+            },
+            {
+              key: "tastes",
+              label: "口味偏好",
+              value: profileUser?.tastes,
+              placeholder: "例如：喜歡甜點與咖啡",
+            },
+          ]}
+        />
+      )}
+
+      {/* 3. 最近食評 */}
+      <Activities
+        title="最近食評"
+        items={publishedReviews}
+        noDataMessage="此用戶尚未發布任何食評。"
+        type="reviews"
+      />
+
+      {/* 4. 最喜愛餐廳*/}
+      <Activities
+        title="最喜愛餐廳"
+        items={recentFavorites}
+        noDataMessage="此用戶尚未收藏任何餐廳。"
+        type="favorites"
+      />
+
+      {/* 5. 最多讚的食評 */}
+      {/* <Activities
+        title="最多讚的食評"
+        items={mostLikedReviews}
+        noDataMessage="此用戶的食評還沒有獲得任何讚。"
+        type="mostLiked"
+      /> */}
+
+      {/* 6. 最多打卡餐廳 */}
+      {/* <Activities
+        title="最多打卡餐廳"
+        items={mostCheckIns}
+        noDataMessage="此用戶尚未打卡任何餐廳。"
+        type="checkIns"
+      /> */}
+    </div>
   );
 }

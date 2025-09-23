@@ -49,3 +49,36 @@ export const formatDateTime = (date) => {
     return "格式化失敗";
   }
 };
+
+/**
+ * formatDate: 格式化日期，並強制使用多倫多時區來顯示。
+ * @param {Date | object | string} date - 日期物件、Firestore Timestamp 或日期字串。
+ * @returns {string} - 格式化後的多倫多日期字串或 "N/A"。
+ */
+export const formatDate = (date) => {
+  if (!date) return "N/A";
+  try {
+    let d;
+    // 嘗試解析 Firestore Timestamp 對象
+    if (typeof date === "object" && date.seconds && date.nanoseconds) {
+      d = new Date(date.seconds * 1000 + date.nanoseconds / 1000000);
+    } else {
+      d = new Date(date);
+    }
+
+    if (isNaN(d.getTime())) {
+      return "無效日期";
+    }
+
+    // 強制使用多倫多時區，並以台灣格式顯示
+    return d.toLocaleString("zh-TW", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: "America/Toronto", // 強制使用多倫多時區
+    });
+  } catch (e) {
+    console.error("格式化日期失敗:", e);
+    return "格式化失敗";
+  }
+};

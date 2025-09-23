@@ -1,4 +1,4 @@
-// src/config/moderationConfig.js
+// src/lib/config/moderationConfig.js
 
 /**
  * 敏感詞彙列表 (可擴展)
@@ -40,3 +40,18 @@ export const forbiddenWords = [
   "槍",
   "屌",
 ];
+
+/**
+ * checkModeration: Simple moderation check for forbidden words.
+ * @param {string} text - The text content to check.
+ * @returns {string | null} - Returns a warning message if forbidden words are found, otherwise returns null.
+ */
+export const checkModeration = (text) => {
+  const lowerCaseText = text.toLowerCase();
+  for (const word of forbiddenWords) {
+    if (lowerCaseText.includes(word)) {
+      return `食評包含敏感詞彙: "${word}"`;
+    }
+  }
+  return null;
+};

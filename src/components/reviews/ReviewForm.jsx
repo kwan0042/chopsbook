@@ -1,3 +1,4 @@
+// src/components/reviews/ReviewForm.js
 "use client";
 
 import React, { useState, useEffect, useContext, useCallback } from "react";
@@ -25,14 +26,27 @@ const ratingCategories = [
   { key: "drinks", label: "酒/飲料" },
 ];
 
-const ReviewForm = ({ onBack, draftId }) => {
+const ReviewForm = ({
+  onBack,
+  draftId,
+  restaurantIdFromUrl,
+  restaurantNameFromUrl,
+}) => {
   const { db, currentUser, appId, saveReviewDraft } = useContext(AuthContext);
   const router = useRouter();
 
   const [restaurants, setRestaurants] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredRestaurants, setFilteredRestaurants] = useState([]);
-  const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+  // 新增：根據 URL 參數初始化 selectedRestaurant
+  const [selectedRestaurant, setSelectedRestaurant] = useState(() =>
+    restaurantIdFromUrl && restaurantNameFromUrl
+      ? {
+          id: restaurantIdFromUrl,
+          restaurantName: { "zh-TW": restaurantNameFromUrl },
+        }
+      : null
+  );
 
   const [reviewTitle, setReviewTitle] = useState("");
   const [overallRating, setOverallRating] = useState(0);
@@ -221,6 +235,28 @@ const ReviewForm = ({ onBack, draftId }) => {
     };
     fetchUsername();
   }, [currentUser, db, appId]);
+
+  // 新增：處理從 URL 傳入的餐廳資訊
+  useEffect(() => {
+    if (
+      restaurantIdFromUrl &&
+      restaurantNameFromUrl &&
+      restaurants.length > 0
+    ) {
+      const foundRestaurant = restaurants.find(
+        (r) => r.id === restaurantIdFromUrl
+      );
+      if (foundRestaurant) {
+        setSelectedRestaurant(foundRestaurant);
+      } else {
+        // 如果找不到，則使用 URL 傳入的資訊（可能數據庫還未同步）
+        setSelectedRestaurant({
+          id: restaurantIdFromUrl,
+          restaurantName: { "zh-TW": restaurantNameFromUrl },
+        });
+      }
+    }
+  }, [restaurantIdFromUrl, restaurantNameFromUrl, restaurants]);
 
   useEffect(() => {
     const loadDraft = async () => {
@@ -546,6 +582,8 @@ const ReviewForm = ({ onBack, draftId }) => {
             setReviewContent={setReviewContent}
             errors={errors}
             setErrors={setErrors}
+            // 新增：傳遞是否預先選擇了餐廳的狀態
+            isRestaurantPreselected={!!restaurantIdFromUrl}
           />
           <ReviewRatingSection
             overallRating={overallRating}

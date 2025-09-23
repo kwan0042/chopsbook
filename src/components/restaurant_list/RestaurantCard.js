@@ -1,16 +1,19 @@
+// src/components/RestaurantCard.js
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faStar as faSolidStar } from "@fortawesome/free-solid-svg-icons";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import { faBookmark as faSolidBookmark } from "@fortawesome/free-solid-svg-icons";
 import { faBookmark as faRegularBookmark } from "@fortawesome/free-regular-svg-icons";
-import { faComment } from "@fortawesome/free-solid-svg-icons";
+import { faComment, faShare } from "@fortawesome/free-solid-svg-icons"; // 移除 faCheckCircle
+import { useRouter } from "next/navigation";
 
 // 導入自定義 Hook
 import useRestaurantStatus from "@/hooks/useRestaurantStatus";
+import ShareModal from "@/components/ShareModal"; // 假設你已創建這個組件
 
 /**
  * RestaurantCard 組件: 顯示單個餐廳的資訊卡片，支援網格和列表視圖。
@@ -27,11 +30,13 @@ const RestaurantCard = ({
   isFavorited,
   onToggleFavorite,
 }) => {
+  const router = useRouter();
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
   // 使用 Hook 判斷餐廳營業狀態
   const { text: operatingStatus, color: operatingStatusColor } =
     useRestaurantStatus(restaurant);
 
-  // ✅ 根據您的要求，已移除 facadePhotoUrl
   const facadePhotoUrls = Array.isArray(restaurant.facadePhotoUrls)
     ? restaurant.facadePhotoUrls
     : [];
@@ -39,7 +44,6 @@ const RestaurantCard = ({
   const hasAnyImage = facadePhotoUrls.length > 0;
   const placeholderSize = isGridView ? "400x240" : "400x200";
 
-  // ✅ 修正：使用新的多語言 restaurantName map
   const displayImageUrl = hasAnyImage
     ? facadePhotoUrls[0]
     : `https://placehold.co/${placeholderSize}/CCCCCC/333333?text=${encodeURIComponent(
@@ -54,17 +58,38 @@ const RestaurantCard = ({
     onToggleFavorite(restaurant.id);
   };
 
+  const handleCheckInClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const restaurantName =
+      restaurant.restaurantName?.["zh-TW"] ||
+      restaurant.restaurantName?.en ||
+      "未知餐廳";
+    router.push(
+      `/review?restaurantId=${
+        restaurant.id
+      }&restaurantName=${encodeURIComponent(restaurantName)}`
+    );
+  };
+  const handleShareClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsShareModalOpen(true);
+  };
+
+  const restaurantLink = `${window.location.origin}/restaurants/${restaurant.id}`;
+
   return (
     <div className={`relative ${isGridView ? "w-full" : "w-full my-2"}`}>
-      <Link href={`/restaurants/${restaurant.id}`} passHref>
-        <div
-          className={`bg-white shadow-lg overflow-hidden transform transition duration-300 ease-in-out cursor-pointer h-fit
-            ${
-              isGridView
-                ? "hover:scale-105 rounded-xl"
-                : "flex flex-row items-start rounded-xl p-3 border border-gray-200 hover:shadow-md"
-            }`}
-        >
+      <div
+        className={`bg-white shadow-lg overflow-hidden h-fit ${
+          isGridView
+            ? "hover:scale-105 rounded-xl transform transition duration-300 ease-in-out"
+            : "flex flex-row items-start rounded-xl p-3 border border-gray-200 hover:shadow-md"
+        }`}
+      >
+        {/* 圖片區域 - 點擊導航 */}
+        <Link href={`/restaurants/${restaurant.id}`} passHref>
           <div
             className={`relative flex-shrink-0 rounded-lg overflow-hidden ${
               isGridView ? "w-full h-48" : "w-[350px] h-[200px] mr-4"
@@ -73,7 +98,6 @@ const RestaurantCard = ({
             <img
               src={displayImageUrl}
               alt={
-                // ✅ 修正：使用新的多語言 restaurantName map
                 restaurant.restaurantName?.["zh-TW"] ||
                 restaurant.restaurantName?.en ||
                 "餐廳圖片"
@@ -85,116 +109,150 @@ const RestaurantCard = ({
               }}
             />
           </div>
+        </Link>
 
-          <div
-            className={`${
-              isGridView ? "p-6 h-60" : "flex-grow text-left py-1"
-            }`}
-          >
+        <div
+          className={`${isGridView ? "p-6 h-60" : "flex-grow text-left py-1"}`}
+        >
+          {/* 餐廳名稱 - 點擊導航 */}
+          <Link href={`/restaurants/${restaurant.id}`} passHref>
             <h3
-              className={`font-bold text-gray-900 mb-1 leading-tight text-wrap ${
+              className={`font-bold text-gray-900 mb-1 leading-tight text-wrap hover:underline cursor-pointer ${
                 isGridView ? "text-base" : "text-base"
               }`}
             >
-              {/* ✅ 修正：使用新的多語言 restaurantName map */}
               {restaurant.restaurantName?.["zh-TW"] ||
                 restaurant.restaurantName?.en ||
                 `未知餐廳`}
             </h3>
+          </Link>
 
-            <div
-              className={`flex items-center mb-1 ${
-                isGridView ? "text-sm" : "text-sm"
-              }`}
-            >
-              {Array.from({ length: 5 }, (_, index) => (
-                <FontAwesomeIcon
-                  key={index}
-                  icon={
-                    index < Math.floor(restaurant.averageRating || 0)
-                      ? faSolidStar
-                      : faRegularStar
-                  }
-                  className={`${isGridView ? "text-sm" : "text-sm"} ${
-                    index < Math.floor(restaurant.averageRating || 0)
-                      ? "text-yellow-500"
-                      : "text-gray-300"
-                  }`}
-                />
-              ))}
-              <span
-                className={`text-gray-800 font-bold ml-1 ${
-                  isGridView ? "text-sm" : "text-sm"
+          {/* 其他資訊 - 不可點擊 */}
+          <div
+            className={`flex items-center mb-1 ${
+              isGridView ? "text-sm" : "text-sm"
+            }`}
+          >
+            {Array.from({ length: 5 }, (_, index) => (
+              <FontAwesomeIcon
+                key={index}
+                icon={
+                  index < Math.floor(restaurant.averageRating || 0)
+                    ? faSolidStar
+                    : faRegularStar
+                }
+                className={`${isGridView ? "text-sm" : "text-sm"} ${
+                  index < Math.floor(restaurant.averageRating || 0)
+                    ? "text-yellow-500"
+                    : "text-gray-300"
                 }`}
-              >
-                {restaurant.averageRating?.toFixed(1) || "N/A"}
-              </span>
-              <span
-                className={`ml-2 flex items-center text-gray-700 ${
-                  isGridView ? "text-sm" : "text-sm"
-                }`}
-              >
-                <div className="relative">
-                  <FontAwesomeIcon icon={faComment} className="text-blue-500" />
-                  <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
-                    {restaurant.reviewCount || 0}
-                  </span>
-                </div>
-              </span>
-            </div>
-
-            <p
-              className={`text-gray-700 mb-1 text-wrap ${
+              />
+            ))}
+            <span
+              className={`text-gray-800 font-bold ml-1 ${
                 isGridView ? "text-sm" : "text-sm"
               }`}
             >
-              {restaurant.fullAddress || "N/A"}
-            </p>
-
-            <p
-              className={`text-gray-700 mb-1 text-wrap ${
+              {restaurant.averageRating?.toFixed(1) || "N/A"}
+            </span>
+            <span
+              className={`ml-2 flex items-center text-gray-700 ${
                 isGridView ? "text-sm" : "text-sm"
               }`}
             >
-              {restaurant.city || "N/A"} | {restaurant.cuisineType || "N/A"} |
-              人均: ${restaurant.avgSpending || "N/A"}
-            </p>
-
-            <p
-              className={`text-gray-700 mb-1 text-wrap ${
-                isGridView ? "text-sm" : "text-sm"
-              }`}
-            >
-              電話: {restaurant.phone || "N/A"}
-            </p>
-
-            <p
-              className={`text-gray-700 mt-1 text-wrap ${
-                isGridView ? "text-sm" : "text-sm"
-              }`}
-            >
-              <span className={`font-bold ${operatingStatusColor}`}>
-                {operatingStatus}
-              </span>
-            </p>
+              <div className="relative">
+                <FontAwesomeIcon icon={faComment} className="text-blue-500" />
+                <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                  {restaurant.reviewCount || 0}
+                </span>
+              </div>
+            </span>
           </div>
-        </div>
-      </Link>
 
-      <button
-        onClick={handleFavoriteClick}
-        className="absolute top-3 right-3 z-10 p-2 bg-transparent border-none
-                   hover:text-yellow-500 transition duration-200 "
-        aria-label={isFavorited ? "取消收藏" : "收藏餐廳"}
-        type="button"
-      >
-        <FontAwesomeIcon
-          icon={isFavorited ? faSolidBookmark : faRegularBookmark}
-          className={`text-2xl ${
-            isFavorited ? "text-yellow-500" : "text-blue-100"
-          }`}
+          <p
+            className={`text-gray-700 mb-1 text-wrap ${
+              isGridView ? "text-sm" : "text-sm"
+            }`}
+          >
+            {restaurant.fullAddress || "N/A"}
+          </p>
+
+          <p
+            className={`text-gray-700 mb-1 text-wrap ${
+              isGridView ? "text-sm" : "text-sm"
+            }`}
+          >
+            {restaurant.city || "N/A"} | {restaurant.cuisineType || "N/A"} |
+            人均: ${restaurant.avgSpending || "N/A"}
+          </p>
+
+          <p
+            className={`text-gray-700 mb-1 text-wrap ${
+              isGridView ? "text-sm" : "text-sm"
+            }`}
+          >
+            電話: {restaurant.phone || "N/A"}
+          </p>
+
+          <p
+            className={`text-gray-700 mt-1 text-wrap ${
+              isGridView ? "text-sm" : "text-sm"
+            }`}
+          >
+            <span className={`font-bold ${operatingStatusColor}`}>
+              {operatingStatus}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      {/* 新增功能按鈕區塊 - 獨立於卡片導航 */}
+      <div className="absolute top-3 right-3 flex items-center space-x-2">
+        <button
+          onClick={handleFavoriteClick}
+          className="p-2 bg-transparent border-none hover:text-yellow-500 transition duration-200"
+          aria-label={isFavorited ? "取消收藏" : "收藏餐廳"}
+          type="button"
+        >
+          <FontAwesomeIcon
+            icon={isFavorited ? faSolidBookmark : faRegularBookmark}
+            className={`text-2xl drop-shadow-md ${
+              isFavorited ? "text-yellow-500" : "text-gray-400"
+            }`}
+          />
+        </button>
+      </div>
+
+      <div className="absolute bottom-3 right-3 flex items-center space-x-2 z-10">
+        <button
+          onClick={handleCheckInClick}
+          className="bg-cbbg text-rose-500 hover:bg-blue-600 hover:text-cbbg text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
+          type="button"
+        >
+          打卡
+        </button>
+        <button
+          onClick={handleShareClick}
+          className="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
+          type="button"
+          aria-label="分享"
+        >
+          <FontAwesomeIcon icon={faShare} />
+        </button>
+      </div>
+
+      {isShareModalOpen && (
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          restaurantName={
+            restaurant.restaurantName?.["zh-TW"] ||
+            restaurant.restaurantName?.en ||
+            "未知餐廳"
+          }
+          shareUrl={restaurantLink}
         />
-      </button>
+      )}
     </div>
   );
 };

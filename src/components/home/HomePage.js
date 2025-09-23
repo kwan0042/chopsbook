@@ -34,7 +34,7 @@ const HomePage = ({
 }) => {
   const { currentUser, logout, setModalMessage, modalMessage, db, appId } =
     useContext(AuthContext); // ✅ 從 AuthContext 獲取 db 和 appId
-  var currentYear = new Date().getFullYear();
+  
   const router = useRouter();
 
   // 管理 FilterModal (舊有的，不同的 Modal) 的顯示狀態
@@ -101,9 +101,7 @@ const HomePage = ({
           <TrendingCateSection />
         </div>
       </main>
-      <footer className="bg-gray-800 text-white text-center py-6 text-sm font-light">
-        &copy; {currentYear} ChopsBook. 版權所有.
-      </footer>
+      
 
       <FilterModal
         isOpen={showFilterModal}

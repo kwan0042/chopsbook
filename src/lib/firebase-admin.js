@@ -2,7 +2,7 @@
 
 import { initializeApp, getApps, cert, getApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore, FieldValue, FieldPath } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 
 // 確保你的環境變數被正確載入
@@ -30,4 +30,4 @@ export const auth = getAuth(adminApp);
 export const db = getFirestore(adminApp);
 export const app = adminApp;
 export const bucket = getStorage(adminApp).bucket();
-export { FieldValue };
+export { FieldValue, FieldPath };

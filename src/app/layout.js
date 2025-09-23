@@ -1,5 +1,6 @@
-import { AuthProvider } from "../lib/auth-context";
-import Navbar from "../components/Navbar"; // ✅ 引入 Navbar 元件
+// src/app/layout.js
+import { AuthProvider } from "@/lib/auth-context";
+import AppLayout from "@/components/AppLayout"; // ✅ 引入新的 AppLayout
 import "./globals.css";
 
 export const metadata = {
@@ -15,8 +16,7 @@ export default function RootLayout({ children }) {
     <html lang="zh-Hant">
       <body>
         <AuthProvider>
-          <Navbar /> {/* ✅ 在這裡使用 Navbar 元件 */}
-          {children}
+          <AppLayout>{children}</AppLayout> {/* ✅ 在這裡使用 AppLayout */}
         </AuthProvider>
       </body>
     </html>

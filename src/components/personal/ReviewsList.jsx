@@ -82,7 +82,7 @@ const renderServiceTypeIcon = (serviceTypeValue) => {
 // 每頁顯示的圖片數量
 const IMAGES_PER_PAGE = 4;
 
-export default function ProfileContent({ publishedReviews }) {
+export default function ReviewsList({ publishedReviews }) {
   const [expandedReviews, setExpandedReviews] = useState({});
   const [currentImagePages, setCurrentImagePages] = useState({});
   const [selectedImage, setSelectedImage] = useState(null);
@@ -128,9 +128,11 @@ export default function ProfileContent({ publishedReviews }) {
           ? Math.ceil(review.uploadedImageUrls.length / IMAGES_PER_PAGE)
           : 0;
 
-        // 從物件中獲取餐廳名稱，如果不存在則使用 "餐廳名稱未知"
+        // ✅ 更新餐廳名稱的獲取方式
         const restaurantName =
-          review.restaurantNameZh || review.restaurantNameEn || "餐廳名稱未知";
+          review.restaurantName?.["zh-TW"] ||
+          review.restaurantName?.en ||
+          "餐廳名稱未知";
 
         return (
           <div
