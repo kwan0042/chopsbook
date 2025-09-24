@@ -19,8 +19,6 @@ const isRestaurantOpen = (businessHours, date, time) => {
   ];
   const currentDay = dayMapping[dayOfWeek];
 
-  console.log(`[Time Filter] 正在檢查日期: ${date}, 判斷為: ${currentDay}`);
-
   const hoursToday = businessHours.find((h) => h.day === currentDay);
   if (!hoursToday || !hoursToday.isOpen) return false;
 
@@ -48,11 +46,6 @@ const isRestaurantOpen = (businessHours, date, time) => {
   }
 };
 
-/**
- * 輔助函數：解析座位數字串，返回最小和最大容納人數
- * @param {any} seatingCapacityData - 餐廳座位數的資料，可能為字串、數字或 null。
- * @returns {object} - 包含 min 和 max 屬性的物件。
- */
 const parseSeatingCapacity = (seatingCapacityData) => {
   let min = 0;
   let max = Infinity;
@@ -78,19 +71,9 @@ const parseSeatingCapacity = (seatingCapacityData) => {
     min: isNaN(min) ? 0 : min,
     max: isNaN(max) ? Infinity : max,
   };
-  console.log(
-    `[Seating Filter] 解析原始資料 "${seatingCapacityData}" =>`,
-    result
-  );
   return result;
 };
 
-/**
- * 檢查餐廳是否能容納指定人數。
- * @param {object} restaurant - 餐廳資料物件。
- * @param {number} partySize - 派對人數。
- * @returns {boolean} - 餐廳是否有足夠的空間容納派對。
- */
 const passesSeatingFilter = (restaurant, partySize) => {
   if (isNaN(partySize) || partySize <= 0) {
     return true;
@@ -101,9 +84,6 @@ const passesSeatingFilter = (restaurant, partySize) => {
     parseSeatingCapacity(seatingCapacityData);
 
   const pass = partySize <= restaurantMaxCapacity;
-  console.log(
-    `[Seating Filter] 餐廳 "${restaurant.restaurantName?.["zh-TW"]}" - 人數: ${partySize}, 最大容量: ${restaurantMaxCapacity}, 結果: ${pass}`
-  );
   return pass;
 };
 
@@ -111,28 +91,34 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
 
-    // ✅ 修正：只解析實際的篩選條件，排除分頁參數
     const filters = {};
-    const searchQuery = searchParams.get("search");
-    const favoriteRestaurantIds = searchParams.getAll(
-      "favoriteRestaurantIds[]"
-    );
-
-    // 遍歷所有參數，只處理篩選相關的
     for (const [key, value] of searchParams.entries()) {
-      if (
-        key !== "limit" &&
-        key !== "startAfterDocId" &&
-        key !== "search" &&
-        key !== "favoriteRestaurantIds[]"
-      ) {
-        if (key.endsWith("[]")) {
-          filters[key.replace("[]", "")] = searchParams.getAll(key);
-        } else {
-          filters[key] = value;
-        }
+      if (key.endsWith("[]")) {
+        filters[key.replace("[]", "")] = searchParams.getAll(key);
+      } else {
+        filters[key] = value;
       }
     }
+
+    const {
+      limit = 10,
+      startAfterDocId,
+      search,
+      favoriteRestaurantIds,
+      province,
+      city,
+      minAvgSpending,
+      maxAvgSpending,
+      minRating,
+      partySize,
+      reservationModes,
+      paymentMethods,
+      facilities,
+      reservationDate,
+      reservationTime,
+      category,
+      businessHours,
+    } = filters;
 
     const appId = process.env.FIREBASE_ADMIN_APP_ID;
     const restaurantsColRef = db.collection(
@@ -140,156 +126,119 @@ export async function GET(request) {
     );
     let q = restaurantsColRef;
 
-    // 進行 Firestore 伺服器端篩選
-    if (filters.province) {
-      q = q.where("province", "==", filters.province);
+    // --- 修正人均消費和排序邏輯以符合 Firestore 規則 ---
+    // 1. 先進行排序
+    if (minAvgSpending || maxAvgSpending) {
+      q = q.orderBy("avgSpending", "asc");
     }
-    if (filters.city) {
-      q = q.where("city", "==", filters.city);
-    }
-    if (filters.minAvgSpending) {
-      q = q.where("avgSpending", ">=", parseInt(filters.minAvgSpending, 10));
-    }
-    if (filters.maxAvgSpending) {
-      q = q.where("avgSpending", "<=", parseInt(filters.maxAvgSpending, 10));
-    }
-    if (filters.minRating) {
-      q = q.where("rating", ">=", parseFloat(filters.minRating));
-    }
+    q = q.orderBy("__name__", "asc");
 
-    // 將 restaurants 變數的宣告移到這裡，確保它在所有邏輯分支中都可用。
-    let restaurants = [];
+    // 2. 再進行 Firestore 伺服器端篩選
+    if (province) {
+      q = q.where("province", "==", province);
+    }
+    if (city) {
+      q = q.where("city", "==", city);
+    }
+    if (minAvgSpending) {
+      q = q.where("avgSpending", ">=", parseInt(minAvgSpending, 10));
+    }
+    if (maxAvgSpending) {
+      q = q.where("avgSpending", "<=", parseInt(maxAvgSpending, 10));
+    }
+    if (minRating) {
+      q = q.where("rating", ">=", parseFloat(minRating));
+    }
+    // --- 修正結束 ---
 
-    // 如果有搜尋文字，則進行搜尋過濾
-    if (searchQuery) {
-      const normalizedQuery = searchQuery.toLowerCase();
-      const allRestaurants = await q.get();
-      allRestaurants.forEach((doc) => {
-        const data = doc.data();
-        const restaurantNameZh = data.restaurantName?.["zh-TW"] || "";
-        const restaurantNameEn = data.restaurantName?.en || "";
-        if (
-          restaurantNameZh.toLowerCase().includes(normalizedQuery) ||
-          restaurantNameEn.toLowerCase().includes(normalizedQuery)
-        ) {
-          restaurants.push({ id: doc.id, ...data });
-        }
-      });
-    } else {
-      // 新增分頁邏輯
-      const limit = parseInt(searchParams.get("limit") || 10, 10);
-      const startAfterDocId = searchParams.get("startAfterDocId");
-
-      q = q.orderBy("restaurantName.en").limit(limit + 1);
-
-      if (startAfterDocId) {
-        const startAfterDoc = await restaurantsColRef
-          .doc(startAfterDocId)
-          .get();
-        if (startAfterDoc.exists) {
-          q = q.startAfter(startAfterDoc);
-        }
+    let snapshot;
+    if (startAfterDocId) {
+      const startAfterDoc = await restaurantsColRef.doc(startAfterDocId).get();
+      if (startAfterDoc.exists) {
+        q = q.startAfter(startAfterDoc);
       }
-
-      const snapshot = await q.get();
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        restaurants.push({ id: doc.id, ...data });
-      });
     }
+    q = q.limit(200);
+    snapshot = await q.get();
 
-    // 在伺服器端進行二次篩選
-    const partySizeFilter = parseInt(filters.partySize, 10);
+    let restaurantsFromDb = [];
+    snapshot.forEach((doc) => {
+      restaurantsFromDb.push({ id: doc.id, ...doc.data() });
+    });
 
-    const hasFilters =
-      Object.keys(filters).length > 0 ||
-      searchQuery ||
-      favoriteRestaurantIds.length > 0;
+    let filteredRestaurants = restaurantsFromDb.filter((restaurant) => {
+      const passesCategory =
+        (category || []).length === 0 ||
+        (category || []).every((cat) => restaurant.cuisineType?.includes(cat));
 
-    // ✅ 核心修正：當沒有任何篩選時，直接返回所有餐廳。
-    // 否則，再執行後續的程式碼篩選。
-    if (!hasFilters) {
-      const limit = parseInt(searchParams.get("limit") || 10, 10);
-      const hasMore = restaurants.length > limit;
-      const paginatedRestaurants = hasMore
-        ? restaurants.slice(0, limit)
-        : restaurants;
-      const lastDocId =
-        paginatedRestaurants.length > 0
-          ? paginatedRestaurants[paginatedRestaurants.length - 1].id
-          : null;
+      const passesReservationModes =
+        (reservationModes || []).length === 0 ||
+        (reservationModes || []).every((mode) =>
+          restaurant.reservationModes?.includes(mode)
+        );
 
-      return NextResponse.json({
-        success: true,
-        restaurants: paginatedRestaurants,
-        hasMore,
-        lastDocId,
-      });
-    }
+      const passesPaymentMethods =
+        (paymentMethods || []).length === 0 ||
+        (paymentMethods || []).every((method) =>
+          restaurant.paymentMethods?.includes(method)
+        );
 
-    // 進行伺服器端二次篩選，處理複雜邏輯
-    const filteredRestaurants = restaurants.filter((restaurant) => {
+      const passesFacilities =
+        (facilities || []).length === 0 ||
+        (facilities || []).every((facility) =>
+          restaurant.facilitiesServices?.includes(facility)
+        );
+
       const passesFavorites =
+        !favoriteRestaurantIds ||
         favoriteRestaurantIds.length === 0 ||
         favoriteRestaurantIds.includes(restaurant.id);
 
-      const passesSeating = passesSeatingFilter(restaurant, partySizeFilter);
-      const passesReservationModes = (filters.reservationModes || []).every(
-        (mode) => restaurant.reservationModes?.includes(mode)
-      );
-      const passesPaymentMethods = (filters.paymentMethods || []).every(
-        (method) => restaurant.paymentMethods?.includes(method)
-      );
-      const passesFacilities = (filters.facilities || []).every((facility) =>
-        restaurant.facilitiesServices?.includes(facility)
+      const passesSeating = passesSeatingFilter(
+        restaurant,
+        parseInt(partySize, 10)
       );
 
-      const hasTimeOrDateFilter =
-        filters.reservationDate || filters.reservationTime;
       const passesTimeFilter =
-        !hasTimeOrDateFilter ||
-        isRestaurantOpen(
-          restaurant.businessHours,
-          filters.reservationDate || new Date().toISOString().split("T")[0],
-          filters.reservationTime || "12:00"
-        );
-
-      const passesCategory =
-        (filters.category || []).length === 0 ||
-        (filters.category || []).includes(restaurant.cuisineType);
-
-      const passesSearch =
-        !searchQuery ||
-        (restaurant.restaurantName?.["zh-TW"] || "")
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        (restaurant.restaurantName?.en || "")
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        (restaurant.cuisineType || "")
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        (restaurant.fullAddress || "")
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase());
+        !reservationDate && !reservationTime
+          ? true
+          : isRestaurantOpen(
+              restaurant.businessHours,
+              reservationDate || new Date().toISOString().split("T")[0],
+              reservationTime || "12:00"
+            );
 
       return (
-        passesSeating &&
+        passesCategory &&
         passesReservationModes &&
         passesPaymentMethods &&
         passesFacilities &&
-        passesTimeFilter &&
-        passesCategory &&
-        passesSearch &&
-        passesFavorites
+        passesFavorites &&
+        passesSeating &&
+        passesTimeFilter
       );
     });
 
-    const limit = parseInt(searchParams.get("limit") || 10, 10);
-    const hasMore = filteredRestaurants.length > limit;
-    const paginatedRestaurants = hasMore
-      ? filteredRestaurants.slice(0, limit)
-      : filteredRestaurants;
+    if (search) {
+      const normalizedQuery = search.toLowerCase();
+      filteredRestaurants = filteredRestaurants.filter(
+        (restaurant) =>
+          (restaurant.restaurantName?.["zh-TW"] || "")
+            .toLowerCase()
+            .includes(normalizedQuery) ||
+          (restaurant.restaurantName?.en || "")
+            .toLowerCase()
+            .includes(normalizedQuery) ||
+          (restaurant.cuisineType || "")
+            .toLowerCase()
+            .includes(normalizedQuery) ||
+          (restaurant.fullAddress || "").toLowerCase().includes(normalizedQuery)
+      );
+    }
+
+    const finalLimit = parseInt(limit, 10);
+    const paginatedRestaurants = filteredRestaurants.slice(0, finalLimit);
+    const hasMore = filteredRestaurants.length > finalLimit;
     const lastDocId =
       paginatedRestaurants.length > 0
         ? paginatedRestaurants[paginatedRestaurants.length - 1].id

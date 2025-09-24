@@ -60,7 +60,7 @@ const RestaurantForm = ({
         fileInputRef.current.value = "";
       }
     }
-  }, [formData.facadePhotoUrls?.[0], selectedFile]);
+  }, [formData.facadePhotoUrls, selectedFile]);
 
   const openFilePicker = () => {
     if (!isUploading && !isSubmittingForm) {
@@ -141,6 +141,7 @@ const RestaurantForm = ({
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
+        setIsUploading(false); // 上傳成功後立即將狀態設為 false
       }
 
       const updatedFormData = {
@@ -152,8 +153,8 @@ const RestaurantForm = ({
     } catch (error) {
       console.error("表單提交失敗:", error);
       setModalMessage(`表單提交失敗: ${error.message}`, "error");
-    } finally {
       setIsUploading(false);
+    } finally {
       setIsSubmittingForm(false);
     }
   };
@@ -173,6 +174,12 @@ const RestaurantForm = ({
   const citiesForSelectedProvince = citiesByProvince[formData.province] || [
     "選擇城市",
   ];
+
+  const getSubmitButtonText = () => {
+    if (isUploading) return "圖片上傳中...";
+    if (isSubmittingForm) return "提交中...";
+    return isUpdateForm ? "提交餐廳更新申請" : "新增餐廳";
+  };
 
   return (
     <form onSubmit={localHandleSubmit} className="space-y-6">
@@ -300,7 +307,7 @@ const RestaurantForm = ({
                   : "border-gray-300 focus:ring-blue-500"
               }
               disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
-              disabled={!formData.province || formData.province === "選擇省份"} // ✅ 新增這行
+              disabled={!formData.province || formData.province === "選擇省份"}
             >
               {citiesForSelectedProvince.map((option) => (
                 <option
@@ -888,9 +895,9 @@ const RestaurantForm = ({
         <button
           type="submit"
           className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={isSubmittingForm}
+          disabled={isUploading || isSubmittingForm}
         >
-          {isSubmittingForm ? "提交中..." : "提交餐廳更新申請"}
+          {getSubmitButtonText()}
         </button>
       </div>
     </form>

@@ -26,6 +26,7 @@
 /* 例如，為整個應用程式設定默認字體 */
 body {
   font-family: 'Inter', sans-serif;
+  background-color: #FDF4E2;
 }
 
 .scrollbar-hide::-webkit-scrollbar {

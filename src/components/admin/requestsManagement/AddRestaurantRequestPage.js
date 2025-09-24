@@ -164,14 +164,7 @@ const AddRestaurantRequestPage = ({ requestId }) => {
         reviewedBy: currentUser.email || currentUser.uid,
       });
 
-      // 新增：在批次中更新總數
-      // const countDocRef = doc(
-      //   db,
-      //   `artifacts/${appId}/public/data/count/reviewedRequests`
-      // );
-      // batch.update(countDocRef, {
-      //   count: increment(1),
-      // });
+      
 
       await batch.commit();
       setLocalModalMessage("已成功批准此請求並創建新餐廳！");
@@ -200,14 +193,7 @@ const AddRestaurantRequestPage = ({ requestId }) => {
         reviewedAt: new Date(),
       });
 
-      // 新增：在批次中更新總數
-      // const countDocRef = doc(
-      //   db,
-      //   `artifacts/${appId}/public/data/count/reviewedRequests`
-      // );
-      // batch.update(countDocRef, {
-      //   count: increment(1),
-      // });
+      
 
       await batch.commit(); // 執行批次寫入
 

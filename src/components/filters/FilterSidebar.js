@@ -20,6 +20,7 @@ import {
   paymentMethodOptions,
   facilitiesServiceOptions,
   provinceOptions,
+  citiesByProvince,
   seatingCapacityOptions,
 } from "../../data/restaurant-options";
 
@@ -29,7 +30,6 @@ import {
   DateTimeFilter,
 } from "./FilterComponents";
 
-// 引入 AuthContext 以獲取使用者資料
 import { AuthContext } from "@/lib/auth-context";
 
 const parseSeatingCapacityOptions = (options) => {
@@ -100,13 +100,22 @@ const FilterSidebar = ({
   const [isSeatingCapacityCollapsed, setIsSeatingCapacityCollapsed] =
     useState(true);
   const [isTimeAndPartyCollapsed, setIsTimeAndPartyCollapsed] = useState(true);
-
-  // 新增狀態來處理收藏餐廳篩選
+  const [cities, setCities] = useState([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const { currentUser } = useContext(AuthContext);
 
-  // 移除導致無限迴圈的 useEffect 鉤子。
-  // 現在，當 key 屬性改變時，useState 會自動使用新的 initialFilters 值進行初始化。
+  const [avgSpending, setAvgSpending] = useState(
+    initialFilters.avgSpending || 0
+  );
+
+  useEffect(() => {
+    if (localFilters.province) {
+      const citiesForProvince = citiesByProvince[localFilters.province] || [];
+      setCities(citiesForProvince);
+    } else {
+      setCities([]);
+    }
+  }, [localFilters.province]);
 
   const handleScroll = useCallback(() => {
     if (scrollContainerRef.current) {
@@ -128,10 +137,19 @@ const FilterSidebar = ({
   }, [handleScroll]);
 
   const handleFilterChange = useCallback((key, value) => {
-    setLocalFilters((prevFilters) => ({
-      ...prevFilters,
-      [key]: value,
-    }));
+    setLocalFilters((prevFilters) => {
+      if (key === "province") {
+        return {
+          ...prevFilters,
+          [key]: value,
+          city: "",
+        };
+      }
+      return {
+        ...prevFilters,
+        [key]: value,
+      };
+    });
   }, []);
 
   const handleMultiSelectFilterChange = useCallback((key, value) => {
@@ -148,17 +166,35 @@ const FilterSidebar = ({
   }, []);
 
   const handleApply = useCallback(async () => {
-    const newFilters = { ...localFilters };
+    const newFilters = {
+      ...localFilters,
+    };
+    // === 核心修正：只傳送一個 maxAvgSpending 參數給後端 ===
+    if (avgSpending > 0) {
+      newFilters.maxAvgSpending = avgSpending;
+    } else {
+      delete newFilters.maxAvgSpending;
+    }
+    // === 修正結束 ===
+
     if (showFavoritesOnly && currentUser && currentUser.favoriteRestaurants) {
       newFilters.favoriteRestaurantIds = currentUser.favoriteRestaurants;
     }
     onApplyFilters(newFilters);
     if (onClose) onClose();
-  }, [localFilters, showFavoritesOnly, currentUser, onApplyFilters, onClose]);
+  }, [
+    localFilters,
+    avgSpending,
+    showFavoritesOnly,
+    currentUser,
+    onApplyFilters,
+    onClose,
+  ]);
 
   const handleReset = useCallback(() => {
     setLocalFilters({});
     setShowFavoritesOnly(false);
+    setAvgSpending(0); // 重設為 0，表示不應用人均消費篩選
     onResetFilters();
     if (onClose) onClose();
   }, [onResetFilters, onClose]);
@@ -186,13 +222,14 @@ const FilterSidebar = ({
     const defaultFilters = {};
     return (
       JSON.stringify(localFilters) !== JSON.stringify(defaultFilters) ||
-      showFavoritesOnly
+      showFavoritesOnly ||
+      avgSpending > 0
     );
   };
   const isFiltersActive = hasFiltersApplied();
 
   return (
-    <div className="relative bg-white p-6 shadow-lg rounded-2xl w-full flex flex-col h-full">
+    <div className="relative bg-white p-6  rounded-2xl w-full flex flex-col h-full">
       <h3 className="text-xl font-bold text-gray-900 mb-6">篩選餐廳</h3>
       <div
         className={`absolute inset-x-0 h-[50px] pointer-events-none bg-gradient-to-b from-white to-white/0 z-10 transition-opacity duration-300 ${
@@ -270,22 +307,42 @@ const FilterSidebar = ({
                   />
                 </div>
               </div>
-              <div>
-                <label
-                  htmlFor="city"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  城市
-                </label>
-                <input
-                  type="text"
-                  id="city"
-                  placeholder="輸入城市名稱"
-                  value={localFilters.city || ""}
-                  onChange={(e) => handleFilterChange("city", e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                />
-              </div>
+
+              {localFilters.province && (
+                <div>
+                  <label
+                    htmlFor="city"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    城市
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="city"
+                      value={localFilters.city || ""}
+                      onChange={(e) =>
+                        handleFilterChange("city", e.target.value)
+                      }
+                      className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8 ${
+                        !localFilters.province
+                          ? "bg-gray-100 cursor-not-allowed"
+                          : ""
+                      }`}
+                      disabled={!localFilters.province}
+                    >
+                      {cities.map((city) => (
+                        <option key={city} value={city}>
+                          {city}
+                        </option>
+                      ))}
+                    </select>
+                    <FontAwesomeIcon
+                      icon={faChevronDown}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </FilterGroup>
 
@@ -309,49 +366,30 @@ const FilterSidebar = ({
             isCollapsed={isAvgSpendingCollapsed}
             onToggle={() => setIsAvgSpendingCollapsed(!isAvgSpendingCollapsed)}
           >
-            <div className="space-y-2">
-              <div>
-                <label
-                  htmlFor="minAvgSpending"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  最低人均消費 ($)
-                </label>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center text-sm font-medium text-gray-700">
+                <span>人均消費</span>
+                <span>
+                  {avgSpending === 0
+                    ? "不限"
+                    : avgSpending === 200
+                    ? "$200+"
+                    : `<$${avgSpending}`}
+                </span>
+              </div>
+              <div className="relative h-6">
                 <input
-                  type="number"
-                  id="minAvgSpending"
-                  value={localFilters.minAvgSpending || ""}
-                  onChange={(e) =>
-                    handleFilterChange(
-                      "minAvgSpending",
-                      e.target.value ? parseInt(e.target.value, 10) : undefined
-                    )
-                  }
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                  type="range"
                   min="0"
+                  max="200"
+                  value={avgSpending}
+                  onChange={(e) => setAvgSpending(parseInt(e.target.value, 10))}
+                  className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
-              <div>
-                <label
-                  htmlFor="maxAvgSpending"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  最高人均消費 ($)
-                </label>
-                <input
-                  type="number"
-                  id="maxAvgSpending"
-                  value={localFilters.maxAvgSpending || ""}
-                  onChange={(e) =>
-                    handleFilterChange(
-                      "maxAvgSpending",
-                      e.target.value ? parseInt(e.target.value, 10) : undefined
-                    )
-                  }
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                  min="0"
-                />
-              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                拖曳滑動條以選擇人均消費。
+              </p>
             </div>
           </FilterGroup>
 

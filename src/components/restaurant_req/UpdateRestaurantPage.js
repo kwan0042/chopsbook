@@ -262,6 +262,27 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       return;
     }
 
+    // 在提交前將特定欄位轉換為數字類型
+    const dataToSubmit = { ...updatedFormDataWithImageUrl };
+    if (dataToSubmit.avgSpending) {
+      dataToSubmit.avgSpending = parseInt(dataToSubmit.avgSpending, 10);
+    }
+    if (dataToSubmit.phone) {
+      dataToSubmit.phone = parseInt(
+        dataToSubmit.phone.replace(/[^0-9]/g, ""),
+        10
+      );
+    }
+    if (dataToSubmit.contactPhone) {
+      dataToSubmit.contactPhone = parseInt(
+        dataToSubmit.contactPhone.replace(/[^0-9]/g, ""),
+        10
+      );
+    }
+    if (dataToSubmit.priority) {
+      dataToSubmit.priority = parseInt(dataToSubmit.priority, 10);
+    }
+
     try {
       const updateApplicationsRef = collection(
         db,
@@ -269,12 +290,12 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       );
 
       const changes = {};
-      const fieldsToCheck = Object.keys(updatedFormDataWithImageUrl);
+      const fieldsToCheck = Object.keys(dataToSubmit);
 
       fieldsToCheck.forEach((field) => {
         if (field === "id") return;
 
-        const formValue = updatedFormDataWithImageUrl[field];
+        const formValue = dataToSubmit[field];
         const originalValue = selectedRestaurantData?.[field];
 
         if (Array.isArray(formValue) && Array.isArray(originalValue)) {
@@ -327,7 +348,9 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
         status: "pending",
       });
       const successMsg =
-        "謝謝你使用ChopsBook 提供餐廳資訊 為廣大嘅美食家作出貢獻 幕後團隊將火速審批";
+        "謝謝你使用ChopsBook，\n" +
+        "提供餐廳資訊為廣大嘅美食家作出貢獻。\n" +
+        "幕後團隊將火速審批！";
       setModalMessage(successMsg);
       setModalType("success");
       setSelectedRestaurantId(null);
@@ -433,6 +456,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
             isLoading={submitting}
             submitButtonText="提交餐廳更新申請"
             isUpdateForm={true}
+            errors={errors}
           />
         )}
       </div>

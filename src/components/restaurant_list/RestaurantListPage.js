@@ -268,7 +268,7 @@ const RestaurantListPage = ({
   }, [filters, searchQuery, onClearFilters, onRemoveFilter]);
 
   return (
-    <div className="flex-grow">
+    <div className="h-full flex flex-col">
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-xl px-3 font-bold text-gray-800">
           {hasFiltersOrSearch ? "搜尋/篩選結果" : "所有餐廳"}
@@ -308,7 +308,7 @@ const RestaurantListPage = ({
       {loading ? (
         <LoadingSpinner />
       ) : restaurants.length === 0 ? (
-        <p className="text-center text-gray-600 text-lg mt-10">
+        <p className="text-center text-gray-600 text-lg mt-10 flex-grow">
           {hasFiltersOrSearch
             ? "沒有餐廳符合搜尋/篩選條件。"
             : "目前沒有餐廳資料。"}

@@ -19,7 +19,7 @@ const ArrowLeftIcon = ({ className = "" }) => (
   >
     <path
       fillRule="evenodd"
-      d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+      d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
       clipRule="evenodd"
     />
   </svg>
@@ -72,7 +72,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     })),
     closedDates: "",
     isHolidayOpen: false,
-    holidayHours: "", // ✅ 新增
+    holidayHours: "",
     reservationModes: [],
     paymentMethods: [],
     facilitiesServices: [],
@@ -82,6 +82,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     contactPhone: "",
     contactEmail: "",
     awards: "",
+    priority: 0,
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -158,6 +159,26 @@ const AddRestaurantPage = ({ onBackToHome }) => {
 
     const dataToSubmit = { ...(updatedFormData || formData) };
 
+    // **核心修正：在提交前將特定欄位轉換為數字類型**
+    if (dataToSubmit.avgSpending) {
+      dataToSubmit.avgSpending = parseInt(dataToSubmit.avgSpending, 10);
+    }
+    if (dataToSubmit.phone) {
+      dataToSubmit.phone = parseInt(
+        dataToSubmit.phone.replace(/[^0-9]/g, ""),
+        10
+      );
+    }
+    if (dataToSubmit.contactPhone) {
+      dataToSubmit.contactPhone = parseInt(
+        dataToSubmit.contactPhone.replace(/[^0-9]/g, ""),
+        10
+      );
+    }
+    if (dataToSubmit.priority) {
+      dataToSubmit.priority = parseInt(dataToSubmit.priority, 10);
+    }
+
     try {
       await addDoc(
         collection(db, `artifacts/${appId}/public/data/restaurant_requests`),
@@ -170,9 +191,9 @@ const AddRestaurantPage = ({ onBackToHome }) => {
         }
       );
       setModalMessage(
-        "謝謝你使用ChopsBook" +
-          "/br" +
-          "提供餐廳資訊 為廣大嘅美食家作出貢獻 幕後團隊將火速審批"
+        "謝謝你使用ChopsBook，\n" +
+          "提供餐廳資訊為廣大嘅美食家作出貢獻。\n" +
+          "幕後團隊將火速審批！"
       );
       setModalType("success");
       setFormData(initialFormData); // 清空表單

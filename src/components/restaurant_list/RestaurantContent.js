@@ -1,9 +1,9 @@
+// RestaurantContent.js
 "use client";
 import React, { useState, useCallback, useEffect, useContext } from "react";
 import { useSearchParams } from "next/navigation";
 import FilterSidebar from "../filters/FilterSidebar";
 import RestaurantListPage from "./RestaurantListPage";
-
 import Modal from "../Modal";
 import { AuthContext } from "../../lib/auth-context";
 
@@ -11,50 +11,33 @@ const RestaurantContent = () => {
   const { modalMessage, setModalMessage } = useContext(AuthContext);
   const searchParams = useSearchParams();
 
-  const initialSearchQuery = searchParams.get("search") || "";
   const initialFilters = searchParams.get("filters")
     ? JSON.parse(searchParams.get("filters"))
     : {};
 
+  const initialSearchQuery = searchParams.get("search") || "";
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [isGridView, setIsGridView] = useState(false);
-
-  // 簡化狀態：只保留餐廳列表和載入狀態
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 核心邏輯：簡化資料獲取函式，移除所有分頁相關參數
   const fetchRestaurants = useCallback(
     async (signal) => {
       setLoading(true);
-
       try {
         const params = new URLSearchParams();
-
-        if (
-          appliedFilters.favoriteRestaurantIds &&
-          appliedFilters.favoriteRestaurantIds.length > 0
-        ) {
-          appliedFilters.favoriteRestaurantIds.forEach((id) =>
-            params.append("favoriteRestaurantIds[]", id)
-          );
-        }
-
-        if (searchQuery) {
-          params.append("search", searchQuery);
-        } else {
-          for (const key in appliedFilters) {
-            const value = appliedFilters[key];
-            if (key === "favoriteRestaurantIds") continue;
-            if (Array.isArray(value)) {
-              value.forEach((item) => params.append(`${key}[]`, item));
-            } else if (value !== "" && value !== undefined && value !== null) {
-              params.append(key, value);
-            }
+        for (const key in appliedFilters) {
+          const value = appliedFilters[key];
+          if (Array.isArray(value)) {
+            value.forEach((item) => params.append(`${key}[]`, item));
+          } else if (value !== "" && value !== undefined && value !== null) {
+            params.append(key, value);
           }
         }
-
+        if (searchQuery) {
+          params.append("search", searchQuery);
+        }
         const response = await fetch(`/api/filter?${params.toString()}`, {
           signal,
         });
@@ -62,9 +45,7 @@ const RestaurantContent = () => {
           throw new Error(`API error: ${response.statusText}`);
         }
         const data = await response.json();
-
         if (!signal.aborted) {
-          // 直接設定所有餐廳
           setRestaurants(data.restaurants);
         }
       } catch (error) {
@@ -81,17 +62,14 @@ const RestaurantContent = () => {
     [appliedFilters, searchQuery]
   );
 
-  // useEffect 現在只依賴於 `fetchRestaurants` 函式，並在篩選/搜尋條件改變時觸發
   useEffect(() => {
     const controller = new AbortController();
     fetchRestaurants(controller.signal);
-
     return () => {
       controller.abort();
     };
   }, [fetchRestaurants]);
 
-  // 簡化處理函式，只負責更新篩選和搜尋狀態
   const handleApplyFilters = useCallback((filters) => {
     setAppliedFilters(filters);
     setSearchQuery("");
@@ -143,11 +121,20 @@ const RestaurantContent = () => {
     appliedFilters.favoriteRestaurantIds.length > 0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-cbbg font-inter">
-      <main className="flex-grow pt-[140px]">
+    // 1. We remove the `h-full` and `pt-[140px]` from the outer container here.
+    // The parent `main` is already handling the full screen height.
+    // This allows the child to simply grow and fill the space.
+    <div className="flex flex-col font-inter mb-6">
+      {/* 2. Content Area: We apply `pt-[140px]` here to push the content down,
+            and `flex-grow` to allow it to expand to fill the available space. */}
+      <div className="flex-grow pt-[140px]">
         <div className="max-w-screen-xl mx-auto flex gap-x-8">
+          {/* 3. Sidebar Container: We use relative positioning. */}
           <div className="w-1/4 flex-shrink-0 relative">
-            <div className="sticky top-[140px] h-[calc(-155px+100vh)]">
+            {/* 4. The Sticky Sidebar: We remove the complex `calc()`
+               and rely on `h-full` with `overflow-y-auto` to handle its height.
+               This makes it flexible and scrollable. */}
+            <div className="sticky top-[140px] h-[calc(100vh-140px)] overflow-y-auto">
               <FilterSidebar
                 key={JSON.stringify(appliedFilters)}
                 initialFilters={appliedFilters}
@@ -156,6 +143,8 @@ const RestaurantContent = () => {
               />
             </div>
           </div>
+
+          {/* 5. Main Content Area: It will fill the remaining horizontal space. */}
           <div className="flex-grow pb-8 px-4 sm:px-6 lg:px-8">
             <RestaurantListPage
               filters={appliedFilters}
@@ -168,11 +157,10 @@ const RestaurantContent = () => {
               loading={loading}
               isFavoritesFilterActive={isFavoritesFilterActive}
             />
-            {/* 移除分頁按鈕 */}
           </div>
         </div>
-      </main>
-      
+      </div>
+
       {modalMessage && (
         <Modal
           message={modalMessage}

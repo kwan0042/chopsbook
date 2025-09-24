@@ -43,13 +43,13 @@ const AppLayout = ({ children }) => {
         onShowFilterModal={handleShowFilterModal}
         isRestaurantsPage={isRestaurantsPage}
       />
-      <main>{children}</main>
+      <main className=" flex-grow">{children}</main>
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={handleCloseFilterModal}
         onApplyFilters={handleApplyFilters}
       />
-      <footer className="bg-gray-800 text-white text-center py-6 text-sm font-light">
+      <footer className="bg-gray-800 text-white text-center py-6  text-sm font-light">
         &copy; {new Date().getFullYear()}ChopsBook. 版權所有.
       </footer>
     </>
