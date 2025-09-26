@@ -14,7 +14,7 @@ const PersonalControls = ({ userId }) => {
       <ul className="space-y-4 text-lg">
         <li>
           <Link
-            href={`/personal/reviews`}
+            href={`/review`}
             className="flex items-center text-gray-700 hover:text-blue-600 transition-colors"
           >
             <FontAwesomeIcon icon={faPencilAlt} className="mr-3 w-5" />
@@ -23,7 +23,7 @@ const PersonalControls = ({ userId }) => {
         </li>
         <li>
           <Link
-            href={`/user/${userId}/drafts`}
+            href={`/user/${userId}/review-draft`}
             className="flex items-center text-gray-700 hover:text-blue-600 transition-colors"
           >
             <FontAwesomeIcon icon={faPencilAlt} className="mr-3 w-5" />

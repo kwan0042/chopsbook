@@ -39,19 +39,21 @@ const AppLayout = ({ children }) => {
 
   return (
     <>
-      <Navbar
-        onShowFilterModal={handleShowFilterModal}
-        isRestaurantsPage={isRestaurantsPage}
-      />
-      <main className=" flex-grow">{children}</main>
-      <FilterModal
-        isOpen={isFilterModalOpen}
-        onClose={handleCloseFilterModal}
-        onApplyFilters={handleApplyFilters}
-      />
-      <footer className="bg-gray-800 text-white text-center py-6  text-sm font-light">
-        &copy; {new Date().getFullYear()}ChopsBook. 版權所有.
-      </footer>
+      <div className="flex flex-col min-h-screen">
+        <Navbar
+          onShowFilterModal={handleShowFilterModal}
+          isRestaurantsPage={isRestaurantsPage}
+        />
+        <main className="flex-grow">{children}</main>
+        <FilterModal
+          isOpen={isFilterModalOpen}
+          onClose={handleCloseFilterModal}
+          onApplyFilters={handleApplyFilters}
+        />
+        <footer className="bg-gray-800 text-white text-center py-6  text-sm font-light">
+          &copy; {new Date().getFullYear()} ChopsBook. 版權所有.
+        </footer>
+      </div>
     </>
   );
 };

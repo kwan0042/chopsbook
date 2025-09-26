@@ -81,7 +81,7 @@ const HomePage = ({
       <main className="flex-grow">
         <HeroSection />
 
-        <div className=" mx-auto py-21 px-2 sm:px-2 lg:px-12">
+        <div className=" mx-auto py-10 px-2 sm:px-2 lg:px-12">
           <div className="grid grid-cols-6 md:grid-cols-6 gap-4">
             <div className="col-span-1  grid grid-cols-1 gap-4 h-fit">
               {/* <WeeklyRankingsSection /> */}

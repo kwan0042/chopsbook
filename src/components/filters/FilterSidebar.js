@@ -82,6 +82,9 @@ const FilterSidebar = ({
   onResetFilters,
   onClose,
 }) => {
+  // 使用 useRef 來避免不必要的重新渲染
+  const initialFiltersRef = useRef(initialFilters);
+
   const [localFilters, setLocalFilters] = useState(initialFilters);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
   const [showTopMask, setShowTopMask] = useState(false);
@@ -101,13 +104,30 @@ const FilterSidebar = ({
     useState(true);
   const [isTimeAndPartyCollapsed, setIsTimeAndPartyCollapsed] = useState(true);
   const [cities, setCities] = useState([]);
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(
+    !!initialFilters.favoriteRestaurantIds
+  );
   const { currentUser } = useContext(AuthContext);
 
   const [avgSpending, setAvgSpending] = useState(
-    initialFilters.avgSpending || 0
+    initialFilters.maxAvgSpending || 0
   );
 
+  // 核心修正：當 initialFilters 改變時，同步本地狀態
+  useEffect(() => {
+    // 進行物件的淺層比較，防止在不必要的 prop 改變時觸發重新渲染
+    if (
+      JSON.stringify(initialFiltersRef.current) !==
+      JSON.stringify(initialFilters)
+    ) {
+      setLocalFilters(initialFilters);
+      setAvgSpending(initialFilters.maxAvgSpending || 0);
+      setShowFavoritesOnly(!!initialFilters.favoriteRestaurantIds);
+      initialFiltersRef.current = initialFilters;
+    }
+  }, [initialFilters]);
+
+  // 更新城市列表的邏輯，與您原來的邏輯保持一致
   useEffect(() => {
     if (localFilters.province) {
       const citiesForProvince = citiesByProvince[localFilters.province] || [];
@@ -169,17 +189,28 @@ const FilterSidebar = ({
     const newFilters = {
       ...localFilters,
     };
-    // === 核心修正：只傳送一個 maxAvgSpending 參數給後端 ===
     if (avgSpending > 0) {
       newFilters.maxAvgSpending = avgSpending;
     } else {
       delete newFilters.maxAvgSpending;
     }
-    // === 修正結束 ===
 
     if (showFavoritesOnly && currentUser && currentUser.favoriteRestaurants) {
       newFilters.favoriteRestaurantIds = currentUser.favoriteRestaurants;
     }
+
+    // 清理所有值為空或 undefined 的屬性
+    Object.keys(newFilters).forEach((key) => {
+      const value = newFilters[key];
+      if (
+        value === null ||
+        value === undefined ||
+        (Array.isArray(value) && value.length === 0)
+      ) {
+        delete newFilters[key];
+      }
+    });
+
     onApplyFilters(newFilters);
     if (onClose) onClose();
   }, [
@@ -194,7 +225,7 @@ const FilterSidebar = ({
   const handleReset = useCallback(() => {
     setLocalFilters({});
     setShowFavoritesOnly(false);
-    setAvgSpending(0); // 重設為 0，表示不應用人均消費篩選
+    setAvgSpending(0);
     onResetFilters();
     if (onClose) onClose();
   }, [onResetFilters, onClose]);
@@ -231,6 +262,15 @@ const FilterSidebar = ({
   return (
     <div className="relative bg-white p-6  rounded-2xl w-full flex flex-col h-full">
       <h3 className="text-xl font-bold text-gray-900 mb-6">篩選餐廳</h3>
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
+          aria-label="Close filters"
+        >
+          <FontAwesomeIcon icon={faTimesCircle} size="lg" />
+        </button>
+      )}
       <div
         className={`absolute inset-x-0 h-[50px] pointer-events-none bg-gradient-to-b from-white to-white/0 z-10 transition-opacity duration-300 ${
           showTopMask ? "opacity-100" : "opacity-0"

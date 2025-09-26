@@ -14,7 +14,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="zh-Hant">
-      <body>
+      <body >
         <AuthProvider>
           <AppLayout>{children}</AppLayout> {/* ✅ 在這裡使用 AppLayout */}
         </AuthProvider>

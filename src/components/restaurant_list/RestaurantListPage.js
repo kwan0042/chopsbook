@@ -70,8 +70,6 @@ const RestaurantListPage = ({
       province: "省份",
       city: "城市",
       category: "菜系",
-      minAvgSpending: "人均消費",
-      maxAvgSpending: "人均消費",
       minRating: "最低評分",
       minSeatingCapacity: "座位數",
       maxSeatingCapacity: "座位數",
@@ -162,35 +160,6 @@ const RestaurantListPage = ({
           </span>
         );
         processedKeys.add(key);
-      } else if (key === "minAvgSpending" || key === "maxAvgSpending") {
-        const min = filters.minAvgSpending;
-        const max = filters.maxAvgSpending;
-        let text = "";
-        if (min !== undefined && max !== undefined) {
-          text = `$${min} - $${max}`;
-        } else if (min !== undefined) {
-          text = `最低 $${min}`;
-        } else if (max !== undefined) {
-          text = `最高 $${max}`;
-        }
-        if (text) {
-          tags.push(
-            <span
-              key="avg-spending"
-              className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full whitespace-nowrap"
-            >
-              人均消費: {text}
-              <button
-                onClick={() => onRemoveFilter("minAvgSpending")}
-                className="ml-2 text-blue-600 hover:text-blue-900"
-              >
-                <FontAwesomeIcon icon={faTimesCircle} />
-              </button>
-            </span>
-          );
-        }
-        processedKeys.add("minAvgSpending");
-        processedKeys.add("maxAvgSpending");
       } else if (key === "minSeatingCapacity" || key === "maxSeatingCapacity") {
         const min = filters.minSeatingCapacity;
         const max = filters.maxSeatingCapacity;
@@ -336,28 +305,7 @@ const RestaurantListPage = ({
               />
             ))}
           </div>
-          {/* 移除舊的分頁按鈕 */}
-          {/* {totalPages > 1 && (
-            <div className="flex justify-center items-center space-x-4 mt-8">
-              <button
-                onClick={handlePrevPage}
-                disabled={currentPage === 1}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500 transition duration-150"
-              >
-                上一頁
-              </button>
-              <span className="text-lg font-medium text-gray-700">
-                頁 {currentPage} / {totalPages}
-              </span>
-              <button
-                onClick={handleNextPage}
-                disabled={currentPage === totalPages}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500 transition duration-150"
-              >
-                下一頁
-              </button>
-            </div>
-          )} */}
+          
         </>
       )}
     </div>

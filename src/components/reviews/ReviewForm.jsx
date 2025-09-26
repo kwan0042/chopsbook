@@ -31,43 +31,76 @@ const ReviewForm = ({
   draftId,
   restaurantIdFromUrl,
   restaurantNameFromUrl,
+  initialDraftData, // 從父組件接收草稿數據
+  initialRestaurants, // 從父組件接收餐廳列表
 }) => {
   const { db, currentUser, appId, saveReviewDraft } = useContext(AuthContext);
   const router = useRouter();
 
-  const [restaurants, setRestaurants] = useState([]);
+  // 根據是否有 initialRestaurants 來決定初始載入狀態
+  const [loading, setLoading] = useState(!initialRestaurants);
+  const [restaurants, setRestaurants] = useState(initialRestaurants || []);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredRestaurants, setFilteredRestaurants] = useState([]);
-  // 新增：根據 URL 參數初始化 selectedRestaurant
-  const [selectedRestaurant, setSelectedRestaurant] = useState(() =>
-    restaurantIdFromUrl && restaurantNameFromUrl
-      ? {
-          id: restaurantIdFromUrl,
-          restaurantName: { "zh-TW": restaurantNameFromUrl },
+  const [selectedRestaurant, setSelectedRestaurant] = useState(() => {
+    // 優先使用草稿數據
+    if (initialDraftData) {
+      return (
+        (initialRestaurants &&
+          initialRestaurants.find(
+            (r) => r.id === initialDraftData.restaurantId
+          )) || {
+          id: initialDraftData.restaurantId,
+          restaurantName: { "zh-TW": initialDraftData.restaurantName },
         }
-      : null
-  );
+      );
+    }
+    // 其次使用 URL 參數
+    if (restaurantIdFromUrl && restaurantNameFromUrl) {
+      return {
+        id: restaurantIdFromUrl,
+        restaurantName: { "zh-TW": restaurantNameFromUrl },
+      };
+    }
+    return null;
+  });
 
-  const [reviewTitle, setReviewTitle] = useState("");
-  const [overallRating, setOverallRating] = useState(0);
-  const [showDetailedRatings, setShowDetailedRatings] = useState(false);
-  const [reviewContent, setReviewContent] = useState("");
-  const [costPerPerson, setCostPerPerson] = useState("");
-  const [timeOfDay, setTimeOfDay] = useState("");
-  const [serviceType, setServiceType] = useState("");
+  const [reviewTitle, setReviewTitle] = useState(
+    initialDraftData?.reviewTitle || ""
+  );
+  const [overallRating, setOverallRating] = useState(
+    initialDraftData?.overallRating || 0
+  );
+  const [showDetailedRatings, setShowDetailedRatings] = useState(
+    !!(
+      initialDraftData?.ratings &&
+      Object.keys(initialDraftData.ratings).length > 0
+    )
+  );
+  const [reviewContent, setReviewContent] = useState(
+    initialDraftData?.reviewContent || ""
+  );
+  const [costPerPerson, setCostPerPerson] = useState(
+    initialDraftData?.costPerPerson || ""
+  );
+  const [timeOfDay, setTimeOfDay] = useState(initialDraftData?.timeOfDay || "");
+  const [serviceType, setServiceType] = useState(
+    initialDraftData?.serviceType || ""
+  );
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [recommendedDishes, setRecommendedDishes] = useState([""]);
+  const [recommendedDishes, setRecommendedDishes] = useState(
+    initialDraftData?.recommendedDishes || [""]
+  );
   const [ratings, setRatings] = useState(() => {
     const initialRatings = {};
     ratingCategories.forEach((cat) => {
-      initialRatings[cat.key] = 0;
+      initialRatings[cat.key] = initialDraftData?.ratings?.[cat.key] || 0;
     });
     return initialRatings;
   });
 
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [isDraftLoaded, setIsDraftLoaded] = useState(false);
+  const [isDraftLoaded, setIsDraftLoaded] = useState(!!initialDraftData);
   const [moderationWarning, setModerationWarning] = useState(null);
   const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
   const [lastSubmittedRestaurantId, setLastSubmittedRestaurantId] =
@@ -88,7 +121,6 @@ const ReviewForm = ({
   useEffect(() => {
     const checkDailyLimit = async () => {
       if (!currentUser || !currentUser.uid) return;
-
       try {
         const response = await fetch("/api/reviews/get-daily-limit", {
           method: "POST",
@@ -109,18 +141,21 @@ const ReviewForm = ({
   }, [currentUser]);
 
   const hasUnsavedChanges = useCallback(() => {
-    return (
-      reviewTitle ||
-      reviewContent ||
-      selectedRestaurant ||
-      overallRating > 0 ||
-      costPerPerson ||
-      timeOfDay ||
-      serviceType ||
-      uploadedImages.length > 0 ||
-      Object.values(ratings).some((rating) => rating > 0) ||
-      recommendedDishes.some((dish) => dish.trim() !== "")
-    );
+    const isInitialState =
+      !draftId &&
+      !restaurantIdFromUrl &&
+      !reviewTitle &&
+      !reviewContent &&
+      !selectedRestaurant &&
+      uploadedImages.length === 0 &&
+      overallRating === 0 &&
+      costPerPerson === "" &&
+      timeOfDay === "" &&
+      serviceType === "" &&
+      Object.values(ratings).every((rating) => rating === 0) &&
+      recommendedDishes.length === 1 &&
+      recommendedDishes[0] === "";
+    return !isInitialState;
   }, [
     reviewTitle,
     reviewContent,
@@ -169,7 +204,15 @@ const ReviewForm = ({
     }
   }, [ratings]);
 
+  // 1. 新增：如果沒有傳入 initialRestaurants，則自行獲取資料
   useEffect(() => {
+    if (initialRestaurants) {
+      // 如果有初始資料，就不需要再獲取
+      setRestaurants(initialRestaurants);
+      setLoading(false);
+      return;
+    }
+
     const fetchRestaurants = async () => {
       if (!db || !appId) {
         setLoading(false);
@@ -185,15 +228,16 @@ const ReviewForm = ({
           ...doc.data(),
         }));
         setRestaurants(fetched);
-        setLoading(false);
       } catch (error) {
         console.error("獲取餐廳列表失敗:", error);
+      } finally {
         setLoading(false);
       }
     };
     fetchRestaurants();
-  }, [db, appId]);
+  }, [db, appId, initialRestaurants]);
 
+  // 2. 搜尋邏輯：依賴 restaurants 狀態
   useEffect(() => {
     if (searchQuery) {
       const normalizedQuery = searchQuery.toLowerCase();
@@ -235,88 +279,6 @@ const ReviewForm = ({
     };
     fetchUsername();
   }, [currentUser, db, appId]);
-
-  // 新增：處理從 URL 傳入的餐廳資訊
-  useEffect(() => {
-    if (
-      restaurantIdFromUrl &&
-      restaurantNameFromUrl &&
-      restaurants.length > 0
-    ) {
-      const foundRestaurant = restaurants.find(
-        (r) => r.id === restaurantIdFromUrl
-      );
-      if (foundRestaurant) {
-        setSelectedRestaurant(foundRestaurant);
-      } else {
-        // 如果找不到，則使用 URL 傳入的資訊（可能數據庫還未同步）
-        setSelectedRestaurant({
-          id: restaurantIdFromUrl,
-          restaurantName: { "zh-TW": restaurantNameFromUrl },
-        });
-      }
-    }
-  }, [restaurantIdFromUrl, restaurantNameFromUrl, restaurants]);
-
-  useEffect(() => {
-    const loadDraft = async () => {
-      if (draftId && db && currentUser && !loading && !isDraftLoaded) {
-        try {
-          setSubmitting(true);
-          const draftDocRef = doc(
-            db,
-            `artifacts/${appId}/users/${currentUser.uid}/draft_reviews`,
-            draftId
-          );
-          const docSnap = await getDoc(draftDocRef);
-          if (docSnap.exists()) {
-            const draft = docSnap.data();
-            setSelectedRestaurant(
-              restaurants.find((r) => r.id === draft.restaurantId)
-            );
-            setReviewTitle(draft.reviewTitle || "");
-            setOverallRating(draft.overallRating || 0);
-            setReviewContent(draft.reviewContent || "");
-            const mergedRatings = ratingCategories.reduce((acc, cat) => {
-              acc[cat.key] = draft.ratings?.[cat.key] || 0;
-              return acc;
-            }, {});
-            setRatings(mergedRatings);
-            setCostPerPerson(draft.costPerPerson || "");
-            setTimeOfDay(draft.timeOfDay || "");
-            setServiceType(draft.serviceType || "");
-            setRecommendedDishes(draft.recommendedDishes || [""]);
-            if (draft.ratings && Object.keys(draft.ratings).length > 0)
-              setShowDetailedRatings(true);
-            setIsDraftLoaded(true);
-          } else {
-            router.replace("/personal/reviews");
-          }
-        } catch (error) {
-          console.error("載入草稿失敗:", error);
-        } finally {
-          setSubmitting(false);
-        }
-      }
-    };
-    if (
-      !loading &&
-      restaurants.length > 0 &&
-      currentUser &&
-      draftId &&
-      !isDraftLoaded
-    )
-      loadDraft();
-  }, [
-    draftId,
-    db,
-    currentUser,
-    loading,
-    restaurants,
-    appId,
-    router,
-    isDraftLoaded,
-  ]);
 
   const handleRatingChange = useCallback((categoryKey, value) => {
     setRatings((prev) => ({ ...prev, [categoryKey]: parseFloat(value) }));
@@ -366,7 +328,7 @@ const ReviewForm = ({
         ),
       };
       const newDraftId = await saveReviewDraft(draftData, draftId);
-      if (!draftId) router.replace(`/personal/reviews?draftId=${newDraftId}`);
+      router.replace(`/user/${currentUser.uid}/review-draft`);
     } catch (error) {
       console.error("儲存草稿失敗:", error);
     } finally {
@@ -463,7 +425,7 @@ const ReviewForm = ({
       setRecommendedDishes([""]);
       setModerationWarning(null);
       setLastSubmittedRestaurantId(submittedRestaurantId);
-      if (draftId) router.replace("/personal/reviews");
+      if (draftId) router.replace(`/user/${currentUser.uid}/review-draft`);
       setShowUpdatePrompt(true);
     } catch (error) {
       console.error("提交食評失敗:", error);
@@ -492,7 +454,9 @@ const ReviewForm = ({
   };
 
   if (!currentUser) return null;
-  if (loading || (draftId && submitting && !isDraftLoaded)) {
+
+  // 顯示載入狀態
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[500px] bg-gray-50 rounded-xl shadow-md p-8 w-full max-w-4xl">
         <LoadingSpinner />
@@ -582,7 +546,6 @@ const ReviewForm = ({
             setReviewContent={setReviewContent}
             errors={errors}
             setErrors={setErrors}
-            // 新增：傳遞是否預先選擇了餐廳的狀態
             isRestaurantPreselected={!!restaurantIdFromUrl}
           />
           <ReviewRatingSection

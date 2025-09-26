@@ -104,9 +104,7 @@ export default function UserReviewsPage() {
             )}
             {/* 使用佔位符確保在第一頁時，「下一頁」按鈕位於右側 */}
             <div className="flex-grow"></div>
-            <span className="text-sm text-gray-500">
-              頁碼 {currentPage} / {totalPages}
-            </span>
+
             <button
               onClick={goToNextPage}
               disabled={isLastPage}

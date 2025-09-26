@@ -8,9 +8,11 @@ import { faUser, faBookmark } from "@fortawesome/free-solid-svg-icons";
 import { useRouter, usePathname } from "next/navigation";
 import { getAuth, signOut } from "firebase/auth";
 import Image from "next/image";
+import Link from "next/link";
 
 // 從新的 hook 檔案中導入 RankDisplay 組件
 import { RankDisplay } from "@/hooks/cx-ranks";
+
 
 const Navbar = ({ onShowFilterModal, onSearch }) => {
   const { currentUser, setModalMessage, favoriteRestaurantsCount, app } =
@@ -86,7 +88,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
             aria-label="回首頁"
           >
             <Image
-              src="/Chopsbook_logo_white2.png"
+              src="/Chopsbook_logo_white_v2.png"
               width={60}
               height={30}
               alt="ChopsBook logo"
@@ -207,14 +209,14 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
         </form>
 
         <div className="flex items-center w-full lg:w-[30%] justify-end space-x-2 mt-2 lg:mt-0">
-          <button
-            onClick={() => {
-              router.push("/review");
-            }}
+          
+          <Link
+            href={`/review`}
             className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-3 m-0 text-sm"
           >
-            寫食評
-          </button>
+            
+            <span>寫食評</span>
+          </Link>
           <button
             onClick={() => {
               router.push("/merchant");

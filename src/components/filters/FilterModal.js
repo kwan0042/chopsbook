@@ -1,140 +1,167 @@
-// src/components/FilterModal.js
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useContext } from "react";
+import { AuthContext } from "@/lib/auth-context";
 import {
   cuisineOptions,
+  reservationModeOptions,
+  paymentMethodOptions,
   facilitiesServiceOptions,
   provinceOptions,
+  citiesByProvince,
+  seatingCapacityOptions,
 } from "../../data/restaurant-options";
+import {
+  CheckboxesFilter,
+  RadioGroupFilter,
+  DateTimeFilter,
+} from "./FilterComponents";
 
-/**
- * FilterModal: 允許使用者根據各種條件篩選餐廳。
- * @param {object} props - 組件屬性。
- * @param {boolean} props.isOpen - 控制模態框是否可見。
- * @param {function} props.onClose - 關閉模態框的回調函數。
- * @param {function} props.onApplyFilters - 應用篩選條件的回調函數，接收一個包含篩選條件的物件。
- */
-const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
-  const [selectedCuisineType, setSelectedCuisineType] = useState("");
-  const [priceRange, setPriceRange] = useState("0");
-  const [minRating, setMinRating] = useState(0);
-  const [city, setCity] = useState("");
-  const [selectedProvince, setSelectedProvince] = useState("");
-  const [selectedFacilitiesServices, setSelectedFacilitiesServices] = useState(
-    []
-  );
+const parseSeatingCapacityOptions = (options) => {
+  return options
+    .filter((option) => option !== "選擇座位數")
+    .map((option) => {
+      if (option.includes("-")) {
+        const [minStr, maxStr] = option.split("-");
+        return {
+          label: `${option}人`,
+          value: `${minStr}-${maxStr}`,
+          min: parseInt(minStr, 10),
+          max: parseInt(maxStr, 10),
+        };
+      } else if (option.includes("+")) {
+        const minStr = option.replace("+", "");
+        return {
+          label: `${minStr}+ 人`,
+          value: `${minStr}+`,
+          min: parseInt(minStr, 10),
+          max: 9999,
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+};
 
-  // 新增狀態變數
-  const [timeOfDay, setTimeOfDay] = useState(""); // 'day' 或 'night'
-  const [minAvgSpending, setMinAvgSpending] = useState("");
-  const [maxAvgSpending, setMaxAvgSpending] = useState("");
-  const [reservationDate, setReservationDate] = useState("");
-  const [reservationTime, setReservationTime] = useState("");
-  const [partySize, setPartySize] = useState("");
+const FilterModal = ({
+  isOpen,
+  onClose,
+  onApplyFilters,
+  onResetFilters,
+  initialFilters = {},
+}) => {
+  const { currentUser } = useContext(AuthContext);
 
-  const priceRangeOptions = [
-    { value: "0", label: "不限人均" },
-    { value: "20", label: "低於 $20" },
-    { value: "40", label: "低於 $40" },
-    { value: "60", label: "低於 $60" },
-    { value: "80", label: "低於 $80" },
-    { value: "100", label: "低於 $100" },
-    { value: "9999", label: "不限 (預設高價)" },
-  ];
-  const ratingOptions = [
-    { value: 0, label: "不限評分" },
-    { value: 3, label: "3 星或以上" },
-    { value: 3.5, label: "3.5 星或以上" },
-    { value: 4, label: "4 星或以上" },
-    { value: 4.5, label: "4.5 星或以上" },
-  ];
+  const [localFilters, setLocalFilters] = useState({});
+  const [avgSpending, setAvgSpending] = useState(0);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  const handleFacilitiesChange = (e) => {
-    const { value, checked } = e.target;
-    setSelectedFacilitiesServices((prev) =>
-      checked ? [...prev, value] : prev.filter((item) => item !== value)
-    );
+  // 核心修正：每次模態框打開時，用 initialFilters 初始化本地狀態
+  useEffect(() => {
+    if (isOpen) {
+      setLocalFilters(initialFilters);
+      setAvgSpending(initialFilters.maxAvgSpending || 0);
+      setShowFavoritesOnly(!!initialFilters.favoriteRestaurantIds);
+    }
+  }, [isOpen]);
+
+  const cities = localFilters.province
+    ? citiesByProvince[localFilters.province] || []
+    : [];
+
+  const handleFilterChange = (key, value) => {
+    setLocalFilters((prevFilters) => {
+      if (key === "province") {
+        return {
+          ...prevFilters,
+          [key]: value,
+          city: "",
+        };
+      }
+      return {
+        ...prevFilters,
+        [key]: value,
+      };
+    });
+  };
+
+  const handleMultiSelectFilterChange = (key, value) => {
+    setLocalFilters((prevFilters) => {
+      const currentValues = prevFilters[key] || [];
+      const newValues = currentValues.includes(value)
+        ? currentValues.filter((item) => item !== value)
+        : [...currentValues, value];
+      return {
+        ...prevFilters,
+        [key]: newValues,
+      };
+    });
   };
 
   const handleApply = () => {
-    const filters = {};
+    const newFilters = { ...localFilters };
 
-    if (selectedCuisineType && selectedCuisineType !== "選擇菜系") {
-      filters.category = selectedCuisineType;
-    }
-
-    const parsedPriceRange = parseInt(priceRange, 10);
-    if (parsedPriceRange > 0 && parsedPriceRange !== 9999) {
-      filters.maxAvgSpending = parsedPriceRange;
+    if (avgSpending > 0) {
+      newFilters.maxAvgSpending = avgSpending;
+    } else {
+      delete newFilters.maxAvgSpending;
     }
 
-    if (minRating > 0) {
-      filters.minRating = minRating;
+    if (showFavoritesOnly && currentUser && currentUser.favoriteRestaurants) {
+      newFilters.favoriteRestaurantIds = currentUser.favoriteRestaurants;
+    } else {
+      delete newFilters.favoriteRestaurantIds;
     }
 
-    if (city) {
-      filters.city = city;
-    }
+    // 關鍵修正：在傳遞篩選條件前，移除所有值為空或未定義的屬性
+    Object.keys(newFilters).forEach((key) => {
+      const value = newFilters[key];
+      if (
+        value === "" ||
+        value === null ||
+        value === undefined ||
+        (Array.isArray(value) && value.length === 0)
+      ) {
+        delete newFilters[key];
+      }
+    });
 
-    if (selectedProvince && selectedProvince !== "選擇省份") {
-      filters.province = selectedProvince;
-    }
-
-    if (selectedFacilitiesServices.length > 0) {
-      filters.facilities = selectedFacilitiesServices;
-    }
-
-    // 新增篩選邏輯
-    if (timeOfDay) {
-      filters.timeOfDay = timeOfDay;
-    }
-    if (minAvgSpending) {
-      filters.minAvgSpending = parseInt(minAvgSpending, 10);
-    }
-    if (maxAvgSpending) {
-      filters.maxAvgSpending = parseInt(maxAvgSpending, 10);
-    }
-    if (reservationDate) {
-      filters.reservationDate = reservationDate;
-    }
-    if (reservationTime) {
-      filters.reservationTime = reservationTime;
-    }
-    if (partySize) {
-      filters.partySize = parseInt(partySize, 10);
-    }
-
-    onApplyFilters(filters);
+    onApplyFilters(newFilters);
+    onClose();
   };
 
   const handleReset = () => {
-    setSelectedCuisineType("");
-    setPriceRange("0");
-    setMinRating(0);
-    setCity("");
-    setSelectedProvince("");
-    setSelectedFacilitiesServices([]);
-
-    // 重置新狀態
-    setTimeOfDay("");
-    setMinAvgSpending("");
-    setMaxAvgSpending("");
-    setReservationDate("");
-    setReservationTime("");
-    setPartySize("");
-
-    onApplyFilters({});
+    onResetFilters();
+    onClose();
   };
 
   if (!isOpen) return null;
 
+  const displayCuisineTypes = cuisineOptions.filter(
+    (option) => option !== "選擇菜系"
+  );
+  const displayReservationModes = reservationModeOptions;
+  const displayPaymentMethods = paymentMethodOptions;
+  const displayFacilities = facilitiesServiceOptions;
+  const displayProvinces = provinceOptions.filter(
+    (option) => option !== "選擇省份"
+  );
+  const parsedSeatingCapacities = parseSeatingCapacityOptions(
+    seatingCapacityOptions
+  );
+
+  const businessHoursOptions = [
+    { label: "營業中", value: "營業中" },
+    { label: "休假中 (含暫時休業)", value: "休假中" },
+    { label: "不限", value: "" },
+  ];
+
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg relative overflow-y-auto max-h-[90vh]">
+      <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-4xl relative overflow-y-auto max-h-[90vh]">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl"
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-3xl font-light leading-none"
           aria-label="關閉篩選器"
         >
           &times;
@@ -143,261 +170,235 @@ const FilterModal = ({ isOpen, onClose, onApplyFilters }) => {
           篩選餐廳
         </h2>
 
-        <div className="space-y-4">
-          {/* 日間/晚間篩選 */}
-          <div>
-            <label className="block text-gray-700 text-sm font-bold mb-2">
-              用餐時段
-            </label>
-            <div className="flex space-x-4">
-              <label className="flex items-center text-gray-700">
-                <input
-                  type="radio"
-                  name="timeOfDay"
-                  value="day"
-                  checked={timeOfDay === "day"}
-                  onChange={(e) => setTimeOfDay(e.target.value)}
-                  className="form-radio h-4 w-4 text-blue-600"
-                />
-                <span className="ml-2">日間 (11:00-17:00)</span>
-              </label>
-              <label className="flex items-center text-gray-700">
-                <input
-                  type="radio"
-                  name="timeOfDay"
-                  value="night"
-                  checked={timeOfDay === "night"}
-                  onChange={(e) => setTimeOfDay(e.target.value)}
-                  className="form-radio h-4 w-4 text-blue-600"
-                />
-                <span className="ml-2">晚間 (17:00-22:00)</span>
-              </label>
-            </div>
-          </div>
-
-          {/* 自訂預算篩選 */}
-          <div>
-            <label className="block text-gray-700 text-sm font-bold mb-2">
-              預算範圍 (人均)
-            </label>
-            <div className="flex items-center space-x-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* 預計用餐詳情 */}
+          <div className="space-y-4 p-4 border rounded-xl">
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              預計用餐詳情
+            </h3>
+            <div className="flex items-center">
               <input
-                type="number"
-                placeholder="最低"
-                value={minAvgSpending}
-                onChange={(e) => setMinAvgSpending(e.target.value)}
-                className="w-1/2 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                type="checkbox"
+                id="showFavoritesOnly"
+                checked={showFavoritesOnly}
+                onChange={(e) => setShowFavoritesOnly(e.target.checked)}
+                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />
-              <span>-</span>
-              <input
-                type="number"
-                placeholder="最高"
-                value={maxAvgSpending}
-                onChange={(e) => setMaxAvgSpending(e.target.value)}
-                className="w-1/2 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* 日期、時間、人數篩選 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
               <label
-                htmlFor="reservationDate"
-                className="block text-gray-700 text-sm font-bold mb-2"
+                htmlFor="showFavoritesOnly"
+                className="ml-2 text-sm text-gray-700"
               >
-                預訂日期
+                只顯示我的收藏餐廳
               </label>
-              <input
-                type="date"
-                id="reservationDate"
-                value={reservationDate}
-                onChange={(e) => setReservationDate(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
             </div>
-            <div>
-              <label
-                htmlFor="reservationTime"
-                className="block text-gray-700 text-sm font-bold mb-2"
-              >
-                預訂時間
-              </label>
-              <input
-                type="time"
-                id="reservationTime"
-                value={reservationTime}
-                onChange={(e) => setReservationTime(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="partySize"
-                className="block text-gray-700 text-sm font-bold mb-2"
-              >
-                用餐人數
-              </label>
-              <input
-                type="number"
-                id="partySize"
-                placeholder="人數"
-                min="1"
-                value={partySize}
-                onChange={(e) => setPartySize(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* 其他原有篩選器... */}
-          {/* 菜系篩選 */}
-          <div>
-            <label
-              htmlFor="cuisineType"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              菜系
-            </label>
-            <select
-              id="cuisineType"
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={selectedCuisineType}
-              onChange={(e) => setSelectedCuisineType(e.target.value)}
-            >
-              {cuisineOptions.map((option) => (
-                <option
-                  key={option}
-                  value={option === "選擇菜系" ? "" : option}
-                >
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 人均消費篩選 (簡化版) */}
-          <div>
-            <label
-              htmlFor="priceRange"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              人均消費
-            </label>
-            <select
-              id="priceRange"
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={priceRange}
-              onChange={(e) => setPriceRange(e.target.value)}
-            >
-              {priceRangeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 最低評分篩選 */}
-          <div>
-            <label
-              htmlFor="minRating"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              最低評分
-            </label>
-            <select
-              id="minRating"
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={minRating}
-              onChange={(e) => setMinRating(parseFloat(e.target.value))}
-            >
-              {ratingOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 城市篩選 */}
-          <div>
-            <label
-              htmlFor="city"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              城市
-            </label>
-            <input
-              type="text"
-              id="city"
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="例如：多倫多"
+            <DateTimeFilter
+              localFilters={localFilters}
+              handleFilterChange={handleFilterChange}
             />
           </div>
 
-          {/* 省份篩選 */}
-          <div>
-            <label
-              htmlFor="province"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              省份
-            </label>
-            <select
-              id="province"
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={selectedProvince}
-              onChange={(e) => setSelectedProvince(e.target.value)}
-            >
-              {provinceOptions.map((option) => (
-                <option
-                  key={option}
-                  value={option === "選擇省份" ? "" : option}
+          {/* 地區篩選 */}
+          <div className="space-y-4 p-4 border rounded-xl">
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">地區</h3>
+            <div>
+              <label
+                htmlFor="province"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                省份
+              </label>
+              <select
+                id="province"
+                value={localFilters.province || ""}
+                onChange={(e) => handleFilterChange("province", e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">所有省份</option>
+                {displayProvinces.map((province) => (
+                  <option key={province} value={province}>
+                    {province}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {localFilters.province && (
+              <div>
+                <label
+                  htmlFor="city"
+                  className="block text-sm font-medium text-gray-700 mb-1"
                 >
-                  {option}
-                </option>
-              ))}
-            </select>
+                  城市
+                </label>
+                <select
+                  id="city"
+                  value={localFilters.city || ""}
+                  onChange={(e) => handleFilterChange("city", e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">所有城市</option>
+                  {cities.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
-          {/* 設施/服務篩選 */}
-          <div>
-            <label className="block text-gray-700 text-sm font-bold mb-2">
-              設施/服務
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {facilitiesServiceOptions.map((option) => (
-                <label
-                  key={option}
-                  className="flex items-center text-gray-700 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    value={option}
-                    checked={selectedFacilitiesServices.includes(option)}
-                    onChange={handleFacilitiesChange}
-                    className="form-checkbox h-4 w-4 text-blue-600 rounded"
-                  />
-                  <span className="ml-2">{option}</span>
-                </label>
-              ))}
+          {/* 菜系類別 */}
+          <div className="space-y-4 p-4 border rounded-xl">
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              菜系類別
+            </h3>
+            <CheckboxesFilter
+              title="cuisine"
+              options={displayCuisineTypes}
+              selected={localFilters.category || []}
+              onToggle={(value) =>
+                handleMultiSelectFilterChange("category", value)
+              }
+            />
+          </div>
+
+          {/* 人均價錢 */}
+          <div className="space-y-4 p-4 border rounded-xl">
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              人均價錢
+            </h3>
+            <div className="flex justify-between items-center text-sm font-medium text-gray-700">
+              <span>人均消費</span>
+              <span>
+                {avgSpending === 0
+                  ? "不限"
+                  : avgSpending === 200
+                  ? "$200+"
+                  : `<$${avgSpending}`}
+              </span>
             </div>
+            <input
+              type="range"
+              min="0"
+              max="200"
+              value={avgSpending}
+              onChange={(e) => setAvgSpending(parseInt(e.target.value, 10))}
+              className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              拖曳滑動條以選擇人均消費。
+            </p>
+          </div>
+
+          {/* 座位數 */}
+          <div className="space-y-4 p-4 border rounded-xl">
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">座位數</h3>
+            <RadioGroupFilter
+              title="seatingCapacity"
+              options={[
+                ...parsedSeatingCapacities,
+                { label: "不限", value: "any" },
+              ]}
+              selectedValue={
+                localFilters.minSeatingCapacity
+                  ? `${localFilters.minSeatingCapacity}-${localFilters.maxSeatingCapacity}`
+                  : "any"
+              }
+              onSelect={(value) => {
+                if (value === "any") {
+                  handleFilterChange("minSeatingCapacity", undefined);
+                  handleFilterChange("maxSeatingCapacity", undefined);
+                } else {
+                  const selectedOption = parsedSeatingCapacities.find(
+                    (opt) => opt.value === value
+                  );
+                  if (selectedOption) {
+                    handleFilterChange(
+                      "minSeatingCapacity",
+                      selectedOption.min
+                    );
+                    handleFilterChange(
+                      "maxSeatingCapacity",
+                      selectedOption.max
+                    );
+                  }
+                }
+              }}
+              valueKey="value"
+              labelKey="label"
+            />
+          </div>
+
+          {/* 營業狀態 */}
+          <div className="space-y-4 p-4 border rounded-xl">
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              營業狀態
+            </h3>
+            <RadioGroupFilter
+              title="businessHours"
+              options={businessHoursOptions}
+              selectedValue={localFilters.businessHours || ""}
+              onSelect={(value) => handleFilterChange("businessHours", value)}
+              valueKey="value"
+              labelKey="label"
+            />
+          </div>
+
+          {/* 訂座模式 */}
+          <div className="space-y-4 p-4 border rounded-xl">
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              訂座模式
+            </h3>
+            <CheckboxesFilter
+              title="reservation"
+              options={displayReservationModes}
+              selected={localFilters.reservationModes || []}
+              onToggle={(value) =>
+                handleMultiSelectFilterChange("reservationModes", value)
+              }
+            />
+          </div>
+
+          {/* 付款方式 */}
+          <div className="space-y-4 p-4 border rounded-xl">
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              付款方式
+            </h3>
+            <CheckboxesFilter
+              title="payment"
+              options={displayPaymentMethods}
+              selected={localFilters.paymentMethods || []}
+              onToggle={(value) =>
+                handleMultiSelectFilterChange("paymentMethods", value)
+              }
+            />
+          </div>
+
+          {/* 設施/服務 */}
+          <div className="space-y-4 p-4 border rounded-xl">
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              設施/服務
+            </h3>
+            <CheckboxesFilter
+              title="facility"
+              options={displayFacilities}
+              selected={localFilters.facilities || []}
+              onToggle={(value) =>
+                handleMultiSelectFilterChange("facilities", value)
+              }
+            />
           </div>
         </div>
 
-        <div className="flex justify-between mt-6 space-x-4">
+        <div className="flex justify-between mt-8 space-x-4">
           <button
             onClick={handleReset}
-            className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
+            className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
           >
             重置
           </button>
           <button
             onClick={handleApply}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
           >
             應用篩選
           </button>

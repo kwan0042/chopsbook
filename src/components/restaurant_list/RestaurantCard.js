@@ -8,12 +8,12 @@ import { faStar as faSolidStar } from "@fortawesome/free-solid-svg-icons";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import { faBookmark as faSolidBookmark } from "@fortawesome/free-solid-svg-icons";
 import { faBookmark as faRegularBookmark } from "@fortawesome/free-regular-svg-icons";
-import { faComment, faShare } from "@fortawesome/free-solid-svg-icons"; // 移除 faCheckCircle
+import { faComment, faShare } from "@fortawesome/free-solid-svg-icons";
 import { useRouter } from "next/navigation";
 
 // 導入自定義 Hook
 import useRestaurantStatus from "@/hooks/useRestaurantStatus";
-import ShareModal from "@/components/ShareModal"; // 假設你已創建這個組件
+import ShareModal from "@/components/ShareModal"; 
 
 /**
  * RestaurantCard 組件: 顯示單個餐廳的資訊卡片，支援網格和列表視圖。
