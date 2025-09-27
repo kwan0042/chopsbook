@@ -214,13 +214,41 @@ const RestaurantForm = ({
               name="restaurantName.zh-TW"
               value={formData.restaurantName?.["zh-TW"] || ""}
               onChange={handleChange}
+              // ⚡️ 根據 noChineseName 狀態禁用輸入框
+              disabled={formData.noChineseName}
               className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
                 errors.restaurantName?.["zh-TW"]
                   ? "border-red-500 focus:ring-red-500"
                   : "border-gray-300 focus:ring-blue-500"
-              }`}
+              } disabled:bg-gray-100 disabled:text-gray-500`}
               placeholder="例如：楓葉小館"
             />
+            {/* ⚡️ 新增：沒有中文名稱複選框 */}
+            <div className="flex items-center mt-2">
+              <input
+                type="checkbox"
+                id="noChineseName"
+                name="noChineseName"
+                checked={formData.noChineseName || false}
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  // 1. 更新 noChineseName 狀態
+                  handleChange({
+                    target: { name: "noChineseName", type: "checkbox", checked: isChecked },
+                  });
+                  // 2. 如果勾選，將中文名稱重置為空，確保數據一致
+                  if (isChecked) {
+                    handleChange({
+                      target: { name: "restaurantName.zh-TW", value: "" },
+                    });
+                  }
+                }}
+                className="form-checkbox h-4 w-4 text-blue-600 rounded"
+              />
+              <label htmlFor="noChineseName" className="ml-2 text-sm text-gray-600">
+                沒有中文名稱 (允許此欄位為空)
+              </label>
+            </div>
           </div>
           <div>
             <label

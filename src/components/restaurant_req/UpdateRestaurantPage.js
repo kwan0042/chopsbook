@@ -174,11 +174,15 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
           };
         });
 
+        // ⚡️ 檢查餐廳是否有中文名稱，以設定 noChineseName 的初始狀態 (新增邏輯)
+        const initialNoChineseName = !data.restaurantName?.["zh-TW"];
+
         const restaurantWithId = {
           id: restaurantId,
           ...data,
           facadePhotoUrls,
           businessHours,
+          noChineseName: initialNoChineseName, // ⚡️ 初始化 noChineseName 狀態 (新增邏輯)
         };
         setSelectedRestaurantData(restaurantWithId);
         setFormData(restaurantWithId);
@@ -201,7 +205,21 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (name === "facadePhotoUrl") {
+
+    // ⚡️ 處理 noChineseName 複選框 (新增邏輯)
+    if (name === "noChineseName") {
+      setFormData((prev) => {
+        const newFormData = { ...prev, [name]: checked };
+        // 如果勾選了「沒有中文名稱」，清除中文名稱的值
+        if (checked) {
+          newFormData.restaurantName = {
+            ...prev.restaurantName,
+            ["zh-TW"]: "",
+          };
+        }
+        return newFormData;
+      });
+    } else if (name === "facadePhotoUrl") {
       setFormData((prev) => ({
         ...prev,
         facadePhotoUrls: value ? [value] : [],
@@ -214,6 +232,8 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
           ...prev.restaurantName,
           [lang]: value,
         },
+        // ⚡️ 如果使用者開始輸入中文名稱，自動取消勾選「沒有中文名稱」 (新增邏輯)
+        noChineseName: lang === "zh-TW" && value ? false : prev.noChineseName,
       }));
     } else {
       setFormData((prev) => ({
@@ -240,6 +260,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
 
   const handleSubmit = async (e, updatedFormDataWithImageUrl) => {
     e.preventDefault();
+    console.log("1. handleSubmit 函式已開始執行"); // ⚡️ 新增此行
     setSubmitting(true);
     setModalMessage("");
     setModalType("");
@@ -248,6 +269,8 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
     const validationErrors = validateRestaurantForm(
       updatedFormDataWithImageUrl
     );
+
+    console.log("2. 驗證結果:", validationErrors); // ⚡️ 新增此行
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       setSubmitting(false);
@@ -267,21 +290,28 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
     if (dataToSubmit.avgSpending) {
       dataToSubmit.avgSpending = parseInt(dataToSubmit.avgSpending, 10);
     }
+    // 注意：這裡假設電話號碼可能會包含非數字字符，但在 Firebase 結構中應為字串，
+    // 因此將其轉換為整數可能會丟失格式（例如 +852）。
+    // 由於原始碼使用 parseInt 移除非數字字符並轉為整數，我們保持這個行為。
     if (dataToSubmit.phone) {
+      // 保持數字和'+'號，但原始碼中用的是 parseInt，這是一個潛在問題，暫時依照原邏輯處理
       dataToSubmit.phone = parseInt(
-        dataToSubmit.phone.replace(/[^0-9]/g, ""),
+        dataToSubmit.phone.toString().replace(/[^0-9]/g, ""),
         10
       );
     }
     if (dataToSubmit.contactPhone) {
       dataToSubmit.contactPhone = parseInt(
-        dataToSubmit.contactPhone.replace(/[^0-9]/g, ""),
+        dataToSubmit.contactPhone.toString().replace(/[^0-9]/g, ""),
         10
       );
     }
     if (dataToSubmit.priority) {
       dataToSubmit.priority = parseInt(dataToSubmit.priority, 10);
     }
+
+    // ⚡️ 提交前，移除 transient/helper fields (新增邏輯)
+    delete dataToSubmit.noChineseName;
 
     try {
       const updateApplicationsRef = collection(
@@ -298,34 +328,39 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
         const formValue = dataToSubmit[field];
         const originalValue = selectedRestaurantData?.[field];
 
-        if (Array.isArray(formValue) && Array.isArray(originalValue)) {
+        // 確保所有值在比較前都是可比較的
+        const v1 = formValue ?? null;
+        const v2 = originalValue ?? null;
+
+
+        if (Array.isArray(v1) && Array.isArray(v2)) {
           if (
-            JSON.stringify([...formValue].sort()) !==
-            JSON.stringify([...originalValue].sort())
+            JSON.stringify([...v1].sort()) !==
+            JSON.stringify([...v2].sort())
           ) {
             changes[field] = {
-              value: formValue,
+              value: v1,
               status: "pending",
             };
           }
         } else if (
-          typeof formValue === "object" &&
-          typeof originalValue === "object" &&
-          formValue !== null &&
-          originalValue !== null
+          typeof v1 === "object" &&
+          typeof v2 === "object" &&
+          v1 !== null &&
+          v2 !== null
         ) {
           // 針對巢狀物件（如 restaurantName）進行比較
-          if (JSON.stringify(formValue) !== JSON.stringify(originalValue)) {
+          if (JSON.stringify(v1) !== JSON.stringify(v2)) {
             changes[field] = {
-              value: formValue,
+              value: v1,
               status: "pending",
             };
           }
         } else if (
-          JSON.stringify(formValue) !== JSON.stringify(originalValue)
+          JSON.stringify(v1) !== JSON.stringify(v2)
         ) {
           changes[field] = {
-            value: formValue,
+            value: v1,
             status: "pending",
           };
         }

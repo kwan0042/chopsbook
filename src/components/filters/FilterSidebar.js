@@ -16,6 +16,7 @@ import {
 
 import {
   cuisineOptions,
+  restaurantTypeOptions, // 導入 restaurantTypeOptions
   reservationModeOptions,
   paymentMethodOptions,
   facilitiesServiceOptions,
@@ -28,6 +29,7 @@ import {
   CheckboxesFilter,
   RadioGroupFilter,
   DateTimeFilter,
+  SelectDropdownFilter, // ⚡️ 導入 SelectDropdownFilter
 } from "./FilterComponents";
 
 import { AuthContext } from "@/lib/auth-context";
@@ -91,7 +93,11 @@ const FilterSidebar = ({
   const scrollContainerRef = useRef(null);
 
   const [isRegionCollapsed, setIsRegionCollapsed] = useState(true);
-  const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(true);
+
+  const [isCuisineTypeCollapsed, setIsCuisineTypeCollapsed] = useState(true);
+  const [isRestaurantTypeCollapsed, setIsRestaurantTypeCollapsed] =
+    useState(true);
+
   const [isAvgSpendingCollapsed, setIsAvgSpendingCollapsed] = useState(true);
   const [isBusinessHoursCollapsed, setIsBusinessHoursCollapsed] =
     useState(true);
@@ -158,6 +164,7 @@ const FilterSidebar = ({
 
   const handleFilterChange = useCallback((key, value) => {
     setLocalFilters((prevFilters) => {
+      // 處理省份變更時清除城市
       if (key === "province") {
         return {
           ...prevFilters,
@@ -165,6 +172,18 @@ const FilterSidebar = ({
           city: "",
         };
       }
+
+      // 處理單選下拉列表（例如 restaurantType）
+      // 當選擇 "選擇餐廳類型" 或 "選擇菜系" 時，視為清空該篩選
+      if (
+        (key === "restaurantType" && value === restaurantTypeOptions[0]) ||
+        (key === "cuisineType" && value === cuisineOptions[0])
+      ) {
+        // 使用解構賦值來刪除對應的屬性
+        const { [key]: _, ...rest } = prevFilters;
+        return rest;
+      }
+
       return {
         ...prevFilters,
         [key]: value,
@@ -199,13 +218,18 @@ const FilterSidebar = ({
       newFilters.favoriteRestaurantIds = currentUser.favoriteRestaurants;
     }
 
-    // 清理所有值為空或 undefined 的屬性
+    // 清理所有值為空或 undefined 的屬性 (包括單選列表的初始值)
     Object.keys(newFilters).forEach((key) => {
       const value = newFilters[key];
       if (
         value === null ||
         value === undefined ||
-        (Array.isArray(value) && value.length === 0)
+        (Array.isArray(value) && value.length === 0) ||
+        (key === "province" && value === provinceOptions[0]) ||
+        (key === "city" &&
+          value ===
+            citiesByProvince[newFilters.province || provinceOptions[0]][0]) ||
+        (key === "restaurantType" && value === restaurantTypeOptions[0])
       ) {
         delete newFilters[key];
       }
@@ -230,14 +254,18 @@ const FilterSidebar = ({
     if (onClose) onClose();
   }, [onResetFilters, onClose]);
 
+  // 菜系類型保持多選，所以要過濾掉第一個標籤
   const displayCuisineTypes = cuisineOptions.filter(
-    (option) => option !== "選擇菜系"
+    (option) => option !== cuisineOptions[0]
   );
+  // 餐廳類型使用單選下拉列表，所以保留完整列表（包含第一個標籤）
+  const displayRestaurantTypes = restaurantTypeOptions;
+
   const displayReservationModes = reservationModeOptions;
   const displayPaymentMethods = paymentMethodOptions;
   const displayFacilities = facilitiesServiceOptions;
   const displayProvinces = provinceOptions.filter(
-    (option) => option !== "選擇省份"
+    (option) => option !== provinceOptions[0]
   );
   const parsedSeatingCapacities = parseSeatingCapacityOptions(
     seatingCapacityOptions
@@ -328,13 +356,15 @@ const FilterSidebar = ({
                 <div className="relative">
                   <select
                     id="province"
-                    value={localFilters.province || ""}
+                    value={localFilters.province || provinceOptions[0]}
                     onChange={(e) =>
                       handleFilterChange("province", e.target.value)
                     }
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8"
                   >
-                    <option value="">所有省份</option>
+                    <option value={provinceOptions[0]}>
+                      {provinceOptions[0]}
+                    </option>
                     {displayProvinces.map((province) => (
                       <option key={province} value={province}>
                         {province}
@@ -359,7 +389,10 @@ const FilterSidebar = ({
                   <div className="relative">
                     <select
                       id="city"
-                      value={localFilters.city || ""}
+                      value={
+                        localFilters.city ||
+                        citiesByProvince[localFilters.province][0]
+                      }
                       onChange={(e) =>
                         handleFilterChange("city", e.target.value)
                       }
@@ -388,18 +421,35 @@ const FilterSidebar = ({
 
           <FilterGroup
             title="菜系類別"
-            isCollapsed={isCategoryCollapsed}
-            onToggle={() => setIsCategoryCollapsed(!isCategoryCollapsed)}
+            isCollapsed={isCuisineTypeCollapsed}
+            onToggle={() => setIsCuisineTypeCollapsed(!isCuisineTypeCollapsed)}
           >
             <CheckboxesFilter
               title="cuisine"
               options={displayCuisineTypes}
-              selected={localFilters.category || []}
+              selected={localFilters.cuisineType || []}
               onToggle={(value) =>
-                handleMultiSelectFilterChange("category", value)
+                handleMultiSelectFilterChange("cuisineType", value)
               }
             />
           </FilterGroup>
+
+          {/* ⚡️ 修正點：使用 SelectDropdownFilter 實現單選 */}
+          <FilterGroup
+            title="餐廳類型"
+            isCollapsed={isRestaurantTypeCollapsed}
+            onToggle={() =>
+              setIsRestaurantTypeCollapsed(!isRestaurantTypeCollapsed)
+            }
+          >
+            <SelectDropdownFilter
+              
+              options={displayRestaurantTypes} // 包含 "選擇餐廳類型"
+              selectedValue={localFilters.restaurantType}
+              onSelect={(value) => handleFilterChange("restaurantType", value)}
+            />
+          </FilterGroup>
+          {/* 修正點結束 */}
 
           <FilterGroup
             title="人均價錢"

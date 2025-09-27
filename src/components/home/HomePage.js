@@ -34,7 +34,7 @@ const HomePage = ({
 }) => {
   const { currentUser, logout, setModalMessage, modalMessage, db, appId } =
     useContext(AuthContext); // ✅ 從 AuthContext 獲取 db 和 appId
-  
+
   const router = useRouter();
 
   // 管理 FilterModal (舊有的，不同的 Modal) 的顯示狀態
@@ -77,7 +77,6 @@ const HomePage = ({
 
   return (
     <div className="min-h-screen flex flex-col  font-inter">
-      
       <main className="flex-grow">
         <HeroSection />
 
@@ -85,7 +84,7 @@ const HomePage = ({
           <div className="grid grid-cols-6 md:grid-cols-6 gap-4">
             <div className="col-span-1  grid grid-cols-1 gap-4 h-fit">
               {/* <WeeklyRankingsSection /> */}
-              <PersonalizedSection />
+              {currentUser && <PersonalizedSection />}
             </div>
             <div className="col-span-4 grid grid-cols-1 gap-4">
               <PromotionsSection />
@@ -93,7 +92,7 @@ const HomePage = ({
               <TrendingTopicsSection key={trendingKey} />
             </div>
             <div className="col-span-1 grid grid-cols-1 gap-4 h-fit">
-              <InteractivePollSection />
+              {/* <InteractivePollSection /> */}
               {/* <RandomPickerSection /> */}
               <LatestReviewsSection />
             </div>
@@ -101,7 +100,6 @@ const HomePage = ({
           <TrendingCateSection />
         </div>
       </main>
-      
 
       <FilterModal
         isOpen={showFilterModal}

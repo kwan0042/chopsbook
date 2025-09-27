@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { AuthContext } from "@/lib/auth-context";
 import {
   cuisineOptions,
+  restaurantTypeOptions,
   reservationModeOptions,
   paymentMethodOptions,
   facilitiesServiceOptions,
@@ -15,7 +16,10 @@ import {
   CheckboxesFilter,
   RadioGroupFilter,
   DateTimeFilter,
+  SelectDropdownFilter,
 } from "./FilterComponents";
+// ⚡️ 導入 FilterGroup 組件 (假設路徑)
+import FilterGroup from "./FilterGroup";
 
 const parseSeatingCapacityOptions = (options) => {
   return options
@@ -56,14 +60,52 @@ const FilterModal = ({
   const [avgSpending, setAvgSpending] = useState(0);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  // 核心修正：每次模態框打開時，用 initialFilters 初始化本地狀態
+  // ⚡️ 狀態: 控制每個 FilterGroup 的收合狀態 (預設為 true = 收合)
+  const [isTimeAndPartyCollapsed, setIsTimeAndPartyCollapsed] = useState(true);
+  const [isRegionCollapsed, setIsRegionCollapsed] = useState(true);
+  const [isCuisineTypeCollapsed, setIsCuisineTypeCollapsed] = useState(true);
+  const [isRestaurantTypeCollapsed, setIsRestaurantTypeCollapsed] =
+    useState(true);
+  const [isAvgSpendingCollapsed, setIsAvgSpendingCollapsed] = useState(true);
+  const [isSeatingCapacityCollapsed, setIsSeatingCapacityCollapsed] =
+    useState(true);
+  const [isBusinessHoursCollapsed, setIsBusinessHoursCollapsed] =
+    useState(true);
+  const [isReservationModesCollapsed, setIsReservationModesCollapsed] =
+    useState(true);
+  const [isPaymentMethodsCollapsed, setIsPaymentMethodsCollapsed] =
+    useState(true);
+  const [isFacilitiesCollapsed, setIsFacilitiesCollapsed] = useState(true);
+
+  // 核心修正：使用 useRef 儲存上次的 initialFilters 內容的 JSON 字串
+  const initialFiltersJsonRef = useRef(JSON.stringify(initialFilters));
+
+  // 避免無限更新的 useEffect
   useEffect(() => {
-    if (isOpen) {
-      setLocalFilters(initialFilters);
+    // 檢查 initialFilters 的 JSON 內容是否與上次不同
+    const currentFiltersJson = JSON.stringify(initialFilters);
+
+    if (isOpen && currentFiltersJson !== initialFiltersJsonRef.current) {
+      setLocalFilters(initialFilters || {});
+      setAvgSpending(initialFilters.maxAvgSpending || 0);
+      setShowFavoritesOnly(!!initialFilters.favoriteRestaurantIds);
+
+      // 更新引用，確保下次渲染時不會再次觸發
+      initialFiltersJsonRef.current = currentFiltersJson;
+    }
+    // 此外，如果 modal 只是打開/關閉，但 initialFilters 沒變，也執行設定
+    else if (
+      isOpen &&
+      localFilters &&
+      Object.keys(localFilters).length === 0 &&
+      Object.keys(initialFilters).length > 0
+    ) {
+      // 這是為了確保在首次打開時，即使引用沒變（但 localFilters 還是初始的 {}），也能正確加載
+      setLocalFilters(initialFilters || {});
       setAvgSpending(initialFilters.maxAvgSpending || 0);
       setShowFavoritesOnly(!!initialFilters.favoriteRestaurantIds);
     }
-  }, [isOpen]);
+  }, [isOpen, initialFilters]); // 保持 initialFilters 在依賴項中，但由內部邏輯控制更新
 
   const cities = localFilters.province
     ? citiesByProvince[localFilters.province] || []
@@ -78,6 +120,23 @@ const FilterModal = ({
           city: "",
         };
       }
+
+      // 處理單選下拉列表的清空邏輯
+      const isDropdownKey = ["restaurantType", "province", "city"].includes(
+        key
+      );
+      const isDefaultValue =
+        (key === "restaurantType" && value === restaurantTypeOptions[0]) ||
+        (key === "province" && value === provinceOptions[0]) ||
+        (key === "city" &&
+          value ===
+            citiesByProvince[prevFilters.province || provinceOptions[0]]?.[0]);
+
+      if (isDropdownKey && isDefaultValue) {
+        const { [key]: _, ...rest } = prevFilters;
+        return rest;
+      }
+
       return {
         ...prevFilters,
         [key]: value,
@@ -113,14 +172,23 @@ const FilterModal = ({
       delete newFilters.favoriteRestaurantIds;
     }
 
-    // 關鍵修正：在傳遞篩選條件前，移除所有值為空或未定義的屬性
+    // 移除所有值為空或未定義的屬性（包含下拉列表的初始值）
     Object.keys(newFilters).forEach((key) => {
       const value = newFilters[key];
+
+      const isDefaultDropdownValue =
+        (key === "restaurantType" && value === restaurantTypeOptions[0]) ||
+        (key === "province" && value === provinceOptions[0]) ||
+        (key === "city" &&
+          localFilters.province &&
+          value === citiesByProvince[localFilters.province]?.[0]);
+
       if (
         value === "" ||
         value === null ||
         value === undefined ||
-        (Array.isArray(value) && value.length === 0)
+        (Array.isArray(value) && value.length === 0) ||
+        isDefaultDropdownValue
       ) {
         delete newFilters[key];
       }
@@ -140,6 +208,9 @@ const FilterModal = ({
   const displayCuisineTypes = cuisineOptions.filter(
     (option) => option !== "選擇菜系"
   );
+  // 餐廳類型，保留完整列表供下拉選單使用
+  const displayRestaurantTypes = restaurantTypeOptions;
+
   const displayReservationModes = reservationModeOptions;
   const displayPaymentMethods = paymentMethodOptions;
   const displayFacilities = facilitiesServiceOptions;
@@ -170,128 +241,163 @@ const FilterModal = ({
           篩選餐廳
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* 使用 flex 容器和 w-full 確保在小螢幕上可以堆疊 */}
+        <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
           {/* 預計用餐詳情 */}
-          <div className="space-y-4 p-4 border rounded-xl">
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              預計用餐詳情
-            </h3>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="showFavoritesOnly"
-                checked={showFavoritesOnly}
-                onChange={(e) => setShowFavoritesOnly(e.target.checked)}
-                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          <FilterGroup
+            title="預計用餐詳情"
+            isCollapsed={isTimeAndPartyCollapsed}
+            onToggle={() =>
+              setIsTimeAndPartyCollapsed(!isTimeAndPartyCollapsed)
+            }
+          >
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="showFavoritesOnly"
+                  checked={showFavoritesOnly}
+                  onChange={(e) => setShowFavoritesOnly(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label
+                  htmlFor="showFavoritesOnly"
+                  className="ml-2 text-sm text-gray-700"
+                >
+                  只顯示我的收藏餐廳
+                </label>
+              </div>
+              <DateTimeFilter
+                localFilters={localFilters}
+                handleFilterChange={handleFilterChange}
               />
-              <label
-                htmlFor="showFavoritesOnly"
-                className="ml-2 text-sm text-gray-700"
-              >
-                只顯示我的收藏餐廳
-              </label>
             </div>
-            <DateTimeFilter
-              localFilters={localFilters}
-              handleFilterChange={handleFilterChange}
-            />
-          </div>
+          </FilterGroup>
 
           {/* 地區篩選 */}
-          <div className="space-y-4 p-4 border rounded-xl">
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">地區</h3>
-            <div>
-              <label
-                htmlFor="province"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                省份
-              </label>
-              <select
-                id="province"
-                value={localFilters.province || ""}
-                onChange={(e) => handleFilterChange("province", e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">所有省份</option>
-                {displayProvinces.map((province) => (
-                  <option key={province} value={province}>
-                    {province}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {localFilters.province && (
+          <FilterGroup
+            title="地區"
+            isCollapsed={isRegionCollapsed}
+            onToggle={() => setIsRegionCollapsed(!isRegionCollapsed)}
+          >
+            <div className="space-y-4">
               <div>
                 <label
-                  htmlFor="city"
+                  htmlFor="province"
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
-                  城市
+                  省份
                 </label>
                 <select
-                  id="city"
-                  value={localFilters.city || ""}
-                  onChange={(e) => handleFilterChange("city", e.target.value)}
+                  id="province"
+                  value={localFilters.province || provinceOptions[0]}
+                  onChange={(e) =>
+                    handleFilterChange("province", e.target.value)
+                  }
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="">所有城市</option>
-                  {cities.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
+                  {provinceOptions.map((province) => (
+                    <option key={province} value={province}>
+                      {province}
                     </option>
                   ))}
                 </select>
               </div>
-            )}
-          </div>
+              {localFilters.province && (
+                <div>
+                  <label
+                    htmlFor="city"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    城市
+                  </label>
+                  <select
+                    id="city"
+                    value={localFilters.city || cities[0]}
+                    onChange={(e) => handleFilterChange("city", e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {cities.map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          </FilterGroup>
+
+          {/* 餐廳類型 - 單選下拉列表 */}
+          <FilterGroup
+            title="餐廳類型"
+            isCollapsed={isRestaurantTypeCollapsed}
+            onToggle={() =>
+              setIsRestaurantTypeCollapsed(!isRestaurantTypeCollapsed)
+            }
+          >
+            <SelectDropdownFilter
+              options={displayRestaurantTypes}
+              selectedValue={localFilters.restaurantType}
+              onSelect={(value) => handleFilterChange("restaurantType", value)}
+            />
+          </FilterGroup>
 
           {/* 菜系類別 */}
-          <div className="space-y-4 p-4 border rounded-xl">
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              菜系類別
-            </h3>
+          <FilterGroup
+            title="菜系類別"
+            isCollapsed={isCuisineTypeCollapsed}
+            onToggle={() => setIsCuisineTypeCollapsed(!isCuisineTypeCollapsed)}
+          >
             <CheckboxesFilter
               title="cuisine"
               options={displayCuisineTypes}
-              selected={localFilters.category || []}
+              selected={localFilters.cuisineType || []}
               onToggle={(value) =>
-                handleMultiSelectFilterChange("category", value)
+                handleMultiSelectFilterChange("cuisineType", value)
               }
             />
-          </div>
+          </FilterGroup>
 
           {/* 人均價錢 */}
-          <div className="space-y-4 p-4 border rounded-xl">
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              人均價錢
-            </h3>
-            <div className="flex justify-between items-center text-sm font-medium text-gray-700">
-              <span>人均消費</span>
-              <span>
-                {avgSpending === 0
-                  ? "不限"
-                  : avgSpending === 200
-                  ? "$200+"
-                  : `<$${avgSpending}`}
-              </span>
+          <FilterGroup
+            title="人均價錢"
+            isCollapsed={isAvgSpendingCollapsed}
+            onToggle={() => setIsAvgSpendingCollapsed(!isAvgSpendingCollapsed)}
+          >
+            <div className="space-y-4">
+              <div className="flex justify-between items-center text-sm font-medium text-gray-700">
+                <span>人均消費</span>
+                <span>
+                  {avgSpending === 0
+                    ? "不限"
+                    : avgSpending === 200
+                    ? "$200+"
+                    : `<$${avgSpending}`}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="200"
+                value={avgSpending}
+                onChange={(e) => setAvgSpending(parseInt(e.target.value, 10))}
+                className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                拖曳滑動條以選擇人均消費。
+              </p>
             </div>
-            <input
-              type="range"
-              min="0"
-              max="200"
-              value={avgSpending}
-              onChange={(e) => setAvgSpending(parseInt(e.target.value, 10))}
-              className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
-            />
-            <p className="text-xs text-gray-500 mt-2">
-              拖曳滑動條以選擇人均消費。
-            </p>
-          </div>
+          </FilterGroup>
 
           {/* 座位數 */}
-          <div className="space-y-4 p-4 border rounded-xl">
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">座位數</h3>
+          <FilterGroup
+            title="座位數"
+            isCollapsed={isSeatingCapacityCollapsed}
+            onToggle={() =>
+              setIsSeatingCapacityCollapsed(!isSeatingCapacityCollapsed)
+            }
+          >
             <RadioGroupFilter
               title="seatingCapacity"
               options={[
@@ -326,13 +432,16 @@ const FilterModal = ({
               valueKey="value"
               labelKey="label"
             />
-          </div>
+          </FilterGroup>
 
           {/* 營業狀態 */}
-          <div className="space-y-4 p-4 border rounded-xl">
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              營業狀態
-            </h3>
+          <FilterGroup
+            title="營業狀態"
+            isCollapsed={isBusinessHoursCollapsed}
+            onToggle={() =>
+              setIsBusinessHoursCollapsed(!isBusinessHoursCollapsed)
+            }
+          >
             <RadioGroupFilter
               title="businessHours"
               options={businessHoursOptions}
@@ -341,13 +450,16 @@ const FilterModal = ({
               valueKey="value"
               labelKey="label"
             />
-          </div>
+          </FilterGroup>
 
           {/* 訂座模式 */}
-          <div className="space-y-4 p-4 border rounded-xl">
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              訂座模式
-            </h3>
+          <FilterGroup
+            title="訂座模式"
+            isCollapsed={isReservationModesCollapsed}
+            onToggle={() =>
+              setIsReservationModesCollapsed(!isReservationModesCollapsed)
+            }
+          >
             <CheckboxesFilter
               title="reservation"
               options={displayReservationModes}
@@ -356,13 +468,16 @@ const FilterModal = ({
                 handleMultiSelectFilterChange("reservationModes", value)
               }
             />
-          </div>
+          </FilterGroup>
 
           {/* 付款方式 */}
-          <div className="space-y-4 p-4 border rounded-xl">
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              付款方式
-            </h3>
+          <FilterGroup
+            title="付款方式"
+            isCollapsed={isPaymentMethodsCollapsed}
+            onToggle={() =>
+              setIsPaymentMethodsCollapsed(!isPaymentMethodsCollapsed)
+            }
+          >
             <CheckboxesFilter
               title="payment"
               options={displayPaymentMethods}
@@ -371,13 +486,14 @@ const FilterModal = ({
                 handleMultiSelectFilterChange("paymentMethods", value)
               }
             />
-          </div>
+          </FilterGroup>
 
           {/* 設施/服務 */}
-          <div className="space-y-4 p-4 border rounded-xl">
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              設施/服務
-            </h3>
+          <FilterGroup
+            title="設施/服務"
+            isCollapsed={isFacilitiesCollapsed}
+            onToggle={() => setIsFacilitiesCollapsed(!isFacilitiesCollapsed)}
+          >
             <CheckboxesFilter
               title="facility"
               options={displayFacilities}
@@ -386,7 +502,7 @@ const FilterModal = ({
                 handleMultiSelectFilterChange("facilities", value)
               }
             />
-          </div>
+          </FilterGroup>
         </div>
 
         <div className="flex justify-between mt-8 space-x-4">

@@ -69,7 +69,7 @@ const RestaurantListPage = ({
     const labels = {
       province: "省份",
       city: "城市",
-      category: "菜系",
+      cuisineType: "餐廳菜系",
       minRating: "最低評分",
       minSeatingCapacity: "座位數",
       maxSeatingCapacity: "座位數",
@@ -81,6 +81,7 @@ const RestaurantListPage = ({
       reservationTime: "用餐時間",
       partySize: "用餐人數",
       favoriteRestaurantIds: "收藏",
+      restaurantType:"餐廳類型 "
     };
     return labels[key] || key;
   };
@@ -198,6 +199,7 @@ const RestaurantListPage = ({
               key={`${key}-${val}`}
               className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full whitespace-nowrap"
             >
+              {/* 這裡的 key 可能是 cuisineType、reservationModes 等 */}
               {`${getFilterLabel(key)}: ${val}`}
               <button
                 onClick={() => onRemoveFilter(key, val)}
@@ -305,7 +307,6 @@ const RestaurantListPage = ({
               />
             ))}
           </div>
-          
         </>
       )}
     </div>

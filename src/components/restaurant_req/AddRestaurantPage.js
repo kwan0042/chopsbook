@@ -19,7 +19,7 @@ const ArrowLeftIcon = ({ className = "" }) => (
   >
     <path
       fillRule="evenodd"
-      d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+      d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
       clipRule="evenodd"
     />
   </svg>
@@ -53,6 +53,8 @@ const AddRestaurantPage = ({ onBackToHome }) => {
       "zh-TW": "",
       en: "",
     },
+    // ⚡️ 新增 noChineseName 欄位 (輔助狀態)
+    noChineseName: false,
     province: "",
     city: "",
     postalCode: "", // 新增
@@ -101,8 +103,23 @@ const AddRestaurantPage = ({ onBackToHome }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    // ⚡️ 處理 noChineseName 複選框 (新增邏輯)
+    if (name === "noChineseName") {
+      setFormData((prev) => {
+        const newFormData = { ...prev, [name]: checked };
+        // 如果勾選了「沒有中文名稱」，清除中文名稱的值
+        if (checked) {
+          newFormData.restaurantName = {
+            ...prev.restaurantName,
+            ["zh-TW"]: "",
+          };
+        }
+        return newFormData;
+      });
+    }
     // 處理 nested object 的情況
-    if (name.startsWith("restaurantName")) {
+    else if (name.startsWith("restaurantName")) {
       const lang = name.split(".")[1]; // Ex: "zh-TW" or "en"
       setFormData((prev) => ({
         ...prev,
@@ -110,6 +127,8 @@ const AddRestaurantPage = ({ onBackToHome }) => {
           ...prev.restaurantName,
           [lang]: value,
         },
+        // ⚡️ 如果使用者開始輸入中文名稱，自動取消勾選「沒有中文名稱」 (新增邏輯)
+        noChineseName: lang === "zh-TW" && value ? false : prev.noChineseName,
       }));
     } else {
       setFormData((prev) => ({
@@ -159,19 +178,23 @@ const AddRestaurantPage = ({ onBackToHome }) => {
 
     const dataToSubmit = { ...(updatedFormData || formData) };
 
+    // ⚡️ 提交前，移除 transient/helper field (新增邏輯)
+    delete dataToSubmit.noChineseName;
+
     // **核心修正：在提交前將特定欄位轉換為數字類型**
     if (dataToSubmit.avgSpending) {
       dataToSubmit.avgSpending = parseInt(dataToSubmit.avgSpending, 10);
     }
     if (dataToSubmit.phone) {
+      // 轉換為整數可能導致國際電話號碼格式丟失，但由於原始碼中存在此邏輯，故保留。
       dataToSubmit.phone = parseInt(
-        dataToSubmit.phone.replace(/[^0-9]/g, ""),
+        dataToSubmit.phone.toString().replace(/[^0-9]/g, ""),
         10
       );
     }
     if (dataToSubmit.contactPhone) {
       dataToSubmit.contactPhone = parseInt(
-        dataToSubmit.contactPhone.replace(/[^0-9]/g, ""),
+        dataToSubmit.contactPhone.toString().replace(/[^0-9]/g, ""),
         10
       );
     }

@@ -121,7 +121,8 @@ export async function GET(request) {
       facilities,
       reservationDate,
       reservationTime,
-      category,
+      cuisineType,
+      restaurantType,
       businessHours,
     } = filters;
 
@@ -133,15 +134,23 @@ export async function GET(request) {
     // 核心查詢：構建 Firestore 查詢以利用索引
     let q = restaurantsColRef;
 
-    // 應用菜系篩選，使用 `in` 運算子
-    const categoriesArray = Array.isArray(category)
-      ? category
-      : category
-      ? [category]
+    // 應用菜系篩選
+    // ⚡️ 修正邏輯：處理 cuisineType 是陣列、單個字串或 undefined 的情況
+    const cuisineTypesArray = Array.isArray(cuisineType)
+      ? cuisineType
+      : cuisineType
+      ? [cuisineType]
       : [];
-    if (categoriesArray.length > 0) {
-      // 請注意：Firestore 的 `in` 運算子最多支援 10 個值
-      q = q.where("cuisineType", "in", categoriesArray);
+
+    if (cuisineTypesArray.length > 0) {
+      // 這裡的 "cuisineType" 是 DB 欄位名稱
+      q = q.where("cuisineType", "in", cuisineTypesArray);
+    }
+
+    // 應用餐廳類型篩選 (單選)
+    if (restaurantType) {
+      // 這裡的 "restaurantType" 應該是 DB 欄位名稱，使用精確匹配
+      q = q.where("restaurantType", "==", restaurantType);
     }
 
     if (province) {
@@ -274,6 +283,9 @@ export async function GET(request) {
             .toLowerCase()
             .includes(normalizedQuery) ||
           (restaurant.cuisineType || "")
+            .toLowerCase()
+            .includes(normalizedQuery) ||
+          (restaurant.restaurantType || "")
             .toLowerCase()
             .includes(normalizedQuery) ||
           (restaurant.fullAddress || "").toLowerCase().includes(normalizedQuery)

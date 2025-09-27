@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCalendarAlt,
   faClock,
-  faChevronDown,
+  faChevronDown, // 引入用於下拉選單的圖標
 } from "@fortawesome/free-solid-svg-icons";
 
 // 處理多選框的元件，例如菜系、設施等
@@ -59,6 +59,41 @@ const RadioGroupFilter = ({
         </label>
       </div>
     ))}
+  </div>
+);
+
+// ⚡️ 新增：處理單選下拉列表的元件 (例如餐廳類型)
+const SelectDropdownFilter = ({
+  title, // 用於 HTML id 和 label
+  options, // 字符串陣列
+  selectedValue,
+  onSelect,
+}) => (
+  <div>
+    <label
+      htmlFor={title}
+      className="block text-sm font-medium text-gray-700 mb-1"
+    >
+      {title}
+    </label>
+    <div className="relative">
+      <select
+        id={title}
+        value={selectedValue || options[0]} // 預設使用第一個選項作為初始/清除狀態
+        onChange={(e) => onSelect(e.target.value)}
+        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+      <FontAwesomeIcon
+        icon={faChevronDown}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+      />
+    </div>
   </div>
 );
 
@@ -267,4 +302,4 @@ const DateTimeFilter = ({ localFilters, handleFilterChange }) => {
   );
 };
 
-export { CheckboxesFilter, RadioGroupFilter, DateTimeFilter };
+export { CheckboxesFilter, RadioGroupFilter, DateTimeFilter, SelectDropdownFilter };
