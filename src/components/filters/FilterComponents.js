@@ -65,37 +65,44 @@ const RadioGroupFilter = ({
 // ⚡️ 新增：處理單選下拉列表的元件 (例如餐廳類型)
 const SelectDropdownFilter = ({
   title, // 用於 HTML id 和 label
+  placeholder,
   options, // 字符串陣列
   selectedValue,
   onSelect,
-}) => (
-  <div>
-    <label
-      htmlFor={title}
-      className="block text-sm font-medium text-gray-700 mb-1"
-    >
-      {title}
-    </label>
-    <div className="relative">
-      <select
-        id={title}
-        value={selectedValue || options[0]} // 預設使用第一個選項作為初始/清除狀態
-        onChange={(e) => onSelect(e.target.value)}
-        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8"
+}) => {
+  const effectiveValue = selectedValue || "";
+  return (
+    <div>
+      <label
+        htmlFor={title}
+        className="block text-sm font-medium text-gray-700 mb-1"
       >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
+        {title}
+      </label>
+      <div className="relative">
+        <select
+          id={title}
+          value={effectiveValue} // 預設使用第一個選項作為初始/清除狀態
+          onChange={(e) => onSelect(e.target.value)}
+          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8"
+        >
+          <option value="" disabled hidden>
+            {placeholder || "請選擇..."}
           </option>
-        ))}
-      </select>
-      <FontAwesomeIcon
-        icon={faChevronDown}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-      />
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        <FontAwesomeIcon
+          icon={faChevronDown}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+        />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // 整合日期和時間選擇器的元件
 const DateTimeFilter = ({ localFilters, handleFilterChange }) => {
@@ -302,4 +309,9 @@ const DateTimeFilter = ({ localFilters, handleFilterChange }) => {
   );
 };
 
-export { CheckboxesFilter, RadioGroupFilter, DateTimeFilter, SelectDropdownFilter };
+export {
+  CheckboxesFilter,
+  RadioGroupFilter,
+  DateTimeFilter,
+  SelectDropdownFilter,
+};

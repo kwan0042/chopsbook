@@ -13,7 +13,6 @@ import Link from "next/link";
 // 從新的 hook 檔案中導入 RankDisplay 組件
 import { RankDisplay } from "@/hooks/cx-ranks";
 
-
 const Navbar = ({ onShowFilterModal, onSearch }) => {
   const { currentUser, setModalMessage, favoriteRestaurantsCount, app } =
     useContext(AuthContext);
@@ -209,12 +208,10 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
         </form>
 
         <div className="flex items-center w-full lg:w-[30%] justify-end space-x-2 mt-2 lg:mt-0">
-          
           <Link
             href={`/review`}
             className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-3 m-0 text-sm"
           >
-            
             <span>寫食評</span>
           </Link>
           <button
@@ -306,13 +303,13 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
           所有餐廳
         </button>
         <a
-          href="#"
+          href="/categories"
           className="hover:text-yellow-500 transition duration-200 text-sm"
         >
           所有類別
         </a>
         <a
-          href="#"
+          href="/categories"
           className="hover:text-yellow-500 transition duration-200 text-sm"
         >
           特價優惠

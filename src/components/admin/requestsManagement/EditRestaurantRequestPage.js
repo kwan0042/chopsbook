@@ -35,7 +35,8 @@ const restaurantSections = {
   },
   contactInfo: {
     zh: "聯絡資訊",
-    fields: ["contactName", "contactPhone", "phone", "contactEmail", "website"],
+    // 🚨 變更：移除 contactName, contactPhone, contactEmail 欄位，使其不在現有資料區塊顯示
+    fields: ["phone", "website"],
   },
   location: {
     zh: "位置資訊",
@@ -124,6 +125,18 @@ const EditRestaurantRequestPage = ({ requestId }) => {
           return;
         }
 
+        // 🚨 新增日誌：每次數據更新時，查看 changes 狀態
+        console.log("--- 實時數據更新 (onSnapshot) ---");
+        const pendingFields = Object.keys(reqData.changes || {}).filter(
+          (key) => reqData.changes[key].status === "pending"
+        );
+        console.log("待處理欄位 (Pending Fields):", pendingFields);
+        console.log(
+          "所有 changes 物件:",
+          JSON.stringify(reqData.changes, null, 2)
+        );
+        console.log("----------------------------------");
+
         setRequestData({ ...reqData, type: "update" });
 
         // 獲取原始餐廳資料
@@ -160,11 +173,30 @@ const EditRestaurantRequestPage = ({ requestId }) => {
   // 處理儲存所有變更的邏輯
   const handleSaveChanges = async () => {
     if (isSubmitting || !requestData) return;
-
+    const contactFieldsToIgnore = [
+      "contactName",
+      "contactPhone",
+      "contactEmail",
+    ];
     // 檢查是否有任何項目處於待處理狀態
     const hasPendingChanges = Object.keys(requestData.changes || {}).some(
-      (key) => requestData.changes[key].status === "pending"
+      (key) => {
+        return (
+          !contactFieldsToIgnore.includes(key) &&
+          requestData.changes[key].status === "pending"
+        );
+      }
     );
+
+    // 🚨 新增日誌：檢查儲存時的狀態
+    console.log("--- 執行儲存變更 (handleSaveChanges) ---");
+    const allStatuses = Object.keys(requestData.changes || {}).map((key) => ({
+      field: key,
+      status: requestData.changes[key].status,
+    }));
+    console.log("當前所有欄位狀態:", allStatuses);
+    console.log("是否有待處理的變更 (hasPendingChanges):", hasPendingChanges);
+    console.log("-----------------------------------------");
 
     if (hasPendingChanges) {
       setShowIncompleteWarning(true);
@@ -174,6 +206,8 @@ const EditRestaurantRequestPage = ({ requestId }) => {
           block: "start",
         });
       }
+      // 🚨 新增日誌：因有 pending 項目而終止
+      console.log("儲存操作已中止：存在待處理的項目。");
       return;
     }
 
@@ -195,8 +229,22 @@ const EditRestaurantRequestPage = ({ requestId }) => {
 
       const approvedChanges = {};
       Object.keys(requestData.changes || {}).forEach((field) => {
+        // 🚨 變更：排除 contactName, contactPhone, contactEmail 不寫入餐廳資料
+        if (
+          field === "contactName" ||
+          field === "contactPhone" ||
+          field === "contactEmail" ||
+          field === "type" // 確保 requestData.type 不會被意外寫入
+        ) {
+          // 🚨 新增日誌：排除欄位
+          console.log(`排除欄位 (不寫入餐廳資料): ${field}`);
+          return;
+        }
+
         if (requestData.changes[field].status === "approved") {
           approvedChanges[field] = requestData.changes[field].value;
+          // 🚨 新增日誌：記錄批准寫入欄位
+          console.log(`批准寫入餐廳資料: ${field}`);
         }
       });
 
@@ -218,7 +266,11 @@ const EditRestaurantRequestPage = ({ requestId }) => {
 
       await batch.commit();
 
+      // 🚨 新增日誌：成功提交批次
+      console.log("Firestore 批次提交成功。");
+
       setLocalModalMessage("已成功儲存所有已批准的變更。", "success"); // 新增成功提示
+      // 🚨 滿足需求 1: 不開新 tab
       setTimeout(() => router.push("/admin"), 2000); // 延遲跳轉
     } catch (error) {
       console.error("儲存所有變更失敗:", error);
@@ -242,6 +294,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
       });
       setLocalModalMessage("已成功否決此請求。");
       setModalType("success");
+      // 🚨 滿足需求 1: 不開新 tab
       setTimeout(() => router.push("/admin"), 2000);
     } catch (error) {
       console.error("否決請求失敗:", error);
@@ -262,9 +315,14 @@ const EditRestaurantRequestPage = ({ requestId }) => {
         `artifacts/${appId}/public/data/restaurant_requests`,
         requestId
       );
+      // 🚨 變更：滿足需求 3，紀錄批准人 ID 及時間
       await updateDoc(requestDocRef, {
         [`changes.${field}.status`]: "approved",
+        [`changes.${field}.approvedBy`]: currentUser.uid,
+        [`changes.${field}.approvedAt`]: new Date(),
       });
+      // 🚨 新增日誌：單一批准成功
+      console.log(`批准欄位成功: ${field}. 請等待 onSnapshot 更新數據。`);
       setShowIncompleteWarning(false);
     } catch (error) {
       console.error("批准欄位失敗:", error);
@@ -287,7 +345,10 @@ const EditRestaurantRequestPage = ({ requestId }) => {
       );
       await updateDoc(requestDocRef, {
         [`changes.${field}.status`]: "rejected",
+        // 由於否決不需要寫入 approvedBy/At，這裡保持不變
       });
+      // 🚨 新增日誌：單一否決成功
+      console.log(`否決欄位成功: ${field}. 請等待 onSnapshot 更新數據。`);
       setShowIncompleteWarning(false);
     } catch (error) {
       console.error("否決欄位失敗:", error);
@@ -310,12 +371,17 @@ const EditRestaurantRequestPage = ({ requestId }) => {
       );
       const updates = Object.keys(requestData.changes || {}).reduce(
         (acc, key) => {
+          // 重置狀態為 pending，同時清除 approvedBy/At
           acc[`changes.${key}.status`] = "pending";
+          acc[`changes.${key}.approvedBy`] = null; // 清除批准人資訊
+          acc[`changes.${key}.approvedAt`] = null; // 清除批准時間
           return acc;
         },
         {}
       );
       await updateDoc(requestDocRef, updates);
+      // 🚨 新增日誌：重置成功
+      console.log("所有欄位狀態已重置為 pending。");
       setShowIncompleteWarning(false);
     } catch (error) {
       console.error("重置狀態失敗:", error);
@@ -357,10 +423,16 @@ const EditRestaurantRequestPage = ({ requestId }) => {
   };
 
   // 新增：對用戶提交的變更進行排序，確保渲染順序穩定
+  // 🚨 變更：在渲染審批區塊前，過濾掉 contactName, contactPhone, contactEmail (需求 4)
   const sortedChanges = dataToDisplay
-    ? Object.entries(dataToDisplay).sort(([keyA], [keyB]) =>
-        keyA.localeCompare(keyB)
-      )
+    ? Object.entries(dataToDisplay)
+        .filter(
+          ([key]) =>
+            key !== "contactName" &&
+            key !== "contactPhone" &&
+            key !== "contactEmail"
+        )
+        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
     : [];
 
   return (
@@ -450,6 +522,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
               {originalRestaurantData ? (
                 Object.entries(restaurantSections).map(
                   ([sectionKey, sectionData]) => {
+                    // 🚨 變更：僅過濾出存在於原始資料中的欄位
                     const sectionFields = sectionData.fields.filter(
                       (field) => field in originalRestaurantData
                     );
@@ -519,7 +592,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
                   </span>
                 </span>
               </div>
-              {/* 修正：使用排序後的陣列進行 map */}
+              {/* 修正：使用排序且過濾後的陣列進行 map */}
               {sortedChanges.length > 0 ? (
                 sortedChanges.map(([key, valueObject]) => (
                   <div
@@ -528,6 +601,11 @@ const EditRestaurantRequestPage = ({ requestId }) => {
                   >
                     <p className="font-bold text-gray-700 text-base mb-2">
                       {restaurantFields[key]?.zh || key}
+                      {valueObject.approvedBy && (
+                        <span className="ml-3 text-xs font-normal text-green-600">
+                          (已批: {valueObject.approvedBy})
+                        </span>
+                      )}
                     </p>
                     <div className="grid grid-cols-2 gap-4 items-start">
                       {/* 左側：現有值 */}

@@ -1,8 +1,18 @@
+// src/components/restaurant_req/RestaurantForm.js
+
 "use client";
 
-import React, { useContext, useState, useRef, useEffect } from "react";
+import React, {
+  useContext,
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+} from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { AuthContext } from "../../lib/auth-context";
+
+// 引入所有選項數據
 import {
   cuisineOptions,
   restaurantTypeOptions,
@@ -11,10 +21,18 @@ import {
   paymentMethodOptions,
   facilitiesServiceOptions,
   provinceOptions,
-  citiesByProvince, // ✅ 引入城市數據
+  citiesByProvince,
 } from "../../data/restaurant-options";
 
-// 營業時間 UI 相關的輔助資料
+// 引入三個子組件
+import RestaurantDetailsSection from "./form_compo/RestaurantDetailsSection";
+import HoursAndPaymentSection from "./form_compo/HoursAndPaymentSection";
+import ContactInfoSection from "./form_compo/ContactInfoSection";
+
+// 引入整合後的單一驗證函數
+import { validateRestaurantForm } from "../../lib/validation";
+// 舊的 Step 驗證已被移除
+
 const DAYS_OF_WEEK = [
   "星期日",
   "星期一",
@@ -46,21 +64,93 @@ const RestaurantForm = ({
   handleSubmit,
   isUpdateForm = false,
   selectedRestaurantData,
-  errors = {}, // 接收 errors prop，並提供默認值
+  initialErrors = {},
 }) => {
   const { storage, setModalMessage, appId } = useContext(AuthContext);
+
+  // --- 圖片處理狀態 ---
+  // 核心狀態：儲存使用者選中的本地檔案物件
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const fileInputRef = useRef(null);
 
+  // 核心狀態：儲存用於 <img src="..."> 的 URL (可能是 Blob URL 或 DB URL)
+  const [previewUrl, setPreviewUrl] = useState(
+    formData.facadePhotoUrls?.[0] || ""
+  );
+  // --- 圖片處理狀態結束 ---
+
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
+
+  // 1. 核心：用於儲存所有輸入欄位的 Ref
+  const inputRefs = useRef({});
+
+  // 錯誤狀態現在是本地的，結構為扁平的 { [fieldName]: errorMsg }
+  // 將 initialErrors 結構扁平化，以防父組件傳入舊的 Step 結構
+  const flatInitialErrors =
+    initialErrors.step1 || initialErrors.step2 || initialErrors.step3
+      ? {
+          ...initialErrors.step1,
+          ...initialErrors.step2,
+          ...initialErrors.step3,
+        }
+      : initialErrors;
+
+  const [errors, setErrors] = useState(flatInitialErrors);
+  const [globalErrorMsg, setGlobalErrorMsg] = useState("");
+
+  const [cuisineChoice, setCuisineChoice] = useState({
+    category: formData.cuisineType?.category || "",
+    subType: formData.cuisineType?.subType || "",
+  });
+
   useEffect(() => {
-    if (formData.facadePhotoUrls?.[0] && !selectedFile) {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+    setCuisineChoice({
+      category: formData.cuisineType?.category || "",
+      subType: formData.cuisineType?.subType || "",
+    });
+  }, [formData.cuisineType]);
+
+  // ===========================================
+  // 圖片預覽邏輯 (修正版 - 依賴 selectedFile 狀態)
+  // ===========================================
+  useEffect(() => {
+    // 檢查是否有選中的本地檔案
+    if (selectedFile) {
+      // 1. 為本地檔案創建一個可供瀏覽器顯示的 URL
+      const newPreviewUrl = URL.createObjectURL(selectedFile);
+      setPreviewUrl(newPreviewUrl);
+
+      // 2. Cleanup 函式：在下一次運行 effect 之前或組件卸載時運行
+      return () => {
+        // 清理前一個由 createObjectURL 創建的 URL，防止記憶體洩漏
+        URL.revokeObjectURL(newPreviewUrl);
+      };
     }
-  }, [formData.facadePhotoUrls, selectedFile]);
+
+    // 如果 selectedFile 為 null (沒有本地檔案)，則退回使用 DB 或初始 URL
+
+    const dbUrl = formData.facadePhotoUrls?.[0] || "";
+    const originalDbUrl =
+      selectedRestaurantData?.originalFacadePhotoUrls?.[0] || "";
+
+    if (dbUrl) {
+      setPreviewUrl(dbUrl);
+    } else if (isUpdateForm && originalDbUrl) {
+      setPreviewUrl(originalDbUrl);
+    } else {
+      setPreviewUrl("");
+    }
+
+    // 這裡不需要額外的 return，因為非 Blob URL 不需要 revoke
+  }, [
+    // 依賴 selectedFile：它改變時，會觸發新的 Blob URL 生成
+    selectedFile,
+    // 依賴 DB URL 相關的 props，確保更新模式下可以切換 DB 圖片
+    formData.facadePhotoUrls,
+    isUpdateForm,
+    selectedRestaurantData?.originalFacadePhotoUrls,
+  ]);
 
   const openFilePicker = () => {
     if (!isUploading && !isSubmittingForm) {
@@ -68,19 +158,104 @@ const RestaurantForm = ({
     }
   };
 
+  // ===========================================
+  // handleFileChange: 處理檔案選擇 (修正版)
+  // ===========================================
   const handleFileChange = (event) => {
     const file = event.target.files[0];
+
     if (file) {
       setSelectedFile(file);
-      setModalMessage(`已選擇檔案: ${file.name}`, "info");
-      handleChange({ target: { name: "facadePhotoUrl", value: "" } });
+      // 清空 formData 中的 URL，直到上傳成功為止
+      handleChange({ target: { name: "facadePhotoUrls", value: [] } });
     } else {
       setSelectedFile(null);
-      setModalMessage("未選擇任何檔案", "info");
-      handleChange({ target: { name: "facadePhotoUrl", value: "" } });
+
+      // 當用戶點擊取消或清除時，恢復到資料庫或空值
+      const originalDbUrl =
+        selectedRestaurantData?.originalFacadePhotoUrls?.[0] || "";
+
+      if (isUpdateForm && originalDbUrl) {
+        handleChange({
+          target: { name: "facadePhotoUrls", value: [originalDbUrl] },
+        });
+      } else {
+        handleChange({ target: { name: "facadePhotoUrls", value: [] } });
+      }
     }
   };
 
+  // ===========================================
+  // handleRemovePhoto: 處理移除相片 (修正版)
+  // ===========================================
+  const handleRemovePhoto = () => {
+    // 清除本地檔案狀態 (觸發 useEffect 清理 Blob URL)
+    setSelectedFile(null);
+
+    // 清除預覽 URL 狀態
+    setPreviewUrl("");
+
+    // 清除檔案輸入框的值
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
+    // 清空 formData 中的 URL
+    handleChange({ target: { name: "facadePhotoUrls", value: [] } });
+  };
+  // --- 圖片預覽邏輯結束 ---
+
+  // --- 地址/菜系選擇邏輯 (保持不變) ---
+  const handleProvinceChange = (e) => {
+    const newProvince = e.target.value;
+    handleChange({
+      target: { name: "province", value: newProvince },
+    });
+    handleChange({
+      target: { name: "city", value: "" },
+    });
+  };
+
+  const handleCuisineCategoryChange = (e) => {
+    const newCategory = e.target.value;
+
+    setCuisineChoice({
+      category: newCategory,
+      subType: "",
+    });
+
+    handleChange({
+      target: {
+        name: "cuisineType",
+        value: {
+          category: newCategory,
+          subType: "",
+        },
+      },
+    });
+  };
+
+  const handleSubCuisineChange = (e) => {
+    const newSubType = e.target.value;
+
+    setCuisineChoice((prev) => ({
+      ...prev,
+      subType: newSubType,
+    }));
+
+    handleChange({
+      target: {
+        name: "cuisineType",
+        value: {
+          category: cuisineChoice.category,
+          subType: newSubType,
+        },
+      },
+    });
+  };
+  // --- 地址/菜系選擇邏輯結束 ---
+
+  // --- 營業時間處理邏輯 (保持不變) ---
   const handleBusinessHoursChange = (index, field, value) => {
     const currentBusinessHours = Array.isArray(formData.businessHours)
       ? [...formData.businessHours]
@@ -108,12 +283,99 @@ const RestaurantForm = ({
       },
     });
   };
+  // --- 營業時間處理邏輯結束 ---
 
+  // 輔助函數：找出第一個錯誤的欄位 Ref Key (直接從扁平錯誤中查找)
+  const getFirstErrorFieldName = (flatErrors) => {
+    const errorKeys = Object.keys(flatErrors);
+
+    if (errorKeys.length === 0) return null;
+
+    // 優先檢查順序 (反映表單佈局)
+    const priorityKeys = [
+      "restaurantName",
+      "province",
+      "city",
+      "postalCode",
+      "fullAddress",
+      "facadePhotoUrls",
+      "phone",
+      "cuisineCategory",
+      "cuisineSubType",
+      "restaurantType",
+      "businessHours",
+      "paymentMethods",
+      "contactName",
+      "contactPhone",
+      "contactEmail",
+    ];
+
+    for (const key of priorityKeys) {
+      if (flatErrors[key]) {
+        // 處理 restaurantName 的嵌套錯誤
+        if (key === "restaurantName") return "restaurantName.en";
+
+        // 處理菜系錯誤，滾動到父容器
+        if (key === "cuisineCategory" || key === "cuisineSubType")
+          return "cuisineType";
+
+        // 處理圖片錯誤
+        if (key === "facadePhotoUrls") return "facadePhotoUrls";
+
+        // 處理營業時間錯誤
+        if (key === "businessHours") return "businessHoursContainer";
+
+        return key;
+      }
+    }
+
+    return null;
+  };
+
+  /**
+   * 處理提交 - 執行單一全面驗證，並在通過後處理圖片上傳
+   */
   const localHandleSubmit = async (event) => {
     event.preventDefault();
+    setErrors({});
+    setGlobalErrorMsg("");
 
+    // 1. 執行全面同步驗證
+    const flatValidationResult = validateRestaurantForm(
+      { ...formData, tempSelectedFile: selectedFile },
+      isUpdateForm,
+      selectedRestaurantData?.originalFacadePhotoUrls
+    );
+
+    // 2. 檢查是否有錯誤
+    const hasError = Object.keys(flatValidationResult).length > 0;
+
+    if (hasError) {
+      setErrors(flatValidationResult);
+      setGlobalErrorMsg("表單驗證失敗。請檢查紅色標記的欄位並更正錯誤。");
+
+      // 3. 滾動到第一個錯誤欄位
+      const firstErrorName = getFirstErrorFieldName(flatValidationResult);
+      if (firstErrorName && inputRefs.current[firstErrorName]) {
+        window.requestAnimationFrame(() => {
+          const element = inputRefs.current[firstErrorName];
+
+          if (element) {
+            element.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+            element.focus?.();
+          }
+        });
+      }
+
+      return; // 阻止提交
+    }
+
+    // 4. 驗證通過，處理圖片上傳
     setIsSubmittingForm(true);
-    let finalPhotoUrl = formData.facadePhotoUrls?.[0] || "";
+    let finalPhotoUrl = formData.facadePhotoUrls?.[0] || ""; // 獲取當前 DB URL 作為基礎
 
     try {
       if (selectedFile) {
@@ -124,7 +386,6 @@ const RestaurantForm = ({
         }
 
         setIsUploading(true);
-        setModalMessage("正在上傳圖片...", "info");
 
         const restaurantId =
           selectedRestaurantData?.id || `new-restaurant-${Date.now()}`;
@@ -137,11 +398,28 @@ const RestaurantForm = ({
         const snapshot = await uploadBytes(imageRef, selectedFile);
         finalPhotoUrl = await getDownloadURL(snapshot.ref);
 
+        // 雖然 useEffect 已經處理了清理，但確保這裡沒有懸空的 Blob URL 也是好事
+        if (previewUrl && previewUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(previewUrl);
+        }
+
+        // 清空本地狀態
         setSelectedFile(null);
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
-        setIsUploading(false); // 上傳成功後立即將狀態設為 false
+        setIsUploading(false);
+      } else if (
+        isUpdateForm &&
+        selectedRestaurantData?.originalFacadePhotoUrls?.length > 0 &&
+        !finalPhotoUrl
+      ) {
+        // 如果是更新模式，沒有選新檔案，且 formData 中也沒有 URL (例如被用戶移除但又沒選新的)
+        // 這裡會確保 finalPhotoUrl 正確地被設為空字串或舊的 URL
+        finalPhotoUrl = selectedRestaurantData.originalFacadePhotoUrls[0] || "";
+      } else {
+        // 確保 finalPhotoUrl 是一個空字串，而不是 undefined
+        finalPhotoUrl = finalPhotoUrl || "";
       }
 
       const updatedFormData = {
@@ -151,40 +429,30 @@ const RestaurantForm = ({
 
       await handleSubmit(event, updatedFormData);
     } catch (error) {
-      console.error("表單提交失敗:", error);
-      setModalMessage(`表單提交失敗: ${error.message}`, "error");
-      setIsUploading(false);
+      // 錯誤將由父元件的 Modal 處理
     } finally {
       setIsSubmittingForm(false);
     }
   };
 
-  const handleProvinceChange = (e) => {
-    const newProvince = e.target.value;
-    handleChange({
-      target: { name: "province", value: newProvince },
-    });
-    // 當省份改變時，重置城市為空
-    handleChange({
-      target: { name: "city", value: "" },
-    });
-  };
-
-  // 根據選擇的省份動態獲取城市列表
-  const citiesForSelectedProvince = citiesByProvince[formData.province] || [
-    "選擇城市",
-  ];
+  const subCuisineOptions = cuisineOptions[cuisineChoice.category] || [];
 
   const getSubmitButtonText = () => {
-    if (isUploading) return "圖片上傳中...";
-    if (isSubmittingForm) return "提交中...";
     return isUpdateForm ? "提交餐廳更新申請" : "新增餐廳";
   };
 
   return (
-    <form onSubmit={localHandleSubmit} className="space-y-6">
+    <form onSubmit={localHandleSubmit} className="space-y-8 p-6 bg-white ">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept="image/*"
+      />
+
       {isUpdateForm && selectedRestaurantData && (
-        <p className="text-lg font-semibold text-gray-800 mb-4">
+        <p className="text-lg font-semibold text-gray-800 mb-6 border-b pb-4">
           您正在為以下餐廳提交更新申請：
           <br />
           **{selectedRestaurantData?.restaurantName?.["zh-TW"]}** (
@@ -192,734 +460,77 @@ const RestaurantForm = ({
         </p>
       )}
 
-      {/* 餐廳詳細資料 */}
-      <div className="border-b border-gray-200 pb-6">
-        <h3 className="text-2xl font-bold text-gray-800 mb-4">餐廳詳細資料</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label
-              htmlFor="restaurantNameZh"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              餐廳名稱 (中文) <span className="text-red-500">*</span>
-              {errors.restaurantName?.["zh-TW"] && (
-                <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.restaurantName?.["zh-TW"]}
-                </span>
-              )}
-            </label>
-            <input
-              type="text"
-              id="restaurantNameZh"
-              name="restaurantName.zh-TW"
-              value={formData.restaurantName?.["zh-TW"] || ""}
-              onChange={handleChange}
-              // ⚡️ 根據 noChineseName 狀態禁用輸入框
-              disabled={formData.noChineseName}
-              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                errors.restaurantName?.["zh-TW"]
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
-              } disabled:bg-gray-100 disabled:text-gray-500`}
-              placeholder="例如：楓葉小館"
-            />
-            {/* ⚡️ 新增：沒有中文名稱複選框 */}
-            <div className="flex items-center mt-2">
-              <input
-                type="checkbox"
-                id="noChineseName"
-                name="noChineseName"
-                checked={formData.noChineseName || false}
-                onChange={(e) => {
-                  const isChecked = e.target.checked;
-                  // 1. 更新 noChineseName 狀態
-                  handleChange({
-                    target: { name: "noChineseName", type: "checkbox", checked: isChecked },
-                  });
-                  // 2. 如果勾選，將中文名稱重置為空，確保數據一致
-                  if (isChecked) {
-                    handleChange({
-                      target: { name: "restaurantName.zh-TW", value: "" },
-                    });
-                  }
-                }}
-                className="form-checkbox h-4 w-4 text-blue-600 rounded"
-              />
-              <label htmlFor="noChineseName" className="ml-2 text-sm text-gray-600">
-                沒有中文名稱 (允許此欄位為空)
-              </label>
-            </div>
-          </div>
-          <div>
-            <label
-              htmlFor="restaurantNameEn"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              餐廳名稱 (英文) <span className="text-red-500">*</span>
-              {errors.restaurantName?.en && (
-                <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.restaurantName?.en}
-                </span>
-              )}
-            </label>
-            <input
-              type="text"
-              id="restaurantNameEn"
-              name="restaurantName.en"
-              value={formData.restaurantName?.en || ""}
-              onChange={handleChange}
-              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                errors.restaurantName?.en
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
-              }`}
-              placeholder="例如：Maple Leaf Bistro"
-            />
-          </div>
+      {/* 全局錯誤訊息 */}
+      {globalErrorMsg && (
+        <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center font-medium">
+          {globalErrorMsg}
         </div>
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <div>
-            <label
-              htmlFor="province"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              省份 <span className="text-red-500">*</span>
-              {errors.province && (
-                <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.province}
-                </span>
-              )}
-            </label>
-            <select
-              id="province"
-              name="province"
-              value={formData.province || ""}
-              onChange={handleProvinceChange}
-              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                errors.province
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
-              }`}
-            >
-              {provinceOptions.map((option) => (
-                <option
-                  key={option}
-                  value={option === "選擇省份" ? "" : option}
-                >
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="city"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              城市 <span className="text-red-500">*</span>
-              {errors.city && (
-                <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.city}
-                </span>
-              )}
-            </label>
-            <select
-              id="city"
-              name="city"
-              value={formData.city || ""}
-              onChange={handleChange}
-              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                errors.city
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
-              }
-              disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
-              disabled={!formData.province || formData.province === "選擇省份"}
-            >
-              {citiesForSelectedProvince.map((option) => (
-                <option
-                  key={option}
-                  value={option === "選擇城市" ? "" : option}
-                >
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+      {/* =======================================
+           Section 1: 餐廳詳細資料 
+           ======================================= */}
+      <h2 className="text-2xl font-bold text-gray-900 border-b pb-2">
+        1. 餐廳詳細資料
+      </h2>
+      <RestaurantDetailsSection
+        inputRefs={inputRefs}
+        formData={formData}
+        handleChange={handleChange}
+        errors={errors} // 傳遞扁平 errors
+        handleCheckboxChange={handleCheckboxChange}
+        handleProvinceChange={handleProvinceChange}
+        cuisineChoice={cuisineChoice}
+        handleCuisineCategoryChange={handleCuisineCategoryChange}
+        handleSubCuisineChange={handleSubCuisineChange}
+        subCuisineOptions={subCuisineOptions}
+        openFilePicker={openFilePicker}
+        previewUrl={previewUrl}
+        handleRemovePhoto={handleRemovePhoto}
+        isUploading={isUploading}
+        isSubmittingForm={isSubmittingForm}
+        restaurantTypeOptions={restaurantTypeOptions}
+        seatingCapacityOptions={seatingCapacityOptions}
+        provinceOptions={provinceOptions}
+        citiesByProvince={citiesByProvince}
+        cuisineOptions={cuisineOptions}
+      />
 
-        <div className="mt-4">
-          <label
-            htmlFor="fullAddress"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            完整地址 <span className="text-red-500">*</span>
-            {errors.fullAddress && (
-              <span className="text-red-500 font-normal text-xs ml-2">
-                {errors.fullAddress}
-              </span>
-            )}
-          </label>
-          <textarea
-            id="fullAddress"
-            name="fullAddress"
-            value={formData.fullAddress || ""}
-            onChange={handleChange}
-            rows="3"
-            className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-              errors.fullAddress
-                ? "border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:ring-blue-500"
-            }`}
-            placeholder="請輸入餐廳完整地址，包含街號、門牌號"
-          ></textarea>
-        </div>
+      {/* =======================================
+           Section 2: 營業、服務與付款 
+           ======================================= */}
+      <h2 className="text-2xl font-bold text-gray-900 border-b pb-2 pt-8">
+        2. 營業、服務與付款
+      </h2>
+      <HoursAndPaymentSection
+        inputRefs={inputRefs}
+        formData={formData}
+        handleChange={handleChange}
+        errors={errors} // 傳遞扁平 errors
+        handleCheckboxChange={handleCheckboxChange}
+        handleBusinessHoursChange={handleBusinessHoursChange}
+        DAYS_OF_WEEK={DAYS_OF_WEEK}
+        TIME_OPTIONS={TIME_OPTIONS}
+        reservationModeOptions={reservationModeOptions}
+        paymentMethodOptions={paymentMethodOptions}
+        facilitiesServiceOptions={facilitiesServiceOptions}
+      />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <div>
-            <label
-              htmlFor="postalCode"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              郵遞區號 <span className="text-red-500">*</span>
-              {errors.postalCode && (
-                <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.postalCode}
-                </span>
-              )}
-            </label>
-            <input
-              type="text"
-              id="postalCode"
-              name="postalCode"
-              value={formData.postalCode || ""}
-              onChange={handleChange}
-              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                errors.postalCode
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
-              }`}
-              placeholder="例如：A1A 1A1"
-            />
-          </div>
+      {/* =======================================
+           Section 3: 聯絡人資訊 
+           ======================================= */}
+      <h2 className="text-2xl font-bold text-gray-900 border-b pb-2 pt-8">
+        3. 聯絡人資訊
+      </h2>
+      <ContactInfoSection
+        inputRefs={inputRefs}
+        formData={formData}
+        handleChange={handleChange}
+        errors={errors} // 傳遞扁平 errors
+      />
 
-          <div>
-            <label
-              htmlFor="facadePhotoUrlDisplay"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              門面相片
-            </label>
-            <div className="flex items-center space-x-2">
-              <input
-                type="text"
-                id="facadePhotoUrlDisplay"
-                name="facadePhotoUrl"
-                value={formData.facadePhotoUrls?.[0] || ""}
-                readOnly
-                className="flex-grow p-3 border border-gray-300 rounded-md bg-gray-50 text-gray-600 focus:outline-none"
-                placeholder="圖片將在此處顯示"
-              />
-              <button
-                type="button"
-                onClick={openFilePicker}
-                className="p-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isUploading || isSubmittingForm}
-              >
-                瀏覽
-              </button>
-            </div>
-            {selectedFile && (
-              <p className="text-sm text-gray-600 mt-2">
-                已選擇檔案:{" "}
-                <span className="font-semibold">{selectedFile.name}</span>
-              </p>
-            )}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-              accept="image/*"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <div>
-            <label
-              htmlFor="phone"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              電話 <span className="text-red-500">*</span>
-              {errors.phone && (
-                <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.phone}
-                </span>
-              )}
-            </label>
-            <input
-              type="tel"
-              id="phone"
-              name="phone"
-              value={formData.phone || ""}
-              onChange={handleChange}
-              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                errors.phone
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
-              }`}
-              placeholder="例如：416-123-4567"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="website"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              網站
-            </label>
-            <input
-              type="url"
-              id="website"
-              name="website"
-              value={formData.website || ""}
-              onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="例如：https://www.example.com"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <div>
-            <label
-              htmlFor="cuisineType"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              菜系 <span className="text-red-500">*</span>
-              {errors.cuisineType && (
-                <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.cuisineType}
-                </span>
-              )}
-            </label>
-            <select
-              id="cuisineType"
-              name="cuisineType"
-              value={formData.cuisineType || ""}
-              onChange={handleChange}
-              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                errors.cuisineType
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
-              }`}
-            >
-              {cuisineOptions.map((option) => (
-                <option
-                  key={option}
-                  value={option === "選擇菜系" ? "" : option}
-                >
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="restaurantType"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              餐廳類型 <span className="text-red-500">*</span>
-              {errors.restaurantType && (
-                <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.restaurantType}
-                </span>
-              )}
-            </label>
-            <select
-              id="restaurantType"
-              name="restaurantType"
-              value={formData.restaurantType || ""}
-              onChange={handleChange}
-              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                errors.restaurantType
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
-              }`}
-            >
-              {restaurantTypeOptions.map((option) => (
-                <option
-                  key={option}
-                  value={option === "選擇餐廳類型" ? "" : option}
-                >
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <div>
-            <label
-              htmlFor="avgSpending"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              人均消費 ($)
-            </label>
-            <input
-              type="number"
-              id="avgSpending"
-              name="avgSpending"
-              value={formData.avgSpending || ""}
-              onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="例如：30 (僅數字)"
-              min="0"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="seatingCapacity"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              座位數
-            </label>
-            <select
-              id="seatingCapacity"
-              name="seatingCapacity"
-              value={formData.seatingCapacity || ""}
-              onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {seatingCapacityOptions.map((option) => (
-                <option
-                  key={option}
-                  value={option === "選擇座位數" ? "" : option}
-                >
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* 營業時間和定休日合併 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          {/* 營業時間 (每週) */}
-          <div className="h-full">
-            <label className="block text-gray-700 text-sm font-bold mb-2">
-              營業時間 <span className="text-red-500">*</span>
-              {errors.businessHours && (
-                <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.businessHours}
-                </span>
-              )}
-            </label>
-            <div className="space-y-1">
-              {DAYS_OF_WEEK.map((day, index) => (
-                <div key={day} className="flex items-center space-x-2 h-8">
-                  <input
-                    type="checkbox"
-                    id={`day-${day}`}
-                    checked={formData.businessHours?.[index]?.isOpen || false}
-                    onChange={(e) =>
-                      handleBusinessHoursChange(
-                        index,
-                        "isOpen",
-                        e.target.checked
-                      )
-                    }
-                    className="form-checkbox h-5 w-5 text-blue-600 rounded"
-                  />
-                  <label
-                    htmlFor={`day-${day}`}
-                    className="flex-shrink-0 w-16 text-gray-700 text-sm"
-                  >
-                    {day}
-                  </label>
-                  {!formData.businessHours?.[index]?.isOpen ? (
-                    <span className="text-gray-500 italic text-base">休息</span>
-                  ) : (
-                    <>
-                      <span className="text-gray-700">由</span>
-                      <select
-                        value={formData.businessHours?.[index]?.startTime || ""}
-                        onChange={(e) =>
-                          handleBusinessHoursChange(
-                            index,
-                            "startTime",
-                            e.target.value
-                          )
-                        }
-                        className={`p-1 border rounded-md text-sm border-gray-300`}
-                      >
-                        {TIME_OPTIONS.map((time) => (
-                          <option key={time} value={time}>
-                            {time}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="text-gray-700">到</span>
-                      <select
-                        value={formData.businessHours?.[index]?.endTime || ""}
-                        onChange={(e) =>
-                          handleBusinessHoursChange(
-                            index,
-                            "endTime",
-                            e.target.value
-                          )
-                        }
-                        className={`p-1 border rounded-md text-sm border-gray-300`}
-                      >
-                        {TIME_OPTIONS.map((time) => (
-                          <option key={time} value={time}>
-                            {time}
-                          </option>
-                        ))}
-                      </select>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* 定休日 (特殊日期/節日) */}
-          <div className="h-full flex flex-col gap-3">
-            <div>
-              <label className="block text-gray-700 text-sm font-bold mb-2">
-                定休日 (節日或特殊日期)
-              </label>
-              <textarea
-                type="text"
-                name="closedDates"
-                value={formData.closedDates || ""}
-                onChange={handleChange}
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
-                placeholder="例如：元旦、聖誕節、每年農曆除夕"
-              />
-            </div>
-            {/* ✅ 正確處理 isHolidayOpen */}
-            <div className="flex items-center space-x-2 h-8">
-              <input
-                type="checkbox"
-                id="isHolidayOpen"
-                name="isHolidayOpen"
-                checked={formData.isHolidayOpen || false}
-                onChange={handleChange}
-                className="form-checkbox h-5 w-5 text-blue-600 rounded"
-              />
-              <label
-                htmlFor="isHolidayOpen"
-                className="block text-gray-700 text-sm font-bold "
-              >
-                公眾假期營業
-              </label>
-            </div>
-            {/* ✅ 根據 isHolidayOpen 顯示 textarea */}
-            {formData.isHolidayOpen && (
-              <div>
-                <label
-                  htmlFor="holidayHours"
-                  className="block text-gray-700 text-sm font-bold mb-2"
-                >
-                  公眾假期營業時間說明
-                </label>
-                <textarea
-                  id="holidayHours"
-                  name="holidayHours"
-                  value={formData.holidayHours || ""}
-                  onChange={handleChange}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
-                  placeholder="例如：公眾假期由 12:00PM 營業至 10:00PM"
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2">
-            訂座模式
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {reservationModeOptions.map((option) => (
-              <label key={option} className="flex items-center text-gray-700">
-                <input
-                  type="checkbox"
-                  name="reservationModes"
-                  value={option}
-                  checked={formData.reservationModes?.includes(option) || false}
-                  onChange={handleCheckboxChange}
-                  className="form-checkbox h-5 w-5 text-blue-600 rounded"
-                />
-                <span className="ml-2 text-sm">{option}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2">
-            接受付款方式 <span className="text-red-500">*</span>
-            {errors.paymentMethods && (
-              <span className="text-red-500 font-normal text-xs ml-2">
-                {errors.paymentMethods}
-              </span>
-            )}
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {paymentMethodOptions.map((option) => (
-              <label key={option} className="flex items-center text-gray-700">
-                <input
-                  type="checkbox"
-                  name="paymentMethods"
-                  value={option}
-                  checked={formData.paymentMethods?.includes(option) || false}
-                  onChange={handleCheckboxChange}
-                  className="form-checkbox h-5 w-5 text-blue-600 rounded"
-                />
-                <span className="ml-2 text-sm">{option}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2">
-            設施/服務
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {facilitiesServiceOptions.map((option) => (
-              <label key={option} className="flex items-center text-gray-700">
-                <input
-                  type="checkbox"
-                  name="facilitiesServices"
-                  value={option}
-                  checked={
-                    formData.facilitiesServices?.includes(option) || false
-                  }
-                  onChange={handleCheckboxChange}
-                  className="form-checkbox h-5 w-5 text-blue-600 rounded"
-                />
-                <span className="ml-2 text-sm">{option}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <label
-            htmlFor="otherInfo"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            其他資料
-          </label>
-          <textarea
-            id="otherInfo"
-            name="otherInfo"
-            value={formData.otherInfo || ""}
-            onChange={handleChange}
-            rows="4"
-            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="關於餐廳的任何其他重要資訊，例如特殊飲食需求、榮譽等。"
-          ></textarea>
-        </div>
-      </div>
-
-      {/* 聯絡人資訊 */}
-      <div className="pt-6">
-        <h3 className="text-2xl font-bold text-gray-800 mb-4">聯絡人資訊</h3>
-        <div className="mb-4">
-          <label className="flex items-center text-gray-700 text-sm font-bold">
-            <input
-              type="checkbox"
-              name="isManager"
-              checked={formData.isManager || false}
-              onChange={handleChange}
-              className="form-checkbox h-5 w-5 text-blue-600 rounded"
-            />
-            <span className="ml-2">您是餐廳的負責人嗎？</span>
-          </label>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label
-              htmlFor="contactName"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              姓名 <span className="text-red-500">*</span>
-              {errors.contactName && (
-                <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.contactName}
-                </span>
-              )}
-            </label>
-            <input
-              type="text"
-              id="contactName"
-              name="contactName"
-              value={formData.contactName || ""}
-              onChange={handleChange}
-              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                errors.contactName
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
-              }`}
-              placeholder="您的姓名"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="contactPhone"
-              className="block text-gray-700 text-sm font-bold mb-2"
-            >
-              電話 <span className="text-red-500">*</span>
-              {errors.contactPhone && (
-                <span className="text-red-500 font-normal text-xs ml-2">
-                  {errors.contactPhone}
-                </span>
-              )}
-            </label>
-            <input
-              type="tel"
-              id="contactPhone"
-              name="contactPhone"
-              value={formData.contactPhone || ""}
-              onChange={handleChange}
-              className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                errors.contactPhone
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
-              }`}
-              placeholder="您的聯絡電話"
-            />
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <label
-            htmlFor="contactEmail"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            電郵
-          </label>
-          <input
-            type="email"
-            id="contactEmail"
-            name="contactEmail"
-            value={formData.contactEmail || ""}
-            onChange={handleChange}
-            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="您的電郵地址"
-          />
-        </div>
-      </div>
-
-      <div className="flex justify-center mt-8">
+      {/* 提交按鈕 */}
+      <div className="pt-6 border-t flex justify-center">
         <button
           type="submit"
           className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"

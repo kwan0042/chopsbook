@@ -7,7 +7,8 @@ import LoadingSpinner from "../LoadingSpinner";
 import Modal from "../Modal";
 import RestaurantForm from "./RestaurantForm"; // 導入 RestaurantForm
 import { useRouter } from "next/navigation";
-import { validateRestaurantForm } from "../../lib/validation"; // 導入新的驗證函數
+// 由於驗證已移至 RestaurantForm 內部，這裡不再需要 validateRestaurantForm
+// import { validateRestaurantForm } from "../../lib/validation";
 
 // 圖標：用於返回按鈕
 const ArrowLeftIcon = ({ className = "" }) => (
@@ -25,7 +26,7 @@ const ArrowLeftIcon = ({ className = "" }) => (
   </svg>
 );
 
-// 營業時間 UI 相關的輔助資料 (從 RestaurantForm 複製過來，確保這裡也能使用)
+// 營業時間 UI 相關的輔助資料
 const DAYS_OF_WEEK = [
   "星期日",
   "星期一",
@@ -48,21 +49,19 @@ const AddRestaurantPage = ({ onBackToHome }) => {
 
   // 初始表單數據
   const initialFormData = {
-    // ✅ 新增 restaurantName 物件
     restaurantName: {
       "zh-TW": "",
       en: "",
     },
-    // ⚡️ 新增 noChineseName 欄位 (輔助狀態)
     noChineseName: false,
     province: "",
     city: "",
-    postalCode: "", // 新增
+    postalCode: "",
     fullAddress: "",
     phone: "",
     website: "",
-    cuisineType: "",
-    restaurantType: "",
+    cuisineType: { category: "", subType: "" }, // 確保 cuisineType 是一個物件
+    restaurantType: [],
     avgSpending: "",
     facadePhotoUrls: [],
     seatingCapacity: "",
@@ -75,9 +74,9 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     closedDates: "",
     isHolidayOpen: false,
     holidayHours: "",
-    reservationModes: [],
+    reservationMode: "", // 使用 reservationMode 統一名稱
     paymentMethods: [],
-    facilitiesServices: [],
+    facilitiesAndServices: [], // 使用 facilitiesAndServices 統一名稱
     otherInfo: "",
     isManager: false,
     contactName: "",
@@ -91,7 +90,9 @@ const AddRestaurantPage = ({ onBackToHome }) => {
   const [loading, setLoading] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState(""); // "success" or "error"
-  const [errors, setErrors] = useState({}); // 新增 state 來管理驗證錯誤
+  // 錯誤狀態在 RestaurantForm 內部管理，但我們需要它來檢查最終狀態
+  // 結構為 { step1: {...}, step2: {...}, step3: {...} }
+  const [allErrors, setAllErrors] = useState({});
 
   const closeModal = () => {
     setModalMessage("");
@@ -104,11 +105,9 @@ const AddRestaurantPage = ({ onBackToHome }) => {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    // ⚡️ 處理 noChineseName 複選框 (新增邏輯)
     if (name === "noChineseName") {
       setFormData((prev) => {
         const newFormData = { ...prev, [name]: checked };
-        // 如果勾選了「沒有中文名稱」，清除中文名稱的值
         if (checked) {
           newFormData.restaurantName = {
             ...prev.restaurantName,
@@ -118,16 +117,20 @@ const AddRestaurantPage = ({ onBackToHome }) => {
         return newFormData;
       });
     }
-    // 處理 nested object 的情況
-    else if (name.startsWith("restaurantName")) {
-      const lang = name.split(".")[1]; // Ex: "zh-TW" or "en"
+    // 處理 cuisineType 的物件更新，這裡需要特殊處理，避免覆蓋 subType
+    else if (name === "cuisineType" && typeof value === "object") {
+      setFormData((prev) => ({
+        ...prev,
+        cuisineType: value,
+      }));
+    } else if (name.startsWith("restaurantName")) {
+      const lang = name.split(".")[1];
       setFormData((prev) => ({
         ...prev,
         restaurantName: {
           ...prev.restaurantName,
           [lang]: value,
         },
-        // ⚡️ 如果使用者開始輸入中文名稱，自動取消勾選「沒有中文名稱」 (新增邏輯)
         noChineseName: lang === "zh-TW" && value ? false : prev.noChineseName,
       }));
     } else {
@@ -153,21 +156,27 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     });
   };
 
-  const handleSubmit = async (e, updatedFormData) => {
+  /**
+   * 接收 RestaurantForm 內部驗證的結果
+   */
+  const handleUpdateStepErrors = (stepKey, stepErrors) => {
+    setAllErrors((prev) => ({
+      ...prev,
+      [stepKey]: Object.keys(stepErrors).length > 0 ? stepErrors : undefined,
+    }));
+  };
+
+  /**
+   * 最終提交處理：接收來自 RestaurantForm 驗證成功後的數據
+   */
+  const handleSubmit = async (e, updatedFormDataWithImageUrl) => {
     e.preventDefault();
     setLoading(true);
     setModalMessage("");
     setModalType("");
-    setErrors({}); // 每次提交前先清除舊的錯誤
 
-    const dataToValidate = updatedFormData || formData;
-    const validationErrors = validateRestaurantForm(dataToValidate);
-
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      setLoading(false);
-      return; // 發現錯誤，停止提交
-    }
+    // 由於 RestaurantForm 已經在內部執行了驗證並在有錯誤時阻止了傳遞到這裡，
+    // 因此這裡我們主要檢查 Firestore 服務狀態。
 
     if (!db || !currentUser || !appId) {
       setModalMessage("錯誤：數據庫服務未準備或用戶未登入。");
@@ -176,30 +185,39 @@ const AddRestaurantPage = ({ onBackToHome }) => {
       return;
     }
 
-    const dataToSubmit = { ...(updatedFormData || formData) };
+    const dataToSubmit = { ...updatedFormDataWithImageUrl };
 
-    // ⚡️ 提交前，移除 transient/helper field (新增邏輯)
+    // 提交前，移除 transient/helper field
     delete dataToSubmit.noChineseName;
+    delete dataToSubmit.tempSelectedFile;
+    delete dataToSubmit.originalFacadePhotoUrls; // 確保新增時不會有此欄位
 
-    // **核心修正：在提交前將特定欄位轉換為數字類型**
+    // 核心：在提交前將特定欄位轉換為數字類型
     if (dataToSubmit.avgSpending) {
       dataToSubmit.avgSpending = parseInt(dataToSubmit.avgSpending, 10);
     }
     if (dataToSubmit.phone) {
-      // 轉換為整數可能導致國際電話號碼格式丟失，但由於原始碼中存在此邏輯，故保留。
-      dataToSubmit.phone = parseInt(
-        dataToSubmit.phone.toString().replace(/[^0-9]/g, ""),
-        10
-      );
+      dataToSubmit.phone = String(dataToSubmit.phone).replace(/[^0-9]/g, "");
     }
     if (dataToSubmit.contactPhone) {
-      dataToSubmit.contactPhone = parseInt(
-        dataToSubmit.contactPhone.toString().replace(/[^0-9]/g, ""),
-        10
+      dataToSubmit.contactPhone = String(dataToSubmit.contactPhone).replace(
+        /[^0-9]/g,
+        ""
       );
     }
     if (dataToSubmit.priority) {
       dataToSubmit.priority = parseInt(dataToSubmit.priority, 10);
+    }
+
+    // 確保 cuisineType 結構正確 (RestaurantForm 已經處理，這裡只是冗餘檢查)
+    if (
+      dataToSubmit.cuisineType &&
+      typeof dataToSubmit.cuisineType === "string"
+    ) {
+      dataToSubmit.cuisineType = {
+        category: dataToSubmit.cuisineType,
+        subType: "",
+      };
     }
 
     try {
@@ -207,10 +225,10 @@ const AddRestaurantPage = ({ onBackToHome }) => {
         collection(db, `artifacts/${appId}/public/data/restaurant_requests`),
         {
           ...dataToSubmit,
-          type: "add", // 新增：標記為新增餐廳請求
+          type: "add",
           submittedBy: currentUser.uid,
-          submittedAt: serverTimestamp(), // 新增：使用新欄位名稱
-          status: "pending", // 新增的欄位
+          submittedAt: serverTimestamp(),
+          status: "pending",
         }
       );
       setModalMessage(
@@ -220,7 +238,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
       );
       setModalType("success");
       setFormData(initialFormData); // 清空表單
-      setErrors({}); // 成功後清空錯誤
+      setAllErrors({}); // 成功後清空錯誤
     } catch (err) {
       console.error("新增餐廳失敗:", err);
       setModalMessage(`新增餐廳失敗：${err.message}`);
@@ -231,7 +249,6 @@ const AddRestaurantPage = ({ onBackToHome }) => {
   };
 
   if (!currentUser) {
-    // 如果用戶未登入，這裡不應顯示，因為父級頁面已處理重定向
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <LoadingSpinner />
@@ -240,8 +257,9 @@ const AddRestaurantPage = ({ onBackToHome }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center font-inter">
-      <div className="bg-white rounded-xl shadow-lg p-8 md:p-10 w-full max-w-4xl relative">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-start font-inter">
+      {/* 核心修改：使用 w-full 搭配 max-w-7xl 讓表單在大型螢幕上更寬 */}
+      <div className="bg-white rounded-xl shadow-lg p-8 md:p-10 w-full max-w-7xl relative">
         <button
           onClick={onBackToHome}
           className="absolute top-4 left-4 text-gray-500 hover:text-gray-700 transition-colors flex items-center"
@@ -261,7 +279,8 @@ const AddRestaurantPage = ({ onBackToHome }) => {
           isLoading={loading}
           submitButtonText="新增餐廳"
           isUpdateForm={false}
-          errors={errors}
+          errors={allErrors} // 傳遞錯誤狀態
+          handleUpdateStepErrors={handleUpdateStepErrors} // 傳遞錯誤回調
         />
       </div>
 
@@ -270,7 +289,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
           message={modalMessage}
           onClose={closeModal}
           isOpen={!!modalMessage}
-          duration={modalType === "success" ? 5000 : 0} // 成功訊息顯示 5 秒
+          duration={modalType === "success" ? 5000 : 0}
           type={modalType}
         />
       )}

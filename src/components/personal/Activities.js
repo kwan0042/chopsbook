@@ -89,6 +89,17 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
   };
 
   const renderItem = (item, index) => {
+    // 輔助函式：安全地獲取 cuisineType 的顯示名稱
+    const getCuisineDisplayName = (cuisine) => {
+      if (!cuisine) return "N/A";
+      // 如果是物件，返回 subType
+      if (typeof cuisine === "object" && cuisine.subType) {
+        return cuisine.subType;
+      }
+      // 如果是單個字串，直接返回
+      return cuisine;
+    };
+
     switch (type) {
       case "reviews":
         return (
@@ -147,7 +158,7 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
           </Link>
         );
 
-      // 🚨 新增的 'favorites' 類型，使用新的佈局
+      // 🚨 修正了 'favorites' 類型中的 cuisineType 渲染
       case "favorites":
         return (
           <div key={item.id} className="relative w-full my-2 group">
@@ -171,7 +182,8 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
                   </p>
 
                   <p className="text-gray-700 mb-1 text-wrap text-sm">
-                    {item.city || "N/A"} | {item.cuisineType || "N/A"} | 人均: $
+                    {item.city || "N/A"} |{" "}
+                    {getCuisineDisplayName(item.cuisineType)} | 人均: $
                     {item.avgSpending || "N/A"}
                   </p>
                 </div>
@@ -199,9 +211,11 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
     }
   };
 
+  // 為了讓收藏卡片能夠垂直排列，我調整了佈局邏輯。
+  // 讓 'favorites' 獨立於 'reviews' 和 'mostLiked'
   const gridLayout = type === "checkIns";
-  const flexLayout =
-    type === "reviews" || type === "mostLiked" || type === "favorites"; // 🚨 包含 'favorites'
+  const flexLayout = type === "reviews" || type === "mostLiked";
+  const favoritesLayout = type === "favorites"; // 新增：用於收藏列表
 
   return (
     <section className="bg-white p-6 rounded-lg shadow-sm">
@@ -213,9 +227,13 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
               ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
               : flexLayout
               ? "flex flex-col md:flex-row gap-6 space-y-4 md:space-y-0"
+              : favoritesLayout
+              ? "space-y-3" // ⚡️ 收藏列表使用 space-y 保持垂直間距
               : "space-y-4"
           }
         >
+          {/* 收藏列表通常需要顯示所有項目，這裡將 slice(0, 3) 移除或調整 */}
+          {/* 我假設您只想顯示前三個，保持原樣 */}
           {items.slice(0, 3).map(renderItem)}
         </div>
       ) : (

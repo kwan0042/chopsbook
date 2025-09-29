@@ -1,3 +1,4 @@
+// src/app/restaurants/[restaurantId]/layout.js
 "use client";
 
 import React, { useState, useEffect, useCallback, useContext } from "react";
@@ -112,6 +113,42 @@ export default function RestaurantDetailLayout({ children }) {
     await toggleFavoriteRestaurant(restaurantId);
   }, [currentUser, toggleFavoriteRestaurant, restaurantId, setModalMessage]);
 
+  // 💡 關鍵修正函數：用於安全地將菜系/類型物件轉換為字串
+  const renderCuisineOrType = (data) => {
+    if (!data) return "N/A";
+
+    // 如果是陣列，則渲染逗號分隔的字串
+    if (Array.isArray(data)) {
+      return data.join("、");
+    }
+
+    // 處理物件 (這是錯誤的來源：{category, subType})
+    if (typeof data === "object" && data !== null) {
+      // 處理 {category, subType} 結構
+      if ("category" in data && "subType" in data) {
+        let subTypes = Array.isArray(data.subType)
+          ? data.subType.join("、")
+          : data.subType || "";
+
+        if (subTypes) {
+          return `${data.category} (${subTypes})`;
+        }
+        return data.category || "N/A";
+      }
+
+      // 處理 { label, value } 或其他單層次物件
+      if (data.label) {
+        return data.label;
+      }
+
+      // 最終防線：返回一個預設字串
+      return "N/A";
+    }
+
+    // 如果是單一字串，直接返回
+    return String(data);
+  };
+
   const renderRatingStars = (averageRating) => (
     <div className="flex items-center">
       {Array.from({ length: 5 }, (_, index) => (
@@ -200,91 +237,126 @@ export default function RestaurantDetailLayout({ children }) {
         `未知餐廳 (ID: ${restaurant.id})`
       );
     }
+    // 確保返回字串
+    return restaurant.restaurantName || `未知餐廳 (ID: ${restaurant.id})`;
   };
+
+  // 決定要渲染的菜系/類型字串
+  const cuisineDisplay = renderCuisineOrType(
+    restaurant.cuisine || restaurant.restaurantType || restaurant.cuisineType
+  );
+
+  // 獲取門面照片 URL
+  const facadePhotoUrl =
+    restaurant.facadePhotoUrls?.[0] ||
+    `https://placehold.co/800x400/CCCCCC/333333?text=${encodeURIComponent(
+      getRestaurantName(restaurant)
+    )}`;
 
   return (
     <RestaurantContext.Provider value={{ restaurant }}>
       <div className="flex flex-col min-h-screen bg-cbbg">
         <div className="flex-grow py-8 px-4 sm:px-6 lg:px-8 ">
           <div className=" mx-auto bg-white shadow-xl rounded-xl overflow-hidden">
-            {/* 頂部名稱和收藏按鈕 */}
-            <div className="relative p-6 border-b border-gray-200">
-              <h1 className="text-4xl font-extrabold text-gray-900 mb-2 leading-tight">
-                {getRestaurantName(restaurant)}
-              </h1>
-              <button
-                onClick={handleToggleFavorite}
-                className="absolute top-6 right-6 z-10 p-2 bg-transparent border-none
-                         text-yellow-500 hover:scale-110 transition duration-200 "
-                aria-label={isFavorited ? "取消收藏" : "收藏餐廳"}
-              >
-                <FontAwesomeIcon
-                  icon={isFavorited ? faSolidBookmark : faRegularBookmark}
-                  className="text-3xl"
+            {/* 🚨 關鍵結構變更：將頂部資訊、基本資訊和標籤放在一個父容器中，並與圖片並排 */}
+            <div className="flex flex-col md:flex-row border-b border-gray-200">
+              {/* 門面照片區塊 (左側 25% / w-1/4) */}
+              <div className="md:w-1/4 w-full p-4 flex-shrink-0">
+                <img
+                  src={facadePhotoUrl}
+                  alt={`${getRestaurantName(restaurant)} 門面照片`}
+                  className="w-full h-45 object-cover rounded-lg shadow-md"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = `https://placehold.co/800x400/CCCCCC/333333?text=圖片載入失敗`;
+                  }}
                 />
-              </button>
-            </div>
-
-            {/* 餐廳基本資訊 */}
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700 border-b border-gray-200">
-              <div>
-                {renderRatingStars(restaurant.averageRating)}
-                <p className="mt-2 text-base">
-                  <FontAwesomeIcon
-                    icon={faMapMarkerAlt}
-                    className="mr-2 text-gray-500"
-                  />
-                  {restaurant.fullAddress || "N/A"}
-                </p>
-                <p className="mt-1 text-base">
-                  <FontAwesomeIcon
-                    icon={faUtensils}
-                    className="mr-2 text-gray-500"
-                  />
-                  {restaurant.cuisineType || "N/A"}
-                  {restaurant.tags?.length > 0 &&
-                    ` | ${restaurant.tags.join(", ")}`}
-                </p>
               </div>
-              <div className="md:text-right">
-                <p className="text-base">
-                  <FontAwesomeIcon
-                    icon={faWallet}
-                    className="mr-2 text-gray-500"
-                  />
-                  人均:{" "}
-                  {restaurant.avgSpending
-                    ? `$${restaurant.avgSpending}`
-                    : "N/A"}
-                </p>
-                <p className="mt-1 text-base">
-                  <FontAwesomeIcon
-                    icon={faClock}
-                    className="mr-2 text-gray-500"
-                  />
-                  <span className={`font-bold ${operatingStatusColor}`}>
-                    {operatingStatus}
-                  </span>
-                </p>
-              </div>
-            </div>
 
-            {/* 標籤 (Tags) */}
-            {restaurant.tags && restaurant.tags.length > 0 && (
-              <div className="p-6 border-b border-gray-200 flex flex-wrap gap-2">
-                {restaurant.tags.map((tag, index) => (
-                  <span
-                    key={index}
-                    className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full flex items-center"
+              {/* 資訊區塊 (右側 75% / w-3/4) - 包含名稱、評分、菜系、標籤 */}
+              <div className="md:w-3/4 w-full flex flex-col justify-between">
+                {/* 頂部名稱和收藏按鈕 */}
+                <div className="relative p-6 pb-2 border-b-2 ">
+                  <h1 className="text-4xl font-extrabold text-gray-900 mb-2 leading-tight pr-10">
+                    {getRestaurantName(restaurant)}
+                  </h1>
+                  <button
+                    onClick={handleToggleFavorite}
+                    className="absolute top-6 right-6 z-10 p-2 bg-transparent border-none
+                                     text-yellow-500 hover:scale-110 transition duration-200 "
+                    aria-label={isFavorited ? "取消收藏" : "收藏餐廳"}
                   >
-                    <FontAwesomeIcon icon={faTag} className="mr-1" />
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
+                    <FontAwesomeIcon
+                      icon={isFavorited ? faSolidBookmark : faRegularBookmark}
+                      className="text-3xl"
+                    />
+                  </button>
+                </div>
 
-            {/* 導航標籤 */}
+                {/* 餐廳基本資訊 */}
+                <div className="p-6 pt-2 grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+                  <div>
+                    {renderRatingStars(restaurant.averageRating)}
+                    <p className="mt-2 text-base">
+                      <FontAwesomeIcon
+                        icon={faMapMarkerAlt}
+                        className="mr-2 text-gray-500"
+                      />
+                      {restaurant.fullAddress || "N/A"}
+                    </p>
+                    <p className="mt-1 text-base">
+                      <FontAwesomeIcon
+                        icon={faUtensils}
+                        className="mr-2 text-gray-500"
+                      />
+                      {/* 使用 cuisineDisplay 確保是字串 */}
+                      {cuisineDisplay}
+                      {restaurant.tags?.length > 0 &&
+                        ` | ${restaurant.tags.join(", ")}`}
+                    </p>
+                  </div>
+                  <div className="md:text-right">
+                    <p className="text-base">
+                      <FontAwesomeIcon
+                        icon={faWallet}
+                        className="mr-2 text-gray-500"
+                      />
+                      人均:{" "}
+                      {restaurant.avgSpending
+                        ? `$${restaurant.avgSpending}`
+                        : "N/A"}
+                    </p>
+                    <p className="mt-1 text-base">
+                      <FontAwesomeIcon
+                        icon={faClock}
+                        className="mr-2 text-gray-500"
+                      />
+                      <span className={`font-bold ${operatingStatusColor}`}>
+                        {operatingStatus}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* 標籤 (Tags) */}
+                {restaurant.tags && restaurant.tags.length > 0 && (
+                  <div className="p-6 pt-2 flex flex-wrap gap-2">
+                    {restaurant.tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full flex items-center"
+                      >
+                        <FontAwesomeIcon icon={faTag} className="mr-1" />
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* 🚨 結構變更結束 */}
+
+            {/* 導航標籤 (保持不變) */}
             <div className="flex justify-around p-4 bg-gray-100 border-b border-gray-200">
               <Link
                 href={`/restaurants/${restaurantId}`}

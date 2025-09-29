@@ -23,17 +23,6 @@ const RestaurantListPage = ({
 }) => {
   const { toggleFavoriteRestaurant, currentUser } = useContext(AuthContext);
 
-  // 移除客戶端分頁狀態和邏輯
-  // const itemsPerPage = 9;
-  // const [currentPage, setCurrentPage] = useState(1);
-  // const totalPages = Math.ceil(restaurants.length / itemsPerPage);
-  // const indexOfLastRestaurant = currentPage * itemsPerPage;
-  // const indexOfFirstRestaurant = indexOfLastRestaurant - itemsPerPage;
-  // const currentRestaurants = restaurants.slice(
-  //   indexOfFirstRestaurant,
-  //   indexOfLastRestaurant
-  // );
-
   const handleToggleFavorite = async (restaurantId) => {
     try {
       await toggleFavoriteRestaurant(restaurantId);
@@ -42,28 +31,32 @@ const RestaurantListPage = ({
     }
   };
 
-  // 移除分頁按鈕處理函數
-  // const handleNextPage = useCallback(() => {
-  //   setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-  // }, [totalPages]);
-
-  // const handlePrevPage = useCallback(() => {
-  //   setCurrentPage((prev) => Math.max(prev - 1, 1));
-  // }, []);
-
+  // 檢查是否有篩選條件或搜尋詞 (邏輯保持不變，但移除舊的物件形式檢查)
   const hasFiltersOrSearch =
-    Object.values(filters).some(
-      (value) =>
-        (Array.isArray(value) && value.length > 0) ||
-        (typeof value === "object" &&
-          value !== null &&
-          Object.keys(value).length > 0) ||
-        (typeof value === "string" &&
-          value !== "" &&
-          value !== "0" &&
-          value !== "所有省份") ||
-        (typeof value === "number" && value > 0)
-    ) || searchQuery.length > 0;
+    Object.entries(filters).some(([key, value]) => {
+      // 排除不應該被視為篩選條件的 key
+      if (key === "maxSeatingCapacity") return false;
+
+      // 檢查陣列：長度大於 0 則為有效篩選
+      if (Array.isArray(value)) return value.length > 0;
+
+      // 檢查字串：非空、非預設值則為有效篩選
+      if (
+        typeof value === "string" &&
+        value !== "" &&
+        value !== "所有省份" &&
+        value !== "0"
+      )
+        return true;
+
+      // 檢查數字：大於 0 則為有效篩選
+      if (typeof value === "number" && value > 0) return true;
+
+      // 排除所有物件形式 (因為 cuisineType 現在是陣列，舊的物件形式應該被淘汰)
+      if (typeof value === "object" && value !== null) return false;
+
+      return false;
+    }) || searchQuery.length > 0;
 
   const getFilterLabel = (key) => {
     const labels = {
@@ -81,7 +74,8 @@ const RestaurantListPage = ({
       reservationTime: "用餐時間",
       partySize: "用餐人數",
       favoriteRestaurantIds: "收藏",
-      restaurantType:"餐廳類型 "
+      restaurantType: "餐廳類型",
+      maxAvgSpending: "人均價錢",
     };
     return labels[key] || key;
   };
@@ -93,28 +87,17 @@ const RestaurantListPage = ({
     if (key === "businessHours") {
       return `${value}`;
     }
-    if (key === "timeOfDay") {
-      return value === "day" ? "日間" : "晚間";
-    }
-    if (key === "partySize") {
-      return `${value} 人`;
-    }
-    if (key === "reservationDate") {
-      return value;
-    }
-    if (key === "reservationTime") {
-      return value;
-    }
-    if (key === "minSeatingCapacity" && filters.maxSeatingCapacity) {
-      if (filters.maxSeatingCapacity === 9999) {
-        return `${value}+ 人`;
-      }
-      return `${value}-${filters.maxSeatingCapacity} 人`;
+    if (key === "maxAvgSpending") {
+      if (value === 200) return "$200+";
+      if (value > 0) return `<$${value}`;
+      return "不限";
     }
     if (key === "favoriteRestaurantIds") {
       return "我的收藏";
     }
-    return value;
+    // 💥 移除舊的 cuisineType 物件處理邏輯 (因為現在 cuisineType 應該是陣列)
+    // 最終防護：如果 value 意外是物件，將其轉換為字串
+    return String(value);
   };
 
   const renderFilterTags = useCallback(() => {
@@ -128,8 +111,9 @@ const RestaurantListPage = ({
           className="flex items-center bg-gray-300 text-gray-800 px-3 py-1 rounded-full whitespace-nowrap"
         >
           搜尋: &quot;{searchQuery}&quot;
+          {/* 搜尋是全清除，所以保持 onClearFilters */}
           <button
-            onClick={onClearFilters} // 這裡保持呼叫 onClearFilters
+            onClick={onClearFilters}
             className="ml-2 text-gray-600 hover:text-gray-900"
           >
             <FontAwesomeIcon icon={faTimesCircle} />
@@ -141,6 +125,7 @@ const RestaurantListPage = ({
     for (const [key, value] of Object.entries(filters)) {
       if (processedKeys.has(key)) continue;
 
+      // ⚡️ 處理收藏 (Array)
       if (
         key === "favoriteRestaurantIds" &&
         Array.isArray(value) &&
@@ -161,17 +146,19 @@ const RestaurantListPage = ({
           </span>
         );
         processedKeys.add(key);
-      } else if (key === "minSeatingCapacity" || key === "maxSeatingCapacity") {
+        continue;
+      }
+
+      // ⚡️ 處理座位數 (Min/Max 聯動)
+      if (key === "minSeatingCapacity" || key === "maxSeatingCapacity") {
         const min = filters.minSeatingCapacity;
         const max = filters.maxSeatingCapacity;
         let text = "";
-        if (min !== undefined && max !== undefined) {
+
+        if (typeof min === "number" && typeof max === "number") {
           text = max === 9999 ? `${min}+ 人` : `${min}-${max} 人`;
-        } else if (min !== undefined) {
-          text = `${min}+ 人`;
-        } else if (max !== undefined) {
-          text = `最多 ${max} 人`;
         }
+
         if (text) {
           tags.push(
             <span
@@ -180,6 +167,7 @@ const RestaurantListPage = ({
             >
               座位數: {text}
               <button
+                // 只需移除其中一個 key，因為邏輯會同時處理 min 和 max
                 onClick={() => {
                   onRemoveFilter("minSeatingCapacity");
                 }}
@@ -192,16 +180,24 @@ const RestaurantListPage = ({
         }
         processedKeys.add("minSeatingCapacity");
         processedKeys.add("maxSeatingCapacity");
-      } else if (Array.isArray(value) && value.length > 0) {
+        continue;
+      }
+
+      // ⚡️ 核心修正：處理所有多選列表 (包含 cuisineType, reservationModes, paymentMethods, facilities)
+      if (Array.isArray(value) && value.length > 0) {
         value.forEach((val) => {
+          // 確保陣列內的值是原始類型 (字串/數字)，並排除空值
+          if (typeof val !== "string" && typeof val !== "number") return;
+          if (val === undefined || val === null || val === "") return;
+
           tags.push(
             <span
               key={`${key}-${val}`}
               className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full whitespace-nowrap"
             >
-              {/* 這裡的 key 可能是 cuisineType、reservationModes 等 */}
-              {`${getFilterLabel(key)}: ${val}`}
+              {`${getFilterLabel(key)}: ${String(val)}`}
               <button
+                // 對於陣列，移除時需要傳入 key 和 value，讓父組件能從陣列中移除特定項
                 onClick={() => onRemoveFilter(key, val)}
                 className="ml-2 text-blue-600 hover:text-blue-900"
               >
@@ -210,13 +206,22 @@ const RestaurantListPage = ({
             </span>
           );
         });
-      } else if (
+        processedKeys.add(key);
+        continue;
+      }
+
+      // 💥 移除對單個物件形式 cuisineType 的處理 (已淘汰)
+
+      // 處理所有其他單值篩選器
+      if (
         value !== undefined &&
         value !== null &&
         value !== "" &&
-        typeof value !== "object" &&
+        // 排除 '所有省份' 和 0 (除非是 minRating=0，但通常不會有)
         value !== "所有省份" &&
-        value !== 0
+        value !== 0 &&
+        // 💥 確保單值也不是物件（例如 reservationDate/Time/partySize 可能是物件）
+        typeof value !== "object"
       ) {
         tags.push(
           <span
@@ -225,6 +230,7 @@ const RestaurantListPage = ({
           >
             {`${getFilterLabel(key)}: ${getFilterValueText(key, value)}`}
             <button
+              // 對於單值，只需要傳入 key
               onClick={() => onRemoveFilter(key)}
               className="ml-2 text-blue-600 hover:text-blue-900"
             >
@@ -236,17 +242,14 @@ const RestaurantListPage = ({
     }
 
     return tags;
-  }, [filters, searchQuery, onClearFilters, onRemoveFilter]);
+  }, [filters, searchQuery, onClearFilters, onRemoveFilter]); // 依賴項保持不變
 
   return (
     <div className="h-full flex flex-col">
+      {/* ... (頂部標題和清除按鈕邏輯不變) ... */}
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-xl px-3 font-bold text-gray-800">
           {hasFiltersOrSearch ? "搜尋/篩選結果" : "所有餐廳"}
-          {/* 由於現在只顯示部分餐廳，故移除總數顯示 */}
-          {/* {restaurants &&
-            restaurants.length > 0 &&
-            ` (${restaurants.length} 間)`} */}
         </h2>
         <div className="flex items-center space-x-4">
           {hasFiltersOrSearch && onClearFilters && (
@@ -293,7 +296,6 @@ const RestaurantListPage = ({
                 : "flex flex-col space-y-4"
             }
           >
-            {/* 直接渲染從父組件傳遞來的餐廳列表 */}
             {restaurants.map((restaurant) => (
               <RestaurantCard
                 key={restaurant.id}

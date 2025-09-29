@@ -46,21 +46,13 @@ const UserRequestManagement = () => {
     window.open(`/admin/admin_requests/${requestId}?type=${type}`, "_blank");
   };
 
+  // 【修正區塊：使用在 useEffect 中已解析的名稱】
   // 根據請求類型獲取餐廳名稱
   const getRestaurantName = (request) => {
-    if (request.type === "add" || request.type === "update") {
-      if (
-        request.restaurantName &&
-        typeof request.restaurantName === "object"
-      ) {
-        return (
-          request.restaurantName["zh-TW"] || request.restaurantName.en || "N/A"
-        );
-      }
-      return "N/A";
-    }
-    return "N/A";
+    // 優先使用在 useEffect 邏輯中解析好的名稱
+    return request.originalRestaurantName || "N/A";
   };
+  // 【修正區塊結束】
 
   // 處理切換視圖模式，並重設分頁狀態
   const handleViewModeChange = (mode) => {
@@ -110,6 +102,7 @@ const UserRequestManagement = () => {
                 let restaurantName;
 
                 if (type === "update" && reqData.restaurantId) {
+                  // 處理更新請求：從現有餐廳資料中獲取名稱
                   const restaurantDocRef = doc(
                     db,
                     restaurantsCollectionPath,
@@ -118,6 +111,7 @@ const UserRequestManagement = () => {
                   const restaurantDocSnap = await getDoc(restaurantDocRef);
                   if (restaurantDocSnap.exists()) {
                     const rData = restaurantDocSnap.data();
+                    // 確保這裡的取值邏輯是：優先中文 (zh-TW)，其次英文 (en)
                     restaurantName =
                       rData.restaurantName?.["zh-TW"] ||
                       rData.restaurantName?.en ||
@@ -126,6 +120,8 @@ const UserRequestManagement = () => {
                     restaurantName = "N/A";
                   }
                 } else {
+                  // 處理新增請求：直接從請求資料中獲取名稱
+                  // 確保這裡的取值邏輯是：優先中文 (zh-TW)，其次英文 (en)
                   restaurantName =
                     reqData.restaurantName?.["zh-TW"] ||
                     reqData.restaurantName?.en ||
@@ -135,7 +131,7 @@ const UserRequestManagement = () => {
                 return {
                   id: docSnap.id,
                   ...reqData,
-                  originalRestaurantName: restaurantName,
+                  originalRestaurantName: restaurantName, // 儲存已解析的名稱
                   displayStatus: getStatusDisplay(reqData.status),
                 };
               })
@@ -175,6 +171,7 @@ const UserRequestManagement = () => {
               let restaurantName;
 
               if (type === "update" && reqData.restaurantId) {
+                // 處理更新請求：從現有餐廳資料中獲取名稱
                 const restaurantDocRef = doc(
                   db,
                   restaurantsCollectionPath,
@@ -183,6 +180,7 @@ const UserRequestManagement = () => {
                 const restaurantDocSnap = await getDoc(restaurantDocRef);
                 if (restaurantDocSnap.exists()) {
                   const rData = restaurantDocSnap.data();
+                  // 確保這裡的取值邏輯是：優先中文 (zh-TW)，其次英文 (en)
                   restaurantName =
                     rData.restaurantName?.["zh-TW"] ||
                     rData.restaurantName?.en ||
@@ -191,6 +189,8 @@ const UserRequestManagement = () => {
                   restaurantName = "N/A";
                 }
               } else {
+                // 處理新增請求：直接從請求資料中獲取名稱
+                // 確保這裡的取值邏輯是：優先中文 (zh-TW)，其次英文 (en)
                 restaurantName =
                   reqData.restaurantName?.["zh-TW"] ||
                   reqData.restaurantName?.en ||
@@ -200,7 +200,7 @@ const UserRequestManagement = () => {
               return {
                 id: docSnap.id,
                 ...reqData,
-                originalRestaurantName: restaurantName,
+                originalRestaurantName: restaurantName, // 儲存已解析的名稱
                 displayStatus: getStatusDisplay(reqData.status),
               };
             })

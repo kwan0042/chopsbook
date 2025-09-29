@@ -1,91 +1,109 @@
-export const cuisineOptions = [
-  "選擇菜系",
-  "港式",
-  "下午茶",
-  // 粵菜與其他中式菜系
-  "粵菜",
-  "粵式點心/飲茶",
-  "粵式海鮮",
-  "潮州菜",
-  "客家菜",
-  "上海菜/江浙菜",
-  "北京菜",
-  "川菜",
-  "湘菜",
-  "魯菜",
-  "徽菜",
-  "東北菜",
-  "火鍋/打邊爐",
-  // 亞洲菜系
-  "日本菜",
-  "日本料理 - 壽司",
-  "日本料理 - 刺身",
-  "日本料理 - 拉麵",
-  "日本料理 - 燒肉/串燒",
-  "日本料理 - 居酒屋",
-  "韓國菜",
-  "泰國菜",
-  "越南菜",
-  "印度菜",
-  "星馬菜 (新加坡/馬來西亞)",
-  "菲律賓菜",
-  "印尼菜",
-  "中東菜",
-  "土耳其菜",
-  // 歐美菜系
-  "西餐",
-  "意大利菜",
-  "法國菜",
-  "西班牙菜",
-  "墨西哥菜",
-  "美式菜 - 漢堡/炸雞",
-  "美式菜 - 扒房",
-  "英式菜",
-  "希臘菜",
-  "德國菜",
-  "葡萄牙菜",
-  "俄羅斯菜",
-  // 其他特色菜系
-  "海鮮",
-  "素食",
-  "純素食 (Vegan)",
-  "健康餐飲",
-  "輕食",
-  "其他",
-];
+export const cuisineOptions = {
+  港式: ["港式"],
+  日本菜: ["日本菜"],
+  中菜: [
+    "粵菜 (廣東菜)",
+    "潮州菜",
+    "客家菜",
+    "上海菜/江浙菜",
+    "北京菜",
+    "川菜",
+    "湘菜",
+    "魯菜",
+    "徽菜",
+    "東北菜",
+  ],
+  韓國菜: ["韓國菜"],
+  台灣菜: ["台灣菜"],
+  越南菜: ["越南菜"],
+  其他亞洲菜系: [
+    "泰國菜",
+    "印度菜",
+    "星馬菜 (新加坡/馬來西亞)",
+    "菲律賓菜",
+    "印尼菜",
+  ],
 
+  歐美菜系: [
+    "西餐",
+    "意大利菜",
+    "法國菜",
+    "西班牙菜",
+    "墨西哥菜",
+    "美式菜",
+    "英式菜",
+    "希臘菜",
+    "德國菜",
+    "葡萄牙菜",
+    "俄羅斯菜",
+  ],
+
+  "中東/其他": ["中東菜", "土耳其菜"],
+  特色餐飲: [
+    "海鮮料理 (Seafood)",
+    "素食 (Vegetarian)",
+    "純素食 (Vegan)",
+    "健康餐飲/輕食",
+    "其他",
+  ],
+};
+
+// 移除第一個佔位符選項
 export const restaurantTypeOptions = [
-  "選擇餐廳類型",
   "茶餐廳",
-  "粉麵店",
-  "燒味店",
-  "大排檔",
-  "酒樓",
-  "茶樓",
-  "火鍋店",
-  "扒房",
-  "高級餐飲 (Fine Dining)",
-  "休閒餐飲 (Casual Dining)",
-  "家庭式餐廳 (Family Style)",
-  "小酒館 (Bistro)",
-  "酒吧 (Bar)",
-  "清吧/Lounge",
-  "咖啡廳 (Cafe)",
-  "速食 (Fast Food)",
-  "甜品店 / 糖水舖",
-  "麵包店 / 烘焙店",
-  "街頭小吃",
-  "熟食中心",
-  "美食廣場 (Food Court)",
-  "美食市集 (Food Market)",
-  "自助餐 (Buffet)",
-  "美食餐車 (Food Truck)",
-  "外賣速遞 (Takeout / Delivery)",
+  "冰室",
+  "大牌檔 (熟食中心/街市)",
+  "酒樓/海鮮酒家",
+  "茶樓/點心專門店", // 從中菜中提取
+  "火鍋店/打邊爐專門店", // 從中菜中提取
+  "粥店/粥品專門店",
+  "粉麵店/車仔麵專門店",
+  "燒味店/燒臘專門店",
+  "糖水舖/中式甜品店",
+  "素食中菜館",
+
+  // II. 日式特色場所 (Japanese Specific)
+  "壽司/刺身專門店", // 從日本菜中提取
+  "居酒屋 (Izakaya)", // 從日本菜中提取
+  "拉麵店", // 從日本菜中提取
+  "燒肉店/日式烤肉", // 從日本菜中提取
+  "串燒店/燒鳥 (Yakitori)", // 從日本菜中提取
+  "鐵板燒/爐端燒",
+  "日式咖喱飯專門店",
+  "日式定食/食堂",
+
+  // III. 韓式特色場所 (Korean Specific)
+  "韓式燒烤店 (K-BBQ)", // 從韓國菜中提取
+  "韓式小食/路邊攤",
+  "韓國傳統餐廳/定食",
+  "炸雞啤酒專門店 (Chimaek)",
+
+  // IV. 歐美/國際通用場所 (Western/General International)
+  "扒房 (Steakhouse)", // 從歐美菜系中提取
+  "漢堡/炸雞快餐店", // 從歐美菜系中提取
+  "小酒館 (Bistro) / 啤酒店 (Brasserie)",
+  "薄餅專門店",
+  "墨西哥卷餅店",
+  "酒吧/ 清吧",
+  "咖啡廳",
+  "麵包店/烘焙店",
+  "甜品店/糕點店",
+
+  // V. 服務模式與消費級別 (Service Model & Level)
+  "高級餐飲",
+  "休閒餐飲",
+  "家庭式餐廳",
+  "自助餐",
+  "速食",
+  "美食廣場/ 熟食市場", // 通用美食區
+  "街頭小吃攤位",
+  "外賣速遞專營店",
+  "美食餐車",
   "其他",
 ];
 
+// 移除第一個佔位符選項
 export const seatingCapacityOptions = [
-  "選擇座位數",
   "1-10",
   "10-20",
   "21-50",
@@ -96,7 +114,7 @@ export const seatingCapacityOptions = [
 
 export const reservationModeOptions = [
   "官方網站",
-  "訂位App (如 OpenRice)",
+  "訂位App",
   "電話預約",
   "Walk-in",
   "其他",
@@ -131,8 +149,8 @@ export const facilitiesServiceOptions = [
   "設有私人包廂",
 ];
 
+// 移除第一個佔位符選項
 export const provinceOptions = [
-  "選擇省份",
   "安大略省(ON)",
   "魁北克省(QC)",
   "卑詩省(BC)",
@@ -149,11 +167,11 @@ export const provinceOptions = [
 ];
 
 // ✅ 新增城市數據，與 provinceOptions 的值對應
+// 由於 provinceOptions 更改，citiesByProvince 的第一個鍵 "選擇省份" 也應移除或更改
 export const citiesByProvince = {
-  選擇省份: ["選擇城市"],
+  // 移除 "選擇省份": ["選擇城市"],
 
   "安大略省(ON)": [
-    "選擇城市",
     "多倫多(Toronto)",
     "萬錦(Markham)",
     "列治文山(Richmond Hill)",
@@ -176,7 +194,6 @@ export const citiesByProvince = {
   ],
 
   "魁北克省(QC)": [
-    "選擇城市",
     "滿地可(Montreal)",
     "魁北克市(Quebec City)",
     "拉瓦爾(Laval)",
@@ -190,7 +207,6 @@ export const citiesByProvince = {
   ],
 
   "卑詩省(BC)": [
-    "選擇城市",
     "列治文(Richmond)",
     "溫哥華(Vancouver)",
     "素里(Surrey)",
@@ -209,7 +225,6 @@ export const citiesByProvince = {
   ],
 
   "亞伯達省(AB)": [
-    "選擇城市",
     "卡加利(Calgary)",
     "愛民頓(Edmonton)",
     "紅鹿市(Red Deer)",
@@ -222,7 +237,6 @@ export const citiesByProvince = {
   ],
 
   "曼尼托巴省(MB)": [
-    "選擇城市",
     "溫尼伯(Winnipeg)",
     "布蘭登(Brandon)",
     "施泰因巴赫(Steinbach)",
@@ -233,7 +247,6 @@ export const citiesByProvince = {
   ],
 
   "薩斯喀徹溫省(SK)": [
-    "選擇城市",
     "薩斯卡通(Saskatoon)",
     "里賈納(Regina)",
     "阿伯王子城(Prince Albert)",
@@ -243,7 +256,6 @@ export const citiesByProvince = {
   ],
 
   "新斯科細亞省(NS)": [
-    "選擇城市",
     "哈利法斯(Halifax)",
     "悉尼(Sydney)",
     "達特茅斯(Dartmouth)",
@@ -252,7 +264,6 @@ export const citiesByProvince = {
   ],
 
   "新不倫瑞克省(NB)": [
-    "選擇城市",
     "聖約翰(Saint John)",
     "蒙克頓(Moncton)",
     "費特烈頓(Fredericton)",
@@ -262,7 +273,6 @@ export const citiesByProvince = {
   ],
 
   "紐芬蘭與拉布拉多省(NL)": [
-    "選擇城市",
     "聖約翰斯(St. John's)",
     "南康山灣(Conception Bay South)",
     "蒙特珍(Mount Pearl)",
@@ -271,7 +281,6 @@ export const citiesByProvince = {
   ],
 
   "愛德華王子島省(PE)": [
-    "選擇城市",
     "夏洛特城(Charlottetown)",
     "薩默塞德(Summerside)",
     "史特拉特福(Stratford)",
@@ -279,18 +288,19 @@ export const citiesByProvince = {
   ],
 
   "西北地區(NT)": [
-    "選擇城市",
     "黃刀鎮(Yellowknife)",
     "海河鎮(Hay River)",
     "伊努維克(Inuvik)",
   ],
 
-  "育空地區(YK)": ["選擇城市", "白馬市(Whitehorse)", "道森市(Dawson City)"],
+  "育空地區(YK)": ["白馬市(Whitehorse)", "道森市(Dawson City)"],
 
   "努納武特地區(NU)": [
-    "選擇城市",
     "伊魁特(Iqaluit)",
     "蘭金灣(Rankin Inlet)",
-    "劉易克霍爾(Lieuk Hall)", // 呢個唔太常見，可能要再查證
+    "劉易克霍爾(Lieuk Hall)",
   ],
+  // 為了保持程式碼的健壯性，建議在其他地方處理城市選擇時，預設在陣列第一個位置添加 "選擇城市" 佔位符。
+  // 例如在 <select> 元素的選項列表生成時。
+  // 如果您希望保持所有城市陣列的首位都是 "選擇城市"，請告訴我。
 };

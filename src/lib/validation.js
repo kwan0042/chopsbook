@@ -1,82 +1,139 @@
+// src/lib/validation.js
+
 /**
- * 驗證餐廳表單數據。
- * @param {object} formData - 要驗證的表單數據。
- * @returns {object} 一個錯誤物件。如果沒有錯誤，該物件將為空。
+ * 整合所有欄位 (Step 1, 2, 3) 的驗證函式，執行一次性全面驗證。
+ *
+ * @param {object} data - 餐廳表單資料 (包含所有步驟的欄位)
+ * @param {boolean} [isUpdateForm=false] - 是否為更新表單 (用於照片驗證)。
+ * @param {string[]} [originalFacadePhotoUrls=[]] - 原始圖片 URL (用於照片驗證)。
+ * @returns {object} 彙總的錯誤物件，key 為欄位名稱，value 為錯誤訊息或錯誤陣列。
  */
-export const validateRestaurantForm = (formData) => {
+export const validateRestaurantForm = (
+  data,
+  isUpdateForm = false,
+  originalFacadePhotoUrls = []
+) => {
   const errors = {};
 
-  // ⚡️ 1. 處理中文名稱驗證邏輯
-  // 只有當 'noChineseName' 未被勾選時，才要求中文名稱是必填的。
-  if (!formData.noChineseName && !formData.restaurantName?.["zh-TW"]) {
-    // 錯誤鍵名應與 RestaurantForm 中用於顯示錯誤的鍵名一致
-    // 您的 RestaurantForm 使用了 errors.restaurantName?.["zh-TW"]，但這裡使用了 errors.restaurantNameZh
-    // 為了兼容性，我將使用您原始的鍵名，並在備註中提出結構優化建議。
-    errors.restaurantNameZh = "此為必填欄位。";
+  // ===================================
+  // === Step 1: 餐廳詳細資料 驗證邏輯 ===
+  // ===================================
+
+  // 照片相關變數
+  const hasOriginalPhoto = originalFacadePhotoUrls.length > 0;
+  const hasSelectedFile = !!data.tempSelectedFile;
+  const hasPhotoUrlInFormData =
+    data.facadePhotoUrls && data.facadePhotoUrls.length > 0;
+
+  // 1. 餐廳名稱
+  if (!data.restaurantName?.en?.trim()) {
+    errors.restaurantName = { en: "英文名稱為必填項目。" };
+  }
+  if (!data.noChineseName && !data.restaurantName?.["zh-TW"]?.trim()) {
+    errors.restaurantName = {
+      ...errors.restaurantName,
+      "zh-TW": "中文名稱為必填項目，或勾選「沒有中文名稱」。",
+    };
   }
 
-  // ⚡️ 2. 處理英文名稱驗證 (這通常是必須的)
-  if (!formData.restaurantName?.en) {
-    errors.restaurantNameEn = "此為必填欄位。";
+  // 2. 地址
+  if (!data.province) errors.province = "省份為必填項目。";
+  if (!data.city) errors.city = "城市為必填項目。";
+  if (!data.postalCode) errors.postalCode = "郵政編碼為必填項目。";
+  if (!data.fullAddress) errors.fullAddress = "詳細地址為必填項目。";
+
+  // 3. 聯絡電話 (餐廳電話)
+  if (!data.phone || String(data.phone).trim().length === 0) {
+    errors.phone = "餐廳電話為必填項目。";
+  } else if (!/^\d{10}$/.test(String(data.contactPhone).trim())) {
+    errors.contactPhone = "聯絡人電話必須是 10 位數字（區號 + 號碼）。";
   }
 
-  // 以下為未修改的必填驗證
-  if (!formData.province) {
-    errors.province = "此為必填欄位。";
-  }
-  if (!formData.city) {
-    errors.city = "此為必填欄位。";
-  }
-  if (!formData.fullAddress) {
-    errors.fullAddress = "此為必填欄位。";
-  }
-  if (!formData.postalCode) {
-    // 郵遞區號看起來應該也是必填的
-    errors.postalCode = "此為必填欄位。";
-  }
-  if (!formData.phone) {
-    errors.phone = "此為必填欄位。";
-  }
-  if (!formData.cuisineType) {
-    errors.cuisineType = "此為必填欄位。";
-  }
-  if (!formData.restaurantType) {
-    errors.restaurantType = "此為必填欄位。";
+  // 4. 類型
+  if (!data.cuisineType?.category) {
+    errors.cuisineCategory = "請選擇菜系。";
   }
 
-  // 更新後的營業時間驗證邏輯
-  // 注意：這裡假設 formData.businessHours 是 array
-  const businessHoursArray = formData.businessHours || [];
-  const hasOpenDay = businessHoursArray.some((day) => day.isOpen);
-  if (!hasOpenDay) {
-    errors.businessHours = "請至少選擇一天營業。";
+  if (!data.cuisineType?.subType) {
+    errors.cuisineSubType = "請選擇菜類別。";
+  }
+  if (!data.restaurantType || data.restaurantType.length === 0) {
+    errors.restaurantType = "餐廳類型為必填項目。";
   }
 
-  if (!formData.contactName) {
-    errors.contactName = "此為必填欄位。";
-  }
-  if (!formData.contactPhone) {
-    errors.contactPhone = "此為必填欄位。";
+  // 5. 門面照片
+  const hasValidPhotoInfo =
+    hasPhotoUrlInFormData || hasSelectedFile || hasOriginalPhoto;
+  if (!isUpdateForm && !hasValidPhotoInfo) {
+    errors.facadePhotoUrls = "請上傳一張餐廳門面照片。";
   }
 
-  // 對 paymentMethods 的新驗證
-  if (!formData.paymentMethods || formData.paymentMethods.length === 0) {
+  // ===========================================
+  // === Step 2: 營業、服務與付款 驗證邏輯 ===
+  // ===========================================
+
+  const businessHoursErrors = [];
+
+  // 1. 營業時間 (Business Hours)
+  if (data.businessHours && Array.isArray(data.businessHours)) {
+    data.businessHours.forEach((bh, index) => {
+      const dayErrors = {};
+      if (bh.isOpen) {
+        if (!bh.startTime) {
+          dayErrors.startTime = "請選擇開始時間。";
+        }
+        if (!bh.endTime) {
+          dayErrors.endTime = "請選擇結束時間。";
+        }
+      }
+      businessHoursErrors[index] =
+        Object.keys(dayErrors).length > 0 ? dayErrors : null;
+    });
+
+    const hasOpenDay = data.businessHours.some((bh) => bh.isOpen);
+    if (!hasOpenDay) {
+      errors.businessHours = "請至少標記一天營業時間。";
+    }
+  } else {
+    errors.businessHours = "營業時間為必填項目。";
+  }
+
+  // 如果存在具體的時間段錯誤，則用陣列覆蓋（或新增）
+  if (
+    Array.isArray(businessHoursErrors) &&
+    businessHoursErrors.some((err) => err !== null)
+  ) {
+    errors.businessHours = businessHoursErrors;
+  }
+
+  // 2. 付款方式
+  if (!data.paymentMethods || data.paymentMethods.length === 0) {
     errors.paymentMethods = "請至少選擇一種付款方式。";
   }
 
-  // 📝 備註：您的 RestaurantForm 期望的錯誤鍵名 (例如 errors.restaurantName?.["zh-TW"])
-  // 與此處使用的鍵名 (errors.restaurantNameZh) 不一致。
-  // 為確保錯誤訊息能在 UI 上正確顯示，您可能需要調整：
-  // 1. 在 RestaurantForm 中將顯示邏輯改為檢查 errors.restaurantNameZh。
-  // 2. 或在這裡將巢狀錯誤結構重新引入 (建議)：
-  /*
-  if (!formData.noChineseName && !formData.restaurantName?.["zh-TW"]) {
-      errors.restaurantName = { 
-          ...errors.restaurantName, 
-          "zh-TW": "此為必填欄位。" 
-      };
+  // ===================================
+  // === Step 3: 聯絡人資訊 驗證邏輯 ===
+  // ===================================
+
+  // 1. 聯絡人姓名
+  if (!data.contactName?.trim()) {
+    errors.contactName = "聯絡人姓名為必填項目。";
   }
-  */
+
+  // 2. 聯絡人電話
+  if (!data.contactPhone || String(data.contactPhone).trim().length === 0) {
+    errors.contactPhone = "聯絡人電話為必填項目。";
+  } else if (!/^\d{10}$/.test(String(data.contactPhone).trim())) {
+    errors.contactPhone = "聯絡人電話必須是 10 位數字（區號 + 號碼）。";
+  }
+
+  // 3. 聯絡人 Email (非必填，但若填寫需驗證格式)
+  if (data.contactEmail && data.contactEmail.trim()) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.contactEmail.trim())) {
+      errors.contactEmail = "電子郵件格式不正確。";
+    }
+  }
 
   return errors;
 };

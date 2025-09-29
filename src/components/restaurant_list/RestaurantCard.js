@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 
 // 導入自定義 Hook
 import useRestaurantStatus from "@/hooks/useRestaurantStatus";
-import ShareModal from "@/components/ShareModal"; 
+import ShareModal from "@/components/ShareModal";
 
 /**
  * RestaurantCard 組件: 顯示單個餐廳的資訊卡片，支援網格和列表視圖。
@@ -51,6 +51,17 @@ const RestaurantCard = ({
           restaurant.restaurantName?.en ||
           "餐廳圖片"
       )}`;
+
+  // ⚡️ 修正點：規範化 cuisineType 的顯示文本
+  const cuisineTypeText = (() => {
+    const cuisine = restaurant.cuisineType;
+    if (cuisine && typeof cuisine === "object" && cuisine.subType) {
+      // 如果是物件 {category: "...", subType: "..."}，則顯示 subType
+      return cuisine.subType;
+    }
+    // 如果是字串或N/A
+    return cuisine || "N/A";
+  })();
 
   const handleFavoriteClick = (e) => {
     e.stopPropagation();
@@ -182,8 +193,8 @@ const RestaurantCard = ({
               isGridView ? "text-sm" : "text-sm"
             }`}
           >
-            {restaurant.city || "N/A"} | {restaurant.cuisineType || "N/A"} |
-            人均: ${restaurant.avgSpending || "N/A"}
+            {restaurant.city || "N/A"} | {cuisineTypeText} | 人均: $
+            {restaurant.avgSpending || "N/A"}
           </p>
 
           <p

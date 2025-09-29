@@ -1,6 +1,8 @@
+// src/components/restaurant_req/UpdateRestaurantPage.js
+
 "use client";
 
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useContext, useEffect, useCallback } from "react";
 import { AuthContext } from "../../lib/auth-context";
 import {
   collection,
@@ -15,7 +17,6 @@ import Modal from "../Modal";
 import LoadingSpinner from "../LoadingSpinner";
 import RestaurantForm from "./RestaurantForm";
 import { useRouter, useSearchParams } from "next/navigation";
-import { validateRestaurantForm } from "../../lib/validation";
 
 // 圖標：用於返回按鈕
 const ArrowLeftIcon = ({ className = "" }) => (
@@ -33,7 +34,6 @@ const ArrowLeftIcon = ({ className = "" }) => (
   </svg>
 );
 
-// 營業時間 UI 相關的輔助資料 (確保這裡也能使用)
 const DAYS_OF_WEEK = [
   "星期日",
   "星期一",
@@ -58,9 +58,10 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
   const [submitting, setSubmitting] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState("");
-  const [errors, setErrors] = useState({});
+  // 核心狀態：儲存所有步驟的錯誤 { step1: { error1... }, step2: { error2... }, step3: { error3... } }
+  // 儘管現在是單頁，我們仍使用此結構傳遞給子組件
+  const [allErrors, setAllErrors] = useState({});
 
-  // 格式化日期時間 (雖然在此組件未使用，但保留以防萬一)
   const formatDateTime = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -71,7 +72,6 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   };
 
-  // 獲取所有餐廳，以用於搜尋建議並檢查 URL ID
   useEffect(() => {
     if (!db || !appId) {
       setLoading(false);
@@ -91,7 +91,6 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
         setAllRestaurants(fetchedRestaurants);
         setLoading(false);
 
-        // 在這裡直接處理 URL 參數，因為我們已確保 allRestaurants 已經被載入
         const restaurantIdFromUrl = searchParams.get("restaurantId");
         if (restaurantIdFromUrl) {
           const restaurantToSelect = fetchedRestaurants.find(
@@ -100,7 +99,6 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
           if (restaurantToSelect) {
             handleSelectRestaurant(restaurantIdFromUrl);
           } else {
-            // URL ID 無效，顯示錯誤訊息並讓使用者從頭搜尋
             setModalMessage("URL 中的餐廳 ID 無效，請重新搜尋。");
             setModalType("error");
             setSelectedRestaurantId(null);
@@ -116,9 +114,8 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       }
     };
     fetchAllRestaurants();
-  }, [db, appId, searchParams]); // 調整依賴項，確保 URL 參數變動時會觸發
+  }, [db, appId, searchParams]);
 
-  // 根據搜尋框輸入過濾建議列表
   useEffect(() => {
     if (searchQuery) {
       const filtered = allRestaurants.filter(
@@ -136,12 +133,12 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
     }
   }, [searchQuery, allRestaurants]);
 
-  // 處理從建議列表中選擇餐廳
   const handleSelectRestaurant = async (restaurantId) => {
     setSelectedRestaurantId(restaurantId);
     setSearchQuery("");
     setFilteredSuggestions([]);
     setSubmitting(true);
+    setAllErrors({}); // 清除所有錯誤
     try {
       const docRef = doc(
         db,
@@ -152,15 +149,10 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
 
-        // **重要變動：資料正規化**
-        // 確保 facadePhotoUrls 是陣列
-        const facadePhotoUrls = Array.isArray(data.facadePhotoUrls)
-          ? data.facadePhotoUrls
-          : data.facadePhotoUrl
-          ? [data.facadePhotoUrl]
-          : [];
+        // 儲存原始照片 URL，但清空表單用的 facadePhotoUrls
+        const originalFacadePhotoUrls = data.facadePhotoUrls || [];
+        const facadePhotoUrlsForForm = []; // 清空，要求用戶重新上傳或確認
 
-        // 確保 businessHours 是包含所有日期的陣列
         const businessHours = DAYS_OF_WEEK.map((day) => {
           const existingHour = Array.isArray(data.businessHours)
             ? data.businessHours.find((bh) => bh.day === day)
@@ -174,22 +166,29 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
           };
         });
 
-        // ⚡️ 檢查餐廳是否有中文名稱，以設定 noChineseName 的初始狀態 (新增邏輯)
         const initialNoChineseName = !data.restaurantName?.["zh-TW"];
+
+        // 清空聯絡人資訊，強制用戶輸入本次更新的聯絡人
+        const contactName = "";
+        const contactPhone = "";
+        const contactEmail = "";
 
         const restaurantWithId = {
           id: restaurantId,
           ...data,
-          facadePhotoUrls,
+          originalFacadePhotoUrls: originalFacadePhotoUrls,
+          facadePhotoUrls: facadePhotoUrlsForForm,
           businessHours,
-          noChineseName: initialNoChineseName, // ⚡️ 初始化 noChineseName 狀態 (新增邏輯)
+          noChineseName: initialNoChineseName,
+          contactName: contactName,
+          contactPhone: contactPhone,
+          contactEmail: contactEmail,
         };
         setSelectedRestaurantData(restaurantWithId);
         setFormData(restaurantWithId);
       } else {
         setModalMessage("找不到選擇的餐廳資料。");
         setModalType("error");
-        console.log(restaurantId);
         setSelectedRestaurantId(null);
         setSelectedRestaurantData(null);
         setFormData({});
@@ -206,114 +205,118 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    // ⚡️ 處理 noChineseName 複選框 (新增邏輯)
-    if (name === "noChineseName") {
-      setFormData((prev) => {
-        const newFormData = { ...prev, [name]: checked };
-        // 如果勾選了「沒有中文名稱」，清除中文名稱的值
+    setFormData((prev) => {
+      let newFormData = { ...prev };
+
+      if (name === "noChineseName") {
+        newFormData[name] = checked;
         if (checked) {
           newFormData.restaurantName = {
             ...prev.restaurantName,
             ["zh-TW"]: "",
           };
         }
-        return newFormData;
-      });
-    } else if (name === "facadePhotoUrl") {
-      setFormData((prev) => ({
-        ...prev,
-        facadePhotoUrls: value ? [value] : [],
-      }));
-    } else if (name.startsWith("restaurantName.")) {
-      const lang = name.split(".")[1];
-      setFormData((prev) => ({
-        ...prev,
-        restaurantName: {
+      } else if (name === "facadePhotoUrls") {
+        newFormData.facadePhotoUrls = Array.isArray(value) ? value : [];
+      } else if (name.startsWith("restaurantName.")) {
+        const lang = name.split(".")[1];
+        newFormData.restaurantName = {
           ...prev.restaurantName,
           [lang]: value,
-        },
-        // ⚡️ 如果使用者開始輸入中文名稱，自動取消勾選「沒有中文名稱」 (新增邏輯)
-        noChineseName: lang === "zh-TW" && value ? false : prev.noChineseName,
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: type === "checkbox" ? checked : value,
-      }));
-    }
+        };
+        if (lang === "zh-TW" && value) {
+          newFormData.noChineseName = false;
+        }
+      } else {
+        newFormData[name] = type === "checkbox" ? checked : value;
+      }
+
+      return newFormData;
+    });
   };
 
   const handleCheckboxChange = (e) => {
     const { name, value, checked } = e.target;
+
     setFormData((prev) => {
       const currentArray = prev[name] || [];
-      if (checked) {
-        return { ...prev, [name]: [...currentArray, value] };
-      } else {
-        return {
-          ...prev,
-          [name]: currentArray.filter((item) => item !== value),
-        };
-      }
+      const newArray = checked
+        ? [...currentArray, value]
+        : currentArray.filter((item) => item !== value);
+
+      const newFormData = { ...prev, [name]: newArray };
+
+      return newFormData;
     });
   };
 
+  /**
+   * 核心函數：接收子組件的錯誤並更新到父組件的 allErrors 狀態
+   * 由於現在是單頁面，這個函數只負責將子組件的錯誤結構化儲存
+   */
+  const handleUpdateStepErrors = useCallback((stepKey, stepErrors) => {
+    setAllErrors((prev) => ({
+      ...prev,
+      [stepKey]: Object.keys(stepErrors).length > 0 ? stepErrors : undefined, // 確保沒有錯誤時，保持物件整潔
+    }));
+  }, []);
+
+  /**
+   * 最終提交：檢查所有步驟的錯誤狀態，並在有錯誤時阻止提交。
+   */
   const handleSubmit = async (e, updatedFormDataWithImageUrl) => {
     e.preventDefault();
-    console.log("1. handleSubmit 函式已開始執行"); // ⚡️ 新增此行
     setSubmitting(true);
     setModalMessage("");
     setModalType("");
-    setErrors({}); // 每次提交前先清除舊的錯誤
-
-    const validationErrors = validateRestaurantForm(
-      updatedFormDataWithImageUrl
-    );
-
-    console.log("2. 驗證結果:", validationErrors); // ⚡️ 新增此行
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      setSubmitting(false);
-      return;
-    }
-
-    if (!db || !currentUser || !selectedRestaurantId) {
-      const msg = "請先登入並選擇餐廳才能提交更新申請。";
-      setModalMessage(msg);
-      setModalType("error");
-      setSubmitting(false);
-      return;
-    }
-
-    // 在提交前將特定欄位轉換為數字類型
-    const dataToSubmit = { ...updatedFormDataWithImageUrl };
-    if (dataToSubmit.avgSpending) {
-      dataToSubmit.avgSpending = parseInt(dataToSubmit.avgSpending, 10);
-    }
-    // 注意：這裡假設電話號碼可能會包含非數字字符，但在 Firebase 結構中應為字串，
-    // 因此將其轉換為整數可能會丟失格式（例如 +852）。
-    // 由於原始碼使用 parseInt 移除非數字字符並轉為整數，我們保持這個行為。
-    if (dataToSubmit.phone) {
-      // 保持數字和'+'號，但原始碼中用的是 parseInt，這是一個潛在問題，暫時依照原邏輯處理
-      dataToSubmit.phone = parseInt(
-        dataToSubmit.phone.toString().replace(/[^0-9]/g, ""),
-        10
-      );
-    }
-    if (dataToSubmit.contactPhone) {
-      dataToSubmit.contactPhone = parseInt(
-        dataToSubmit.contactPhone.toString().replace(/[^0-9]/g, ""),
-        10
-      );
-    }
-    if (dataToSubmit.priority) {
-      dataToSubmit.priority = parseInt(dataToSubmit.priority, 10);
-    }
-
-    // ⚡️ 提交前，移除 transient/helper fields (新增邏輯)
-    delete dataToSubmit.noChineseName;
 
     try {
+      if (!db || !currentUser || !selectedRestaurantId) {
+        throw new Error("請先登入並選擇餐廳才能提交更新申請。");
+      }
+
+      // 1. 檢查所有步驟的錯誤 (從 allErrors 狀態中提取)
+      // 注意：在單頁模式下，RestaurantForm 會在本地執行 validateAll 並更新 allErrors
+      // 這裡只需要檢查 allErrors 是否有任何錯誤
+      let hasGlobalError = false;
+
+      for (const stepKey of ["step1", "step2", "step3"]) {
+        // 使用 step key (非 ID)
+        const stepErrors = allErrors[stepKey] || {};
+        if (Object.keys(stepErrors).length > 0) {
+          hasGlobalError = true;
+          break;
+        }
+      }
+
+      if (hasGlobalError) {
+        // 錯誤訊息已在 RestaurantForm 內部處理，這裡只需要拋出錯誤阻止提交
+        throw new Error("表單驗證失敗。請檢查紅色標記的欄位並更正錯誤。");
+      }
+
+      // 2. Data Preparation
+      const dataToValidate = { ...updatedFormDataWithImageUrl };
+      delete dataToValidate.noChineseName;
+      delete dataToValidate.originalFacadePhotoUrls;
+      // 確保在提交到資料庫前，我們不再需要 tempSelectedFile
+      delete dataToValidate.tempSelectedFile;
+      const dataToSubmit = { ...dataToValidate };
+
+      if (dataToSubmit.avgSpending) {
+        dataToSubmit.avgSpending = parseInt(dataToSubmit.avgSpending, 10);
+      }
+      if (dataToSubmit.priority) {
+        dataToSubmit.priority = parseInt(dataToSubmit.priority, 10);
+      }
+
+      if (dataToSubmit.phone) {
+        dataToSubmit.phone = String(dataToSubmit.phone);
+      }
+      if (dataToSubmit.contactPhone) {
+        dataToSubmit.contactPhone = String(dataToSubmit.contactPhone);
+      }
+
+      // 3. Change Detection
       const updateApplicationsRef = collection(
         db,
         `artifacts/${appId}/public/data/restaurant_requests`
@@ -322,26 +325,30 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       const changes = {};
       const fieldsToCheck = Object.keys(dataToSubmit);
 
+      const originalDataForComparison = {
+        ...selectedRestaurantData,
+        // 用原始照片 URL 進行比對
+        facadePhotoUrls: selectedRestaurantData.originalFacadePhotoUrls,
+        // 聯絡人資料比較：由於我們在表單裡清空了，這裡必須從原始資料中拿來比較
+        contactName: selectedRestaurantData.contactName || "",
+        contactPhone: selectedRestaurantData.contactPhone || "",
+        contactEmail: selectedRestaurantData.contactEmail || "",
+      };
+
       fieldsToCheck.forEach((field) => {
-        if (field === "id") return;
+        if (field === "id" || field === "originalFacadePhotoUrls") return;
 
         const formValue = dataToSubmit[field];
-        const originalValue = selectedRestaurantData?.[field];
+        const originalValue = originalDataForComparison?.[field];
 
-        // 確保所有值在比較前都是可比較的
         const v1 = formValue ?? null;
         const v2 = originalValue ?? null;
 
-
         if (Array.isArray(v1) && Array.isArray(v2)) {
           if (
-            JSON.stringify([...v1].sort()) !==
-            JSON.stringify([...v2].sort())
+            JSON.stringify([...v1].sort()) !== JSON.stringify([...v2].sort())
           ) {
-            changes[field] = {
-              value: v1,
-              status: "pending",
-            };
+            changes[field] = { value: v1, status: "pending" };
           }
         } else if (
           typeof v1 === "object" &&
@@ -349,55 +356,58 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
           v1 !== null &&
           v2 !== null
         ) {
-          // 針對巢狀物件（如 restaurantName）進行比較
           if (JSON.stringify(v1) !== JSON.stringify(v2)) {
-            changes[field] = {
-              value: v1,
-              status: "pending",
-            };
+            changes[field] = { value: v1, status: "pending" };
           }
-        } else if (
-          JSON.stringify(v1) !== JSON.stringify(v2)
-        ) {
-          changes[field] = {
-            value: v1,
-            status: "pending",
-          };
+        } else if (JSON.stringify(v1) !== JSON.stringify(v2)) {
+          changes[field] = { value: v1, status: "pending" };
         }
       });
 
+      // 4. Handle No Changes
       if (Object.keys(changes).length === 0) {
         const msg = "您沒有做出任何更改。";
         setModalMessage(msg);
         setModalType("info");
-        setSubmitting(false);
         return;
       }
 
+      // 5. Submission
       await addDoc(updateApplicationsRef, {
         restaurantId: selectedRestaurantId,
         changes: changes,
-        type: "update", // 新增：標記為更新餐廳請求
+        type: "update",
         submittedBy: currentUser.uid,
-        submittedAt: serverTimestamp(), // 新增：使用新欄位名稱
+        submittedAt: serverTimestamp(),
         status: "pending",
       });
+
+      // 6. Success Message
       const successMsg =
         "謝謝你使用ChopsBook，\n" +
         "提供餐廳資訊為廣大嘅美食家作出貢獻。\n" +
         "幕後團隊將火速審批！";
       setModalMessage(successMsg);
       setModalType("success");
+
       setSelectedRestaurantId(null);
       setSelectedRestaurantData(null);
       setFormData({});
       setSearchQuery("");
       setFilteredSuggestions([]);
+      setAllErrors({});
     } catch (error) {
       console.error("提交餐廳更新申請失敗:", error);
-      const errorMsg = `提交失敗: ${error.message}`;
-      setModalMessage(errorMsg);
-      setModalType("error");
+
+      if (!error.message.includes("表單驗證失敗")) {
+        const errorMsg = `提交失敗: ${error.message || "未知錯誤"}`;
+        setModalMessage(errorMsg);
+        setModalType("error");
+      } else {
+        // 處理來自 RestaurantForm 的驗證失敗訊息
+        setModalMessage(error.message);
+        setModalType("error");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -428,8 +438,10 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center font-inter">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-4xl relative">
+    // 更改主要容器以支援全寬，移除 max-w-7xl 等寬度限制
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-start font-inter">
+      {/* 核心修改點：將 max-w-4xl 替換為 w-full，讓表單容器佔滿可用寬度 */}
+      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-7xl relative">
         <button
           onClick={onBackToHome}
           className="absolute top-4 left-4 text-gray-500 hover:text-gray-700 transition-colors flex items-center"
@@ -444,7 +456,6 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
         <p className="text-gray-600 text-center mb-8">
           搜尋並選擇您要更新的餐廳，然後填寫您要修改的資訊。更新將需要管理員審核。
         </p>
-
         {selectedRestaurantId ? null : (
           <div className="mb-8 relative">
             <label
@@ -491,7 +502,8 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
             isLoading={submitting}
             submitButtonText="提交餐廳更新申請"
             isUpdateForm={true}
-            errors={errors}
+            errors={allErrors} // 將所有錯誤傳遞給子組件
+            handleUpdateStepErrors={handleUpdateStepErrors} // 傳遞錯誤更新回調
           />
         )}
       </div>

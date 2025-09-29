@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react"; // ⚡️ 導入 useCallback
 import { useSearchParams, useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSlidersH } from "@fortawesome/free-solid-svg-icons";
@@ -9,35 +9,86 @@ import RestaurantListPage from "./RestaurantListPage";
 import Modal from "../Modal";
 import { AuthContext } from "../../lib/auth-context";
 
+// ⚡️ 輔助函數：將物件形式的菜系篩選器轉換為字串陣列
+const normalizeCuisineFilters = (filters) => {
+  const normalizedFilters = {};
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (key === "cuisineType") {
+      let cuisineValues = [];
+
+      if (Array.isArray(value)) {
+        // 情況 1: 已經是字串陣列或物件陣列 (需要轉換)
+        cuisineValues = value
+          .map((v) => {
+            if (typeof v === "string") return v;
+            if (typeof v === "object" && v !== null && v.subType)
+              return v.subType; // 優先取 subType
+            return null;
+          })
+          .filter(Boolean);
+      } else if (typeof value === "object" && value !== null && value.subType) {
+        // 情況 2: 是單個物件 {category: "...", subType: "..."}
+        cuisineValues = [value.subType];
+      } else if (typeof value === "string") {
+        // 情況 3: 單個字串
+        cuisineValues = [value];
+      }
+
+      if (cuisineValues.length > 0) {
+        // 確保結果是去重後的字串陣列
+        normalizedFilters[key] = Array.from(new Set(cuisineValues));
+      }
+    } else {
+      normalizedFilters[key] = value;
+    }
+  }
+  return normalizedFilters;
+};
+
 const RestaurantContent = () => {
   const { modalMessage, setModalMessage } = useContext(AuthContext);
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // 從 URL 解析篩選條件和搜尋查詢
+  // ⚡️ 核心修正：更穩定的 URL 參數解析邏輯
   let appliedFilters = {};
   const filtersFromUrl = searchParams.get("filters");
+
   if (filtersFromUrl) {
+    // 1. PRIMARY PATH: 嘗試解析 JSON 'filters' 參數
     try {
-      appliedFilters = JSON.parse(filtersFromUrl);
+      const parsedFilters = JSON.parse(filtersFromUrl);
+      appliedFilters = normalizeCuisineFilters(parsedFilters);
     } catch (e) {
-      console.error("Failed to parse filters from URL:", e);
+      console.error("Failed to parse 'filters' JSON from URL:", e);
+      // 如果解析失敗，appliedFilters 保持為 {}，將進入 fallback
     }
-  } else {
+  }
+
+  // 2. FALLBACK PATH: 如果 appliedFilters 仍然為空，檢查扁平化參數
+  if (Object.keys(appliedFilters).length === 0) {
+    let flatFilters = {};
     for (const [key, value] of searchParams.entries()) {
-      if (key === "search") continue;
+      if (key === "search" || key === "filters") continue;
+
       const allValues = searchParams.getAll(key);
       if (allValues.length > 1) {
-        appliedFilters[key] = allValues;
+        flatFilters[key] = allValues; // 處理多值參數
       } else {
+        // 嘗試解析單值，如數字、布林值或被 JSON.stringify 過的單個物件
         try {
-          appliedFilters[key] = JSON.parse(value);
+          flatFilters[key] = JSON.parse(value);
         } catch (e) {
-          appliedFilters[key] = value;
+          flatFilters[key] = value; // 視為單個字串
         }
       }
     }
+    // 對從扁平參數讀取到的篩選器進行規範化
+    appliedFilters = normalizeCuisineFilters(flatFilters);
   }
+
+  // 保持 search 獨立
   const searchQuery = searchParams.get("search") || "";
 
   const [isGridView, setIsGridView] = useState(false);
@@ -67,14 +118,13 @@ const RestaurantContent = () => {
       setLoading(true);
       try {
         const params = new URLSearchParams();
-        for (const key in appliedFilters) {
-          const value = appliedFilters[key];
-          if (Array.isArray(value)) {
-            value.forEach((item) => params.append(key, item));
-          } else if (value !== "" && value !== undefined && value !== null) {
-            params.append(key, value);
-          }
+
+        // 確保將所有篩選條件 JSON 編碼到 'filters' 參數中，以便API集中處理
+        const apiFilters = normalizeCuisineFilters(appliedFilters);
+        if (Object.keys(apiFilters).length > 0) {
+          params.set("filters", JSON.stringify(apiFilters));
         }
+
         if (searchQuery) {
           params.append("search", searchQuery);
         }
@@ -123,7 +173,7 @@ const RestaurantContent = () => {
       console.log("useEffect cleanup. Aborting fetch.");
       newController.abort();
     };
-  }, [searchParams]);
+  }, [searchParams]); // 依賴於 searchParams 的變動
 
   // 單獨處理「載入更多」
   const fetchMoreRestaurants = async () => {
@@ -135,14 +185,13 @@ const RestaurantContent = () => {
       setLoading(true);
       try {
         const params = new URLSearchParams();
-        for (const key in appliedFilters) {
-          const value = appliedFilters[key];
-          if (Array.isArray(value)) {
-            value.forEach((item) => params.append(key, item));
-          } else if (value !== "" && value !== undefined && value !== null) {
-            params.append(key, value);
-          }
+
+        // ⚡️ 使用 JSON 編碼的 'filters' 參數
+        const apiFilters = normalizeCuisineFilters(appliedFilters);
+        if (Object.keys(apiFilters).length > 0) {
+          params.set("filters", JSON.stringify(apiFilters));
         }
+
         if (searchQuery) {
           params.append("search", searchQuery);
         }
@@ -179,52 +228,89 @@ const RestaurantContent = () => {
     }
   };
 
-  const updateUrl = (newFilters, newSearchQuery = "") => {
-    const newSearchParams = new URLSearchParams();
-    if (Object.keys(newFilters).length > 0) {
-      newSearchParams.set("filters", JSON.stringify(newFilters));
-    }
-    if (newSearchQuery) {
-      newSearchParams.set("search", newSearchQuery);
-    }
-    const newUrl = `?${newSearchParams.toString()}`;
-    router.push(newUrl);
-  };
+  // ⚡️ 修正：使用 useCallback 包裹 updateUrl
+  const updateUrl = useCallback(
+    (newFilters, newSearchQuery = "") => {
+      const newSearchParams = new URLSearchParams();
 
-  const handleApplyFilters = (filters) => {
-    updateUrl(filters);
-    setIsFilterModalOpen(false);
-  };
+      // 將所有篩選條件 JSON 編碼到 'filters' 參數
+      const filtersToStore = normalizeCuisineFilters(newFilters);
 
-  const handleResetFilters = () => {
+      if (Object.keys(filtersToStore).length > 0) {
+        newSearchParams.set("filters", JSON.stringify(filtersToStore));
+      }
+      if (newSearchQuery) {
+        newSearchParams.set("search", newSearchQuery);
+      }
+      const newUrl = `?${newSearchParams.toString()}`;
+      router.push(newUrl); // 觸發 URL 變更，進而觸發 useEffect 進行數據獲取
+    },
+    [router]
+  );
+
+  // ⚡️ 修正：使用 useCallback 包裹 handleApplyFilters
+  const handleApplyFilters = useCallback(
+    (filters) => {
+      // 這裡的 filters 可能是來自 FilterSidebar/Modal 的物件
+      // updateUrl 函數會負責將其 JSON 編碼並更新 URL
+      updateUrl(filters);
+      setIsFilterModalOpen(false);
+    },
+    [updateUrl]
+  );
+
+  // ⚡️ 修正：使用 useCallback 包裹 handleResetFilters
+  const handleResetFilters = useCallback(() => {
     updateUrl({});
     setIsFilterModalOpen(false);
-  };
+  }, [updateUrl]);
 
-  const handleRemoveFilter = (key, valueToRemove) => {
-    const newFilters = { ...appliedFilters };
-    if (key === "favoriteRestaurantIds") {
-      delete newFilters.favoriteRestaurantIds;
-    } else if (Array.isArray(newFilters[key])) {
-      newFilters[key] = newFilters[key].filter(
-        (item) => item !== valueToRemove
-      );
-      if (newFilters[key].length === 0) {
+  // ⚡️ 修正：使用 useCallback 包裹 handleRemoveFilter
+  const handleRemoveFilter = useCallback(
+    (key, valueToRemove) => {
+      let newFilters = { ...appliedFilters };
+
+      if (key === "favoriteRestaurantIds") {
+        delete newFilters.favoriteRestaurantIds;
+      } else if (key === "cuisineType") {
+        // 處理 cuisineType 的移除
+        if (Array.isArray(newFilters[key])) {
+          newFilters[key] = newFilters[key].filter(
+            (item) => item !== valueToRemove
+          );
+        }
+        // 處理單個字串的移除 (從 fallback 邏輯中來)
+        else if (newFilters[key] === valueToRemove) {
+          delete newFilters[key];
+        }
+
+        if (Array.isArray(newFilters[key]) && newFilters[key].length === 0) {
+          delete newFilters[key];
+        }
+      } else if (Array.isArray(newFilters[key])) {
+        newFilters[key] = newFilters[key].filter(
+          (item) => item !== valueToRemove
+        );
+        if (newFilters[key].length === 0) {
+          delete newFilters[key];
+        }
+      } else if (key === "maxAvgSpending") {
+        delete newFilters.maxAvgSpending;
+      } else if (key === "minSeatingCapacity" || key === "maxSeatingCapacity") {
+        delete newFilters.minSeatingCapacity;
+        delete newFilters.maxSeatingCapacity;
+      } else {
         delete newFilters[key];
       }
-    } else if (key === "maxAvgSpending") {
-      delete newFilters.maxAvgSpending;
-    } else if (key === "minSeatingCapacity" || key === "maxSeatingCapacity") {
-      delete newFilters.minSeatingCapacity;
-      delete newFilters.maxSeatingCapacity;
-    } else {
-      delete newFilters[key];
-    }
-    updateUrl(newFilters, searchQuery);
-  };
+
+      // 再次呼叫 updateUrl，它會進行最終的正規化並更新 URL
+      updateUrl(newFilters, searchQuery);
+    },
+    [appliedFilters, searchQuery, updateUrl]
+  );
 
   const handleSearch = (query) => {
-    updateUrl({}, query);
+    updateUrl(appliedFilters, query);
   };
 
   const toggleView = () => setIsGridView((prev) => !prev);
@@ -241,6 +327,7 @@ const RestaurantContent = () => {
           <div className="w-1/4 flex-shrink-0 relative">
             <div className="sticky top-[140px] h-[calc(100vh-140px)] overflow-y-auto">
               <FilterSidebar
+                // 這裡傳遞給 FilterSidebar 的 appliedFilters 已經是正確解析的物件
                 initialFilters={appliedFilters}
                 onApplyFilters={handleApplyFilters}
                 onResetFilters={handleResetFilters}
@@ -258,7 +345,7 @@ const RestaurantContent = () => {
               </button>
             </div>
             <RestaurantListPage
-              filters={appliedFilters}
+              filters={appliedFilters} // 確保這裡接收到正確的 filters
               onClearFilters={handleResetFilters}
               onRemoveFilter={handleRemoveFilter}
               searchQuery={searchQuery}

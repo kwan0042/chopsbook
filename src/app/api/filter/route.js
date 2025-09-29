@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase-admin";
 
-// 判斷營業時間邏輯
+// 判斷營業時間邏輯 (保持不變)
 const isRestaurantOpen = (businessHours, date, time) => {
   if (!businessHours || Object.keys(businessHours).length === 0) return false;
 
@@ -88,21 +88,48 @@ const passesSeatingFilter = (restaurant, partySize) => {
   return pass;
 };
 
+// 輔助函式：檢查多選陣列篩選 (用於二次過濾)
+const checkArrayFilter = (dbValue, filterValue) => {
+  if (!filterValue || filterValue.length === 0) return true;
+  const filterArray = Array.isArray(filterValue) ? filterValue : [filterValue];
+  // 確保篩選陣列中的每一個值，都存在於餐廳的 DB 欄位中
+  return filterArray.every((f) => dbValue?.includes(f));
+};
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
 
-    // 解析所有查詢參數，處理多值參數
-    const filters = {};
-    for (const key of searchParams.keys()) {
-      const values = searchParams.getAll(key);
-      if (values.length > 1) {
-        filters[key] = values;
-      } else {
-        filters[key] = values[0];
+    let allFilters = {};
+    const filtersJson = searchParams.get("filters");
+
+    // 核心解析區塊：優先處理 JSON 參數，然後才是扁平化參數
+    if (filtersJson) {
+      try {
+        allFilters = JSON.parse(filtersJson);
+      } catch (e) {
+        // 如果 JSON 解析失敗，回退到扁平化參數解析
+        console.error(
+          "Error parsing filters JSON, falling back to flat params:",
+          e
+        );
       }
     }
 
+    // 如果 JSON 解析失敗或 filters 參數不存在，讀取傳統的扁平化參數
+    if (Object.keys(allFilters).length === 0 || !filtersJson) {
+      for (const key of searchParams.keys()) {
+        const values = searchParams.getAll(key);
+        // 確保將多值參數作為陣列處理
+        if (values.length > 1) {
+          allFilters[key] = values;
+        } else {
+          allFilters[key] = values[0];
+        }
+      }
+    }
+
+    // 從 allFilters 中解構出所有參數
     const {
       limit = 10,
       startAfterDocId,
@@ -121,35 +148,23 @@ export async function GET(request) {
       facilities,
       reservationDate,
       reservationTime,
-      cuisineType,
+      cuisineType, // 保持解構，用於二次過濾
       restaurantType,
       businessHours,
-    } = filters;
+    } = allFilters;
 
     const appId = process.env.FIREBASE_ADMIN_APP_ID;
     const restaurantsColRef = db.collection(
       `artifacts/${appId}/public/data/restaurants`
     );
 
-    // 核心查詢：構建 Firestore 查詢以利用索引
+    // 核心查詢：構建 Firestore 查詢
     let q = restaurantsColRef;
 
-    // 應用菜系篩選
-    // ⚡️ 修正邏輯：處理 cuisineType 是陣列、單個字串或 undefined 的情況
-    const cuisineTypesArray = Array.isArray(cuisineType)
-      ? cuisineType
-      : cuisineType
-      ? [cuisineType]
-      : [];
+    // ⚡️ 【已移除】針對 cuisineType 的 Firestore 查詢，因為 DB 欄位是 Object。
 
-    if (cuisineTypesArray.length > 0) {
-      // 這裡的 "cuisineType" 是 DB 欄位名稱
-      q = q.where("cuisineType", "in", cuisineTypesArray);
-    }
-
-    // 應用餐廳類型篩選 (單選)
+    // 應用單值篩選 (保持不變)
     if (restaurantType) {
-      // 這裡的 "restaurantType" 應該是 DB 欄位名稱，使用精確匹配
       q = q.where("restaurantType", "==", restaurantType);
     }
 
@@ -165,7 +180,7 @@ export async function GET(request) {
       q = q.where("avgSpending", "<=", parseInt(maxAvgSpending, 10));
     }
 
-    // 依據 priority 降序排序，這對於 Firestore 查詢是必要的
+    // 依據 priority 降序排序
     q = q.orderBy("priority", "desc");
 
     // 如果有 avgSpending 範圍查詢，Firestore 必須同時以該欄位排序。
@@ -181,7 +196,7 @@ export async function GET(request) {
       }
     }
 
-    // 讀取比限制多一筆的文件，用於判斷是否有更多文件
+    // 讀取比限制多一筆的文件
     const queryLimit = parseInt(limit, 10) + 1;
     q = q.limit(queryLimit);
 
@@ -194,36 +209,55 @@ export async function GET(request) {
 
     // 第二步：在伺服器端對結果進行二次過濾
     let filteredRestaurants = restaurantsFromDb.filter((restaurant) => {
-      // 檢查不在 Firestore 查詢中的篩選條件
       const passesMinAvgSpending =
         !minAvgSpending ||
         restaurant.avgSpending >= parseInt(minAvgSpending, 10);
       const passesMinRating =
         !minRating || restaurant.rating >= parseInt(minRating, 10);
 
-      const passesReservationModes =
-        !reservationModes ||
-        (Array.isArray(reservationModes)
-          ? reservationModes.every((mode) =>
-              restaurant.reservationModes?.includes(mode)
-            )
-          : restaurant.reservationModes?.includes(reservationModes));
+      // ⚡️ 修正：處理 cuisineType 的 Category 和 SubType 匹配 (二次過濾)
+      const passesCuisineType = (() => {
+        if (!cuisineType || cuisineType.length === 0) return true;
 
-      const passesPaymentMethods =
-        !paymentMethods ||
-        (Array.isArray(paymentMethods)
-          ? paymentMethods.every((method) =>
-              restaurant.paymentMethods?.includes(method)
-            )
-          : restaurant.paymentMethods?.includes(paymentMethods));
+        // 確保 cuisineType 是一個陣列 (無論是 JSON 還是扁平化參數)
+        const filterCuisineArray = Array.isArray(cuisineType)
+          ? cuisineType
+          : [cuisineType];
 
-      const passesFacilities =
-        !facilities ||
-        (Array.isArray(facilities)
-          ? facilities.every((facility) =>
-              restaurant.facilitiesServices?.includes(facility)
-            )
-          : restaurant.facilitiesServices?.includes(facilities));
+        const restaurantCuisine = restaurant.cuisineType;
+
+        // 如果餐廳的 cuisineType 資料不存在，則不通過
+        if (!restaurantCuisine) return false;
+
+        const restaurantCategory = restaurantCuisine.category;
+        const restaurantSubType = restaurantCuisine.subType;
+
+        // 檢查篩選陣列中的任何一個值是否匹配 Category 或 SubType
+        return filterCuisineArray.some((filterValue) => {
+          // 嘗試匹配 category
+          if (restaurantCategory === filterValue) return true;
+          // 嘗試匹配 subType
+          if (restaurantSubType === filterValue) return true;
+
+          return false;
+        });
+      })();
+
+      // 處理所有其他多選陣列
+      const passesReservationModes = checkArrayFilter(
+        restaurant.reservationModes,
+        reservationModes
+      );
+
+      const passesPaymentMethods = checkArrayFilter(
+        restaurant.paymentMethods,
+        paymentMethods
+      );
+
+      const passesFacilities = checkArrayFilter(
+        restaurant.facilitiesServices,
+        facilities
+      );
 
       const passesFavorites =
         !favoriteRestaurantIds ||
@@ -232,7 +266,6 @@ export async function GET(request) {
           ? favoriteRestaurantIds.includes(restaurant.id)
           : favoriteRestaurantIds === restaurant.id);
 
-      // 新增座位數範圍篩選，確保同時檢查 minSeatingCapacity 和 maxSeatingCapacity
       const { min: restaurantMinCapacity, max: restaurantMaxCapacity } =
         parseSeatingCapacity(restaurant.seatingCapacity);
       const passesMinMaxSeating =
@@ -240,7 +273,6 @@ export async function GET(request) {
         (restaurantMinCapacity >= parseInt(minSeatingCapacity, 10) &&
           restaurantMaxCapacity <= parseInt(maxSeatingCapacity, 10));
 
-      // 保留 partySize 篩選
       const passesPartySize = passesSeatingFilter(
         restaurant,
         parseInt(partySize, 10)
@@ -282,6 +314,8 @@ export async function GET(request) {
           (restaurant.restaurantName?.en || "")
             .toLowerCase()
             .includes(normalizedQuery) ||
+          // 這裡的搜尋邏輯可以保留，但它會匹配整個 cuisineType 物件的字串化結果，效果可能不佳。
+          // 由於我們無法修改，暫時保留。
           (restaurant.cuisineType || "")
             .toLowerCase()
             .includes(normalizedQuery) ||
@@ -302,7 +336,8 @@ export async function GET(request) {
         passesMinMaxSeating &&
         passesPartySize &&
         passesTimeAndHoursFilter &&
-        passesSearch
+        passesSearch &&
+        passesCuisineType // 👈 確保將修正後的 cuisineType 檢查納入最終條件
       );
     });
 

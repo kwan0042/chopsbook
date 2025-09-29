@@ -100,6 +100,16 @@ const FavRestaurantCard = ({ restaurant, onRemove, index, isMyProfile }) => {
     return null;
   };
 
+  const getCuisineDisplayName = (cuisine) => {
+    if (!cuisine) return "N/A";
+    // 檢查是否為物件，如果是，則返回 subType 屬性
+    if (typeof cuisine === "object" && cuisine !== null && cuisine.subType) {
+      return cuisine.subType;
+    }
+    // 否則，假設它是單個字串
+    return cuisine;
+  };
+
   const showRankBadge = index < 5;
 
   return (
@@ -124,9 +134,11 @@ const FavRestaurantCard = ({ restaurant, onRemove, index, isMyProfile }) => {
               {restaurant.fullAddress || "N/A"}
             </p>
 
+            {/* ⚡️ 修正：使用 getCuisineDisplayName 處理 cuisineType 物件 */}
             <p className="text-gray-700 mb-1 text-wrap text-sm">
-              {restaurant.city || "N/A"} | {restaurant.cuisineType || "N/A"} |
-              人均: ${restaurant.avgSpending || "N/A"}
+              {restaurant.city || "N/A"} |{" "}
+              {getCuisineDisplayName(restaurant.cuisineType)} | 人均: $
+              {restaurant.avgSpending || "N/A"}
             </p>
 
             <p className="text-gray-700 mb-1 text-wrap text-sm">
