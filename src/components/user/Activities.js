@@ -16,7 +16,7 @@ import {
   IconRosetteNumber3,
 } from "@tabler/icons-react"; // ✅ 新增：用於收藏排名徽章
 /**
- * 通用的活動列表組件，可用於顯示食評、收藏、打卡等列表。
+ * 通用的活動列表組件，可用於顯示食評、收藏、到訪等列表。
  * @param {object} props - 組件屬性
  * @param {string} props.title - 區塊標題
  * @param {Array} props.items - 要顯示的項目陣列
@@ -121,7 +121,7 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
                     <span className="text-sm font-bold text-gray-500 whitespace-nowrap">
                       第{" "}
                       <span className="text-orange-400">{item.visitCount}</span>{" "}
-                      次打卡
+                      次到訪
                     </span>
                   </div>
                 </div>
@@ -200,7 +200,7 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
             <div className="bg-gray-50 p-4 rounded-lg hover:shadow-md transition-shadow">
               <h3 className="font-bold text-gray-900">{item.restaurantName}</h3>
               <p className="text-sm text-gray-500">
-                打卡次數：{item.checkInCount || 0}
+                到訪次數：{item.checkInCount || 0}
               </p>
             </div>
           </Link>

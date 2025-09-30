@@ -151,7 +151,7 @@ export default function ReviewsList({ publishedReviews }) {
                 <span className="text-sm font-bold text-gray-500">
                   第{" "}
                   <span className="text-orange-400">{review.visitCount}</span>{" "}
-                  次打卡
+                  次到訪
                 </span>
                 <span className="text-sm text-gray-500">
                   {new Date(review.createdAt).toLocaleString("zh-TW", {

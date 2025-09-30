@@ -24,8 +24,6 @@ import {
 
 import { reviewFields } from "@/lib/translation-data";
 
-
-
 // 輔助函數：將評分轉換為星星圖標 (100% 跟足您的設計)
 const renderStars = (rating) => {
   const fullStars = Math.floor(rating);
@@ -84,16 +82,17 @@ const renderServiceTypeIcon = (serviceTypeValue) => {
 // 每頁顯示的圖片數量
 const IMAGES_PER_PAGE = 4;
 
-
 // 🚨 注意：這裡假設 review 和 restaurantDisplayName 是從 Server Component 傳遞下來的 props
-export default function SingleReviewInteractive({ review, restaurantDisplayName }) {
-  
+export default function SingleReviewInteractive({
+  review,
+  restaurantDisplayName,
+}) {
   // 移除 useParams, useContext, useRestaurantData, loading, error 邏輯
-  
+
   // 狀態來管理詳細評分的顯示/隱藏 (簡化為單個布林值)
-  const [expandedDetails, setExpandedDetails] = useState(false); 
+  const [expandedDetails, setExpandedDetails] = useState(false);
   // 狀態來管理圖片頁碼 (簡化為單個數字)
-  const [currentImagePage, setCurrentImagePage] = useState(0); 
+  const [currentImagePage, setCurrentImagePage] = useState(0);
   // 狀態來管理被點擊放大的圖片
   const [selectedImage, setSelectedImage] = useState(null);
 
@@ -102,7 +101,9 @@ export default function SingleReviewInteractive({ review, restaurantDisplayName 
     setExpandedDetails((prev) => !prev);
   };
 
-  const totalImageCount = review.uploadedImageUrls ? review.uploadedImageUrls.length : 0;
+  const totalImageCount = review.uploadedImageUrls
+    ? review.uploadedImageUrls.length
+    : 0;
   const totalImagePages = totalImageCount
     ? Math.ceil(totalImageCount / IMAGES_PER_PAGE)
     : 0;
@@ -121,32 +122,38 @@ export default function SingleReviewInteractive({ review, restaurantDisplayName 
   const displayedImages = review.uploadedImageUrls
     ? review.uploadedImageUrls.slice(startIndex, endIndex)
     : [];
-  
+  const formattedDate = review.createdAt
+    ? new Date(review.createdAt).toLocaleString("zh-TW", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+      })
+    : "未知時間";
+
   // --- 頁面內容渲染 ---
 
   return (
     <div className="p-8 w-full mx-auto">
-      
-
       {/* 單個評論卡片 */}
       <div className="space-y-6 mx-auto">
         <div
           key={review.id}
           className="bg-white p-6 w-full rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200"
         >
-          {/* 第一行：用戶名、總評分、時段/類型、打卡次數、日期、詳細評分按鈕 */}
+          {/* 第一行：用戶名、總評分、時段/類型、到訪次數、日期、詳細評分按鈕 */}
           <div className="flex justify-between items-center mb-2">
             <div className="flex items-center space-x-2">
               <span className="font-semibold text-gray-800 text-lg">
                 {review.username}
               </span>
-              {renderStars(review.overallRating)} {review.overallRating}{" "}
-              ｜{/* 在總評分旁顯示用餐時段和用餐類型圖示 */}
+              {renderStars(review.overallRating)} {review.overallRating} ｜
+              {/* 在總評分旁顯示用餐時段和用餐類型圖示 */}
               <div className="flex items-center space-x-2 ml-2">
                 {renderTimeIcon(review.timeOfDay)}
                 <span className="text-sm text-gray-600">
                   {reviewFields.timeOfDay.typeFields[review.timeOfDay]?.zh}
-                  
                 </span>
                 {renderServiceTypeIcon(review.serviceType)}
                 <span className="text-sm text-gray-600">
@@ -156,35 +163,16 @@ export default function SingleReviewInteractive({ review, restaurantDisplayName 
             </div>
             <div className="flex items-center space-x-2">
               <span className="text-sm font-bold text-gray-500">
-                第{" "}
-                <span className="text-orange-400">
-                  {review.visitCount}
-                </span>{" "}
-                次打卡
+                第 <span className="text-orange-400">{review.visitCount}</span>{" "}
+                次到訪
               </span>
-              <span className="text-sm text-gray-500">
-                {review.createdAt}
-              </span>
-              <button
-                onClick={toggleDetails}
-                className="flex items-center text-blue-500 hover:text-blue-700 transition-colors duration-200 focus:outline-none"
-              >
-                <span className="text-sm">詳細評分</span>
-                <FontAwesomeIcon
-                  icon={expandedDetails ? faChevronUp : faChevronDown}
-                  className="ml-1 text-xs"
-                />
-              </button>
+              <span className="text-sm text-gray-500">{formattedDate}</span>
             </div>
           </div>
 
           {/* 詳細評分區域 - 根據狀態顯示/隱藏 */}
           <div
-            className={`transition-all duration-300 ease-in-out overflow-hidden ${
-              expandedDetails
-                ? "max-h-96 opacity-100 mt-4"
-                : "max-h-0 opacity-0 mt-0"
-            }`}
+            className="transition-all duration-300 ease-in-out overflow-hidden max-h-96 opacity-100 mt-4 "
           >
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <h3 className="text-sm font-semibold text-gray-700 mb-2">
@@ -198,10 +186,7 @@ export default function SingleReviewInteractive({ review, restaurantDisplayName 
                   }
 
                   return (
-                    <div
-                      key={key}
-                      className="flex items-center capitalize"
-                    >
+                    <div key={key} className="flex items-center capitalize">
                       <span>
                         {reviewFields.detailedRatings.nestedFields[key]?.zh ||
                           key}
@@ -217,7 +202,7 @@ export default function SingleReviewInteractive({ review, restaurantDisplayName 
             </div>
           </div>
           <div className="my-3 w-full h-0.5 bg-orange-200 rounded-full"></div>
-          
+
           {/* 評論標題、內容和圖片區域 */}
           <div className="grid grid-cols-2 gap-4">
             <div>

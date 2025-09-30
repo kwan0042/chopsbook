@@ -5,7 +5,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCalendarAlt,
   faClock,
-  faChevronDown, // 引入用於下拉選單的圖標
+  faChevronDown,
+  faArrowRight // 引入用於下拉選單的圖標
 } from "@fortawesome/free-solid-svg-icons";
 
 // 處理多選框的元件，例如菜系、設施等
@@ -184,7 +185,7 @@ const DateTimeFilter = ({ localFilters, handleFilterChange }) => {
             onClick={() => setCurrentMonth(new Date(year, month + 1))}
             className="text-gray-600 hover:text-blue-600"
           >
-            &gt;
+            <FontAwesomeIcon icon={faArrowRight} />
           </button>
         </div>
         <div className="grid grid-cols-7 text-center text-xs text-gray-500 mb-2">

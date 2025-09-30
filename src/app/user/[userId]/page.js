@@ -238,11 +238,11 @@ export default function UserReviewsPage({ params }) {
         type="mostLiked"
       /> */}
 
-      {/* 6. 最多打卡餐廳 */}
+      {/* 6. 最多到訪餐廳 */}
       {/* <Activities
-        title="最多打卡餐廳"
+        title="最多到訪餐廳"
         items={mostCheckIns}
-        noDataMessage="此用戶尚未打卡任何餐廳。"
+        noDataMessage="此用戶尚未到訪任何餐廳。"
         type="checkIns"
       /> */}
     </div>

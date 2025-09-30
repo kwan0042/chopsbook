@@ -21,6 +21,7 @@ import {
   faInfoCircle,
   faBuilding,
   faChair,
+  faShare,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   faStar as faRegularStar,
@@ -30,6 +31,8 @@ import { AuthContext } from "../../../lib/auth-context";
 import { RestaurantContext } from "../../../lib/restaurant-context";
 import Link from "next/link";
 import LoadingSpinner from "../../../components/LoadingSpinner";
+import ShareModal from "@/components/ShareModal";
+import { useRouter } from "next/navigation";
 
 // 導入新的 Hook
 import useRestaurantStatus from "@/hooks/useRestaurantStatus";
@@ -104,6 +107,30 @@ export default function RestaurantDetailLayout({ children }) {
 
     fetchRestaurant();
   }, [db, restaurantId, appId]);
+
+  const router = useRouter();
+
+  const handleCheckInClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const restaurantName =
+      restaurant.restaurantName?.["zh-TW"] ||
+      restaurant.restaurantName?.en ||
+      "未知餐廳";
+    router.push(
+      `/review?restaurantId=${restaurantId}&restaurantName=${encodeURIComponent(
+        restaurantName
+      )}`
+    );
+  };
+  const restaurantLink = `${process.env.NEXT_PUBLIC_SITE_URL}restaurants/${restaurantId}`;
+
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const handleShareClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsShareModalOpen(true);
+  };
 
   const handleToggleFavorite = useCallback(async () => {
     if (!currentUser) {
@@ -234,11 +261,11 @@ export default function RestaurantDetailLayout({ children }) {
       return (
         restaurant.restaurantName["zh-TW"] ||
         restaurant.restaurantName.en ||
-        `未知餐廳 (ID: ${restaurant.id})`
+        `未知餐廳 (ID: ${restaurantId})`
       );
     }
     // 確保返回字串
-    return restaurant.restaurantName || `未知餐廳 (ID: ${restaurant.id})`;
+    return restaurant.restaurantName || `未知餐廳 (ID: ${restaurantId})`;
   };
 
   // 決定要渲染的菜系/類型字串
@@ -259,9 +286,9 @@ export default function RestaurantDetailLayout({ children }) {
         <div className="flex-grow py-8 px-4 sm:px-6 lg:px-8 ">
           <div className=" mx-auto bg-white shadow-xl rounded-xl overflow-hidden">
             {/* 🚨 關鍵結構變更：將頂部資訊、基本資訊和標籤放在一個父容器中，並與圖片並排 */}
-            <div className="flex flex-col md:flex-row border-b border-gray-200">
+            <div className="flex flex-col md:flex-row border-b border-gray-200 pr-3 ">
               {/* 門面照片區塊 (左側 25% / w-1/4) */}
-              <div className="md:w-1/4 w-full p-4 flex-shrink-0">
+              <div className="md:w-1/5 w-full p-4 flex-shrink-0">
                 <img
                   src={facadePhotoUrl}
                   alt={`${getRestaurantName(restaurant)} 門面照片`}
@@ -274,27 +301,56 @@ export default function RestaurantDetailLayout({ children }) {
               </div>
 
               {/* 資訊區塊 (右側 75% / w-3/4) - 包含名稱、評分、菜系、標籤 */}
-              <div className="md:w-3/4 w-full flex flex-col justify-between">
+              <div className="md:w-4/5 w-full flex flex-col ">
                 {/* 頂部名稱和收藏按鈕 */}
-                <div className="relative p-6 pb-2 border-b-2 ">
-                  <h1 className="text-2xl font-extrabold text-gray-900 mb-2 leading-tight pr-10">
+                <div className="flex items-center justify-between py-4 mx-6 border-b-2 pb-2">
+                  <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">
                     {getRestaurantName(restaurant)}
                   </h1>
-                  <button
-                    onClick={handleToggleFavorite}
-                    className="absolute top-6 right-6 z-10 p-2 bg-transparent border-none
-                                     text-yellow-500 hover:scale-110 transition duration-200 "
-                    aria-label={isFavorited ? "取消收藏" : "收藏餐廳"}
-                  >
-                    <FontAwesomeIcon
-                      icon={isFavorited ? faSolidBookmark : faRegularBookmark}
-                      className="text-3xl"
-                    />
-                  </button>
+                  <div className="flex justify-center items-center gap-2">
+                    <button
+                      onClick={handleCheckInClick}
+                      className="bg-cbbg text-rose-500 hover:bg-blue-600 hover:text-cbbg text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
+                      type="button"
+                    >
+                      到訪
+                    </button>
+                    <button
+                      onClick={handleShareClick}
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
+                      type="button"
+                      aria-label="分享"
+                    >
+                      <FontAwesomeIcon icon={faShare} />
+                    </button>
+                    {isShareModalOpen && (
+                      <ShareModal
+                        isOpen={isShareModalOpen}
+                        onClose={() => setIsShareModalOpen(false)}
+                        restaurantName={
+                          restaurant.restaurantName?.["zh-TW"] ||
+                          restaurant.restaurantName?.en ||
+                          "未知餐廳"
+                        }
+                        shareUrl={restaurantLink}
+                      />
+                    )}
+
+                    <button
+                      onClick={handleToggleFavorite}
+                      className="py-2 bg-transparent border-none text-yellow-500 hover:scale-110 transition duration-200"
+                      aria-label={isFavorited ? "取消收藏" : "收藏餐廳"}
+                    >
+                      <FontAwesomeIcon
+                        icon={isFavorited ? faSolidBookmark : faRegularBookmark}
+                        className="text-3xl"
+                      />
+                    </button>
+                  </div>
                 </div>
 
                 {/* 餐廳基本資訊 */}
-                <div className="p-6 pt-2 grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+                <div className="p-6 pt-2 grid grid-cols-1 md:grid-cols-2  text-gray-700">
                   <div>
                     {renderRatingStars(restaurant.averageRating)}
                     <p className="mt-2 text-base">

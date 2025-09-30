@@ -240,7 +240,7 @@ const RestaurantCard = ({
           className="bg-cbbg text-rose-500 hover:bg-blue-600 hover:text-cbbg text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
           type="button"
         >
-          打卡
+          到訪
         </button>
         <button
           onClick={handleShareClick}

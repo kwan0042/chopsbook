@@ -12,7 +12,7 @@ import ReviewForm from "./ReviewForm";
 const ReviewFormDraftLoader = ({ onBack }) => {
   const searchParams = useSearchParams();
   const draftId = searchParams.get("draftId");
-  // 新增：獲取從「打卡」按鈕傳入的 restaurantId 和 restaurantName
+  // 新增：獲取從「到訪」按鈕傳入的 restaurantId 和 restaurantName
   const restaurantIdFromUrl = searchParams.get("restaurantId");
   const restaurantNameFromUrl = searchParams.get("restaurantName");
 
