@@ -242,7 +242,7 @@ const RestaurantContent = () => {
       if (newSearchQuery) {
         newSearchParams.set("search", newSearchQuery);
       }
-      const newUrl = `?${newSearchParams.toString()}`;
+      const newUrl = `/restaurants?${newSearchParams.toString()}`;
       router.push(newUrl); // 觸發 URL 變更，進而觸發 useEffect 進行數據獲取
     },
     [router]
@@ -356,6 +356,7 @@ const RestaurantContent = () => {
               isFavoritesFilterActive={isFavoritesFilterActive}
               hasMore={hasMore}
               fetchMoreRestaurants={fetchMoreRestaurants}
+              onSearch={handleSearch}
             />
           </div>
         </div>

@@ -69,7 +69,7 @@ const UserProfileHeader = ({
           )}
         </div>
         <div className="text-center md:text-left">
-          <h2 className="text-4xl font-extrabold text-gray-900 mb-1">
+          <h2 className="text-2xl font-extrabold text-gray-900 mb-1">
             {currentUser.username || currentUser.email.split("@")[0]}
           </h2>
           <div className="flex items-center justify-center md:justify-start space-x-2">

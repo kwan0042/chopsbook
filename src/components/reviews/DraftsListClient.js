@@ -6,7 +6,12 @@ import Link from "next/link";
 import { doc, deleteDoc } from "firebase/firestore";
 import { AuthContext } from "@/lib/auth-context";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faTrashAlt } from "@fortawesome/free-solid-svg-icons";
+import {
+  faEdit,
+  faTrashAlt,
+  faUtensils,
+  faClock,
+} from "@fortawesome/free-solid-svg-icons";
 import LoadingSpinner from "../LoadingSpinner";
 
 const DraftsListClient = ({ drafts: initialDrafts }) => {
@@ -28,20 +33,29 @@ const DraftsListClient = ({ drafts: initialDrafts }) => {
       setDrafts(drafts.filter((draft) => draft.id !== draftId));
     } catch (error) {
       console.error("Error deleting draft:", error);
+      // 可以在這裡添加一個錯誤訊息提示給用戶
     } finally {
       setDeletingId(null);
     }
   };
 
+  // 如果沒有草稿，顯示一個友好的提示
   if (!drafts.length) {
     return (
-      <div className="text-center p-8 bg-white rounded-xl shadow-md max-w-2xl mx-auto">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">草稿箱</h2>
-        <p className="text-gray-600">目前沒有儲存的草稿。</p>
+      <div className="text-center p-8 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl shadow-lg max-w-2xl mx-auto min-h-[300px] flex flex-col justify-center items-center">
+        <h2 className="text-3xl font-extrabold text-indigo-800 mb-4">
+          沒有食評草稿
+        </h2>
+        <p className="text-lg text-gray-700 leading-relaxed mb-6">
+          你的草稿箱目前是空的。
+          <br />
+          立即動筆，分享你的用餐體驗吧！
+        </p>
         <Link
-          href="/"
-          className="mt-6 inline-block px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          href="/review-form"
+          className="inline-block px-8 py-3 bg-indigo-600 text-white font-semibold rounded-full shadow-md hover:bg-indigo-700 transform hover:scale-105 transition-all duration-300 ease-in-out"
         >
+          <FontAwesomeIcon icon={faEdit} className="mr-2" />
           開始撰寫食評
         </Link>
       </div>
@@ -49,44 +63,54 @@ const DraftsListClient = ({ drafts: initialDrafts }) => {
   }
 
   return (
-    <div className="p-4 md:p-8 bg-white rounded-xl shadow-lg max-w-4xl mx-auto">
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-6 text-center">
-        我的草稿
-      </h1>
-      <p className="text-gray-600 text-center mb-8">
-        在這裡，你可以找到所有已儲存的食評草稿。點擊編輯或刪除。
-      </p>
+    <div className="w-full">
+      {/* 🚨 核心列表佈局：單列，每個項目佔滿一行 */}
       <div className="space-y-4">
         {drafts.map((draft) => (
           <div
             key={draft.id}
-            className="p-4 border border-gray-200 rounded-lg shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-50 hover:shadow-md transition-shadow duration-200"
+            className="group relative p-4 flex justify-between items-center bg-gray-50 border border-gray-200 rounded-lg shadow-sm hover:bg-gray-100 hover:shadow-md transition-all duration-200"
           >
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-800 break-words">
-                {draft.reviewTitle || "無標題"}
+            {/* 左側：草稿資訊 */}
+            <div className="flex-1 min-w-0 pr-4">
+              <h3 className="text-lg font-semibold text-gray-800 truncate mb-1">
+                {draft.reviewTitle || "無標題食評"}
               </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                <span className="font-medium text-gray-700">餐廳：</span>
-                {draft.restaurantName}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                儲存時間：{new Date(draft.createdAt).toLocaleString()}
-              </p>
+              <div className="flex flex-col sm:flex-row sm:space-x-4 text-sm text-gray-600">
+                <p className="flex items-center truncate">
+                  <FontAwesomeIcon
+                    icon={faUtensils}
+                    className="mr-2 text-indigo-400"
+                  />
+                  <span className="font-medium text-gray-700">餐廳：</span>
+                  {draft.restaurantName || "未知餐廳"}
+                </p>
+                <p className="flex items-center text-xs text-gray-500 mt-1 sm:mt-0">
+                  <FontAwesomeIcon
+                    icon={faClock}
+                    className="mr-2 text-gray-400"
+                  />
+                  儲存時間：{new Date(draft.createdAt).toLocaleString()}
+                </p>
+              </div>
             </div>
-            <div className="flex space-x-2 mt-4 md:mt-0">
+
+            {/* 右側：操作按鈕 */}
+            <div className="flex space-x-2 flex-shrink-0 z-10">
               <Link
-                // FIX: Update the href to the correct dynamic route
                 href={`/user/${currentUser.uid}/review-draft/${draft.id}`}
-                className="p-2 text-blue-500 hover:text-blue-700 transition-colors"
+                className="flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors shadow-sm"
                 aria-label="編輯草稿"
               >
-                <FontAwesomeIcon icon={faEdit} className="mr-1" />
+                <FontAwesomeIcon icon={faEdit} className="mr-2" />
                 編輯
               </Link>
               <button
-                onClick={() => handleDeleteDraft(draft.id)}
-                className="p-2 text-red-500 hover:text-red-700 transition-colors relative"
+                onClick={(e) => {
+                  e.stopPropagation(); // 防止點擊按鈕時觸發父級 Link
+                  handleDeleteDraft(draft.id);
+                }}
+                className="flex items-center px-3 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-md hover:bg-red-50 transition-colors shadow-sm relative"
                 disabled={deletingId === draft.id}
                 aria-label="刪除草稿"
               >
@@ -94,12 +118,19 @@ const DraftsListClient = ({ drafts: initialDrafts }) => {
                   <LoadingSpinner size="sm" />
                 ) : (
                   <>
-                    <FontAwesomeIcon icon={faTrashAlt} className="mr-1" />
+                    <FontAwesomeIcon icon={faTrashAlt} className="mr-2" />
                     刪除
                   </>
                 )}
               </button>
             </div>
+
+            {/* 整個卡片都是可點擊的編輯連結（覆蓋大部分區域，但不包括按鈕） */}
+            <Link
+              href={`/user/${currentUser.uid}/review-draft/${draft.id}`}
+              className="absolute inset-0 z-0"
+              aria-label={`編輯 ${draft.reviewTitle || "無標題食評"}`}
+            ></Link>
           </div>
         ))}
       </div>

@@ -13,8 +13,8 @@ import {
   documentId,
 } from "firebase/firestore";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Activities from "@/components/personal/Activities";
-import ProfileSection from "@/components/personal/ProfileSection";
+import Activities from "@/components/user/Activities";
+import ProfileSection from "@/components/user/ProfileSection";
 import { checkModeration } from "@/lib/config/moderationConfig";
 import Link from "next/link";
 

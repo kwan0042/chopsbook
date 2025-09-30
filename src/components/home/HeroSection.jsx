@@ -3,31 +3,54 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image"; // 步驟 1: 引入 Next.js 的 Image 元件
+import { useRouter } from "next/navigation";
 
 const HeroSection = () => {
   // 步驟 2: 更新 slides 陣列，將 imageUrl 指向 public 資料夾中的圖片
   // Next.js 會自動將 / 作為 public 資料夾的根目錄
+  const router = useRouter(); // ✅ 初始化 router
   const slides = [
     {
       id: 1,
-      title: "發現加拿大最受歡迎的餐廳",
-      description: "從多倫多到溫哥華，尋找您的下一頓美味佳餚。",
+      title: "歡迎使用ChopsBook",
+      subtitle: "多倫多餐廳食評交流平台",
+      description: "由用戶共建的交流平台，探索並分享更多美食。",
       buttonText: "立即開始探索",
-      imageUrl: "/demo/home/slide1.jpg", // 指向 /public/demo/slide1.jpg
+      buttonLink: "/restaurants",
+      imageUrl: "/demo/home/slide0.png",
     },
+
     {
       id: 2,
-      title: "夏日美食節 - 獨家優惠！",
-      description: "享用多款精選餐廳的夏日限定菜單及折扣。",
-      buttonText: "查看優惠詳情",
-      imageUrl: "/demo/home/slide2.jpg", // 指向 /public/demo/slide2.jpg
+      title: "成為會員，分享你的第一則食評",
+      description: "加入會員，分享餐廳體驗，協助更多人找到美食。",
+      buttonText: "立即分享第一則食評",
+      buttonLink: "/review",
+      imageUrl: "/demo/home/slide2.jpg",
     },
     {
       id: 3,
+      title: "新增你的第一間餐廳",
+      description: "若餐廳未被收錄，立即新增並與社群共享。",
+      buttonText: "新增心水餐廳",
+      buttonLink: "/merchant/add",
+      imageUrl: "/demo/home/slide3.jpg",
+    },
+    {
+      id: 4,
+      title: "夏日美食節 - 獨家優惠！",
+      description: "享用多款精選餐廳的夏日限定菜單及折扣。",
+      buttonText: "查看優惠詳情",
+      buttonLink: "/merchant/add",
+      imageUrl: "/demo/home/slide2.jpg",
+    },
+    {
+      id: 5,
       title: "加入我們的會員俱樂部",
       description: "獨家折扣、積分獎勵和更多驚喜等待著您！",
       buttonText: "立即註冊會員",
-      imageUrl: "/demo/home/slide3.jpg", // 指向 /public/demo/slide3.jpg
+      buttonLink: "/sign-up",
+      imageUrl: "/demo/home/slide3.jpg",
     },
   ];
 
@@ -36,7 +59,7 @@ const HeroSection = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSlide((prevSlide) => (prevSlide + 1) % slides.length);
-    }, 5000);
+    }, 8000);
     return () => clearInterval(interval);
   }, [slides.length]);
 
@@ -84,18 +107,26 @@ const HeroSection = () => {
 
       {/* 內容區塊 (保持不動) */}
       <div className="relative z-10 flex flex-col items-center justify-center h-full text-white text-center p-4 sm:p-6 lg:p-8">
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-3 leading-tight animate-fade-in-up">
+        <h1 className="text-2xl sm:text-5xl lg:text-6xl font-extrabold mb-3 leading-tight animate-fade-in-up">
           {currentSlideData.title}
-        </h2>
-        <p className="text-md sm:text-lg mb-6 opacity-90 animate-fade-in-up delay-100">
-          {currentSlideData.description}
-        </p>
-        <button onClick={() => {
-              router.push("/personal/reviews");
-            }} className="bg-yellow-500 text-gray-900 hover:bg-yellow-600 font-bold py-2.5 px-6 rounded-full shadow-lg transition duration-300 transform hover:scale-105 animate-fade-in-up delay-200">
-          {currentSlideData.buttonText}
-          
-        </button>
+        </h1>
+
+        {currentSlideData.description && (
+          <p className="text-md sm:text-lg mb-6 opacity-90 animate-fade-in-up delay-100 max-w-2xl">
+            {currentSlideData.description}
+          </p>
+        )}
+
+        {currentSlideData.buttonText && (
+          <button
+            onClick={() => {
+              router.push(currentSlideData.buttonLink || "/restaurants");
+            }}
+            className="bg-yellow-500 text-gray-900 hover:bg-yellow-600 font-bold py-2.5 px-6 rounded-full shadow-lg transition duration-300 transform hover:scale-105 animate-fade-in-up delay-200"
+          >
+            {currentSlideData.buttonText}
+          </button>
+        )}
       </div>
 
       {/* 左右箭頭導航 */}

@@ -13,6 +13,7 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
+import Link from "next/link";
 
 /**
  * LatestReviewsSection: 顯示最新使用者食評的區塊。
@@ -38,7 +39,7 @@ const LatestReviewsSection = () => {
         const reviewsQuery = query(
           collection(db, `artifacts/${appId}/public/data/reviews`),
           orderBy("createdAt", "desc"),
-          limit(5)
+          limit(3)
         );
         const reviewsSnapshot = await getDocs(reviewsQuery);
         const reviewsData = reviewsSnapshot.docs.map((doc) => ({
@@ -99,16 +100,26 @@ const LatestReviewsSection = () => {
       ) : (
         <div className="w-full space-y-4">
           {reviews.map((review) => (
-            <div
+            // 1. 外層 Link：導航到評論詳情頁 (保留 Next.js 預取優勢)
+            <Link
               key={review.id}
-              className="p-3 bg-orange-100 rounded-lg text-orange-800 text-sm"
+              href={`/restaurants/${review.restaurantId}/reviews/${review.id}`}
+              className="block p-3 bg-orange-100 rounded-lg text-orange-800 text-sm cursor-pointer transition-shadow duration-200 hover:shadow-md hover:bg-orange-200"
             >
               <p className="font-bold text-left">{review.restaurantName}</p>
               <p className="mt-1 text-left">{review.reviewTitle}</p>
-              <p className="mt-1 text-right text-xs">
-                {review.username || "匿名"}
+              <p
+                // 確保它還是靠右對齊
+                className="mt-1 block text-right text-xs underline hover:text-indigo-500 transition-colors duration-150 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+
+                  router.push(`/user/${review.userId}`);
+                }}
+              >
+                {review.username}
               </p>
-            </div>
+            </Link>
           ))}
         </div>
       )}

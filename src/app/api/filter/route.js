@@ -1,3 +1,4 @@
+// src/app/api/filter/route.js
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase-admin";
 
@@ -94,6 +95,22 @@ const checkArrayFilter = (dbValue, filterValue) => {
   const filterArray = Array.isArray(filterValue) ? filterValue : [filterValue];
   // 確保篩選陣列中的每一個值，都存在於餐廳的 DB 欄位中
   return filterArray.every((f) => dbValue?.includes(f));
+};
+
+// 💡 新增：安全地將 cuisineType 物件轉換為可搜尋的字串
+const getCuisineSearchString = (cuisineData) => {
+  if (typeof cuisineData === "string") {
+    return cuisineData;
+  }
+  if (typeof cuisineData === "object" && cuisineData !== null) {
+    const category = cuisineData.category || "";
+    // 將子類型陣列轉換為字串，用空格分隔以便於單詞匹配
+    const subTypes = Array.isArray(cuisineData.subType)
+      ? cuisineData.subType.join(" ")
+      : "";
+    return `${category} ${subTypes}`;
+  }
+  return "";
 };
 
 export async function GET(request) {
@@ -224,20 +241,33 @@ export async function GET(request) {
           ? cuisineType
           : [cuisineType];
 
-        const restaurantCuisine = restaurant.cuisineType;
+        // 檢查 restaurant.cuisineType 或 restaurant.cuisine
+        const restaurantCuisine = restaurant.cuisineType || restaurant.cuisine;
 
-        // 如果餐廳的 cuisineType 資料不存在，則不通過
-        if (!restaurantCuisine) return false;
+        // 如果餐廳的 cuisineType/cuisine 資料不存在，則不通過
+        if (!restaurantCuisine || typeof restaurantCuisine !== "object") {
+          // 如果是單一字串，則直接匹配
+          if (typeof restaurantCuisine === "string") {
+            return filterCuisineArray.some(
+              (filterValue) => restaurantCuisine === filterValue
+            );
+          }
+          return false;
+        }
 
         const restaurantCategory = restaurantCuisine.category;
-        const restaurantSubType = restaurantCuisine.subType;
+        const restaurantSubType = Array.isArray(restaurantCuisine.subType)
+          ? restaurantCuisine.subType
+          : restaurantCuisine.subType
+          ? [restaurantCuisine.subType]
+          : [];
 
         // 檢查篩選陣列中的任何一個值是否匹配 Category 或 SubType
         return filterCuisineArray.some((filterValue) => {
           // 嘗試匹配 category
           if (restaurantCategory === filterValue) return true;
           // 嘗試匹配 subType
-          if (restaurantSubType === filterValue) return true;
+          if (restaurantSubType.includes(filterValue)) return true;
 
           return false;
         });
@@ -307,6 +337,12 @@ export async function GET(request) {
       const passesSearch = (() => {
         if (!search) return true;
         const normalizedQuery = search.toLowerCase();
+
+        // 🚨 修正點：使用 getCuisineSearchString 確保 cuisineType 是字串
+        const cuisineSearchString = getCuisineSearchString(
+          restaurant.cuisineType || restaurant.cuisine
+        );
+
         return (
           (restaurant.restaurantName?.["zh-TW"] || "")
             .toLowerCase()
@@ -314,11 +350,8 @@ export async function GET(request) {
           (restaurant.restaurantName?.en || "")
             .toLowerCase()
             .includes(normalizedQuery) ||
-          // 這裡的搜尋邏輯可以保留，但它會匹配整個 cuisineType 物件的字串化結果，效果可能不佳。
-          // 由於我們無法修改，暫時保留。
-          (restaurant.cuisineType || "")
-            .toLowerCase()
-            .includes(normalizedQuery) ||
+          // 替換掉舊的出錯代碼，改為使用轉換後的字串
+          cuisineSearchString.toLowerCase().includes(normalizedQuery) ||
           (restaurant.restaurantType || "")
             .toLowerCase()
             .includes(normalizedQuery) ||

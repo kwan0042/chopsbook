@@ -267,7 +267,7 @@ const UserDetailPage = ({ userId }) => {
           <ArrowLeftIcon className="mr-2" />
           返回
         </button>
-        <h2 className="text-4xl font-extrabold text-gray-900 mb-2 text-center">
+        <h2 className="text-2xl font-extrabold text-gray-900 mb-2 text-center">
           用戶詳細資料
         </h2>
         {saveSuccessMessage && (

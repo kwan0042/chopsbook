@@ -8,12 +8,12 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import UserProfileHeader from "@/components/personal/UserProfileHeader";
-import PersonalPageNav from "@/components/personal/PersonalPageNav";
-import UserStatsCard from "@/components/personal/UserStatsCard";
+import UserProfileHeader from "@/components/user/UserProfileHeader";
+import PersonalPageNav from "@/components/user/PersonalPageNav";
+import UserStatsCard from "@/components/user/UserStatsCard";
 import Modal from "@/components/Modal";
-import PersonalControls from "@/components/personal/PersonalControls";
-import ImageCropModal from "@/components/personal/ImageCropModal";
+import PersonalControls from "@/components/user/PersonalControls";
+import ImageCropModal from "@/components/user/ImageCropModal";
 
 /**
  * User Profile Layout: 用於包裝所有用戶個人主頁的子路由。

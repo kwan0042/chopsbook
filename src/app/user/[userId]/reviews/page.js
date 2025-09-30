@@ -12,7 +12,7 @@ import {
 } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import ReviewsList from "@/components/personal/ReviewsList";
+import ReviewsList from "@/components/user/ReviewsList";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft, faArrowRight } from "@fortawesome/free-solid-svg-icons";
 

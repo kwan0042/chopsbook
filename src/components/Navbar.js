@@ -28,17 +28,12 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
   const handleSearchSubmit = useCallback(
     (e) => {
       e.preventDefault();
-      if (isRestaurantsPage) {
-        if (onSearch) {
-          onSearch(searchText);
-        }
-      } else {
-        const params = new URLSearchParams();
-        if (searchText) {
-          params.set("search", searchText);
-        }
-        router.push(`/restaurants?${params.toString()}`);
+
+      const params = new URLSearchParams();
+      if (searchText) {
+        params.set("search", searchText);
       }
+      router.push(`/restaurants?${params.toString()}`);
     },
     [onSearch, searchText, isRestaurantsPage, router]
   );
@@ -86,13 +81,16 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
             className="flex items-center bg-transparent border-none "
             aria-label="回首頁"
           >
-            <Image
-              src="/Chopsbook_logo_white_v2.png"
-              width={60}
-              height={30}
-              alt="ChopsBook logo"
-              className="px-2 pb-2"
-            />
+            <div className="relative w-[60px] h-[30px] px-2 pb-2">
+              <Image
+                src="/Chopsbook_logo_white_v2.png"
+                alt="ChopsBook logo"
+                fill={true}
+                sizes="60px"
+                // ---------------------
+                className="object-contain"
+              />
+            </div>
 
             <h1 className="text-base font-bold text-yellow-500 hover:text-yellow-400 pr-3 transition duration-200">
               ChopsBook
@@ -302,24 +300,30 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
         >
           所有餐廳
         </button>
-        <a
+        <Link
           href="/categories"
           className="hover:text-yellow-500 transition duration-200 text-sm"
         >
           所有類別
-        </a>
-        <a
+        </Link>
+        <Link
+          href="/blogs"
+          className="hover:text-yellow-500 transition duration-200 text-sm"
+        >
+          所有文章
+        </Link>
+        <Link
           href="/categories"
           className="hover:text-yellow-500 transition duration-200 text-sm"
         >
           特價優惠
-        </a>
-        <a
+        </Link>
+        <Link
           href="#"
           className="hover:text-yellow-500 transition duration-200 text-sm"
         >
           最新上架
-        </a>
+        </Link>
       </div>
     </nav>
   );

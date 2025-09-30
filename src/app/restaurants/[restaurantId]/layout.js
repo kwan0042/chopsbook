@@ -277,7 +277,7 @@ export default function RestaurantDetailLayout({ children }) {
               <div className="md:w-3/4 w-full flex flex-col justify-between">
                 {/* 頂部名稱和收藏按鈕 */}
                 <div className="relative p-6 pb-2 border-b-2 ">
-                  <h1 className="text-4xl font-extrabold text-gray-900 mb-2 leading-tight pr-10">
+                  <h1 className="text-2xl font-extrabold text-gray-900 mb-2 leading-tight pr-10">
                     {getRestaurantName(restaurant)}
                   </h1>
                   <button
@@ -381,17 +381,6 @@ export default function RestaurantDetailLayout({ children }) {
                 菜單
               </Link>
               <Link
-                href={`/restaurants/${restaurantId}/photos`}
-                className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
-                ${
-                  pathname === `/restaurants/${restaurantId}/photos`
-                    ? "text-blue-600 border-b-2 border-blue-600"
-                    : "text-gray-600 hover:text-blue-500"
-                }`}
-              >
-                照片
-              </Link>
-              <Link
                 href={`/restaurants/${restaurantId}/reviews`}
                 className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
                 ${
@@ -402,6 +391,18 @@ export default function RestaurantDetailLayout({ children }) {
               >
                 評論
               </Link>
+              <Link
+                href={`/restaurants/${restaurantId}/photos`}
+                className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
+                ${
+                  pathname === `/restaurants/${restaurantId}/photos`
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-600 hover:text-blue-500"
+                }`}
+              >
+                照片
+              </Link>
+
               <Link
                 href={`/restaurants/${restaurantId}/map`}
                 className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out

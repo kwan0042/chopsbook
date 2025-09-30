@@ -51,7 +51,7 @@ const MerchantPage = ({ onBackToHome }) => {
         >
           &times;
         </button>
-        <h2 className="text-4xl font-extrabold text-gray-900 mb-6 text-center">
+        <h2 className="text-2xl font-extrabold text-gray-900 mb-6 text-center">
           餐廳管理專區
         </h2>
         <p className="text-lg text-gray-700 mb-8 leading-relaxed text-center">

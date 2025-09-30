@@ -327,7 +327,7 @@ export default function ReviewsList({ publishedReviews }) {
           >
             <button
               onClick={() => setSelectedImage(null)}
-              className="absolute top-4 right-4 text-white text-4xl hover:text-gray-300 transition-colors"
+              className="absolute top-4 right-4 text-white text-2xl hover:text-gray-300 transition-colors"
             >
               <FontAwesomeIcon icon={faTimes} />
             </button>

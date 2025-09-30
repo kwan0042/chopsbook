@@ -5,7 +5,6 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { AuthContext } from "../../../lib/auth-context";
 
-
 // Utility function to format timestamp
 const formatDateTime = (timestamp) => {
   if (!timestamp) return "無";
@@ -201,11 +200,10 @@ const BlogPage = () => {
 
   return (
     <>
-      
       <div className="flex justify-center bg-cbbg min-h-screen p-6 font-sans">
         <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl overflow-hidden border border-gray-200 p-6">
           <img src={blog?.coverImage} />
-          <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
+          <h1 className="text-2xl font-extrabold text-gray-900 mb-2">
             {blog?.title || "沒有標題"}
           </h1>
           <div className="text-sm text-gray-500 mb-6 border-b pb-4">

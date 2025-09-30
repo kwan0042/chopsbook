@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useContext } from "react";
 import { useParams } from "next/navigation";
 import { AuthContext } from "@/lib/auth-context";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import FavRestaurantCard from "@/components/personal/FavRestaurantCard";
+import FavRestaurantCard from "@/components/user/FavRestaurantCard";
 import Modal from "@/components/Modal";
 import Link from "next/link";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";

@@ -11,7 +11,7 @@ import {
 } from "../../lib/firebase";
 import {
   onAuthStateChanged,
-  signInWithCustomToken,
+  
   setPersistence,
   browserLocalPersistence,
 } from "firebase/auth";
@@ -68,8 +68,7 @@ export const useAuthCore = (setGlobalModalMessage) => {
       measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
     };
 
-    const initialAuthToken =
-      typeof __initial_auth_token !== "undefined" ? __initial_auth_token : null;
+    
 
     const initializeAndAuthenticateFirebase = async () => {
       try {
@@ -147,17 +146,7 @@ export const useAuthCore = (setGlobalModalMessage) => {
           setAuthReady(true);
         });
 
-        if (!firebaseAuth.currentUser && initialAuthToken) {
-          try {
-            await signInWithCustomToken(firebaseAuth, initialAuthToken);
-          } catch (error) {
-            console.error("Custom token sign-in failed:", error);
-            setGlobalModalMessage(
-              `認證失敗: ${error.message}。請確認您已登入。`,
-              "error"
-            );
-          }
-        }
+       
 
         return () => unsubscribe();
       } catch (error) {

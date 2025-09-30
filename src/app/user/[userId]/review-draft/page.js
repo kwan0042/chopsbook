@@ -31,12 +31,31 @@ const DraftsPage = ({ params }) => {
 
     const fetchDrafts = async () => {
       try {
-        const response = await fetch(`/api/user/review?userId=${userId}`);
-        const data = await response.json();
+        // 🚨 關鍵修正：將 URL 更新為新的路徑
+        const response = await fetch(
+          `/api/user/review-drafts?userId=${userId}`
+        );
+
+        // ** (為了解決之前可能的 JSON 錯誤，這裡建議使用更健壯的處理) **
         if (!response.ok) {
-          throw new Error(data.message || "未能獲取草稿。");
+          let errorData = {};
+          try {
+            errorData = await response.json();
+          } catch {
+            // 如果無法解析 JSON，返回通用錯誤
+            throw new Error(
+              `伺服器錯誤 (HTTP ${response.status})，無法獲取詳細錯誤訊息。`
+            );
+          }
+          throw new Error(
+            errorData.message || `未能獲取草稿 (HTTP ${response.status})。`
+          );
         }
-        setDrafts(data.drafts);
+
+        // 成功時解析 JSON
+        const data = await response.json();
+
+        setDrafts(data.drafts || []);
       } catch (err) {
         console.error("獲取草稿失敗:", err);
         setError(err.message || "獲取草稿時發生錯誤。");
@@ -69,7 +88,7 @@ const DraftsPage = ({ params }) => {
   }
 
   return (
-    <div className="flex flex-col items-center p-8 bg-white rounded-xl shadow-lg w-full max-w-4xl relative">
+    <div className="flex flex-col items-center p-8 bg-white rounded-xl shadow-lg w-full relative">
       <Link
         href="/user/dashboard"
         className="absolute top-4 left-4 text-gray-500 hover:text-gray-700 transition-colors flex items-center"

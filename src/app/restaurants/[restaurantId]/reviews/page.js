@@ -28,7 +28,7 @@ import {
 import Link from "next/link";
 
 // 引入翻譯數據
-import { reviewFields } from "../../../../lib/translation-data";
+import { reviewFields } from "@/lib/translation-data";
 
 // 輔助函數：將評分轉換為星星圖標
 const renderStars = (rating) => {
@@ -378,7 +378,7 @@ export default function RestaurantReviewsPage() {
           >
             <button
               onClick={() => setSelectedImage(null)}
-              className="absolute top-4 right-4 text-white text-4xl hover:text-gray-300 transition-colors"
+              className="absolute top-4 right-4 text-white text-2xl hover:text-gray-300 transition-colors"
             >
               <FontAwesomeIcon icon={faTimes} />
             </button>

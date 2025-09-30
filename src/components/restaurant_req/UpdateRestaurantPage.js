@@ -450,7 +450,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
           <ArrowLeftIcon className="mr-2" />
           返回
         </button>
-        <h2 className="text-4xl font-extrabold text-gray-900 mb-8 text-center">
+        <h2 className="text-2xl font-extrabold text-gray-900 mb-8 text-center">
           提交餐廳更新申請
         </h2>
         <p className="text-gray-600 text-center mb-8">
