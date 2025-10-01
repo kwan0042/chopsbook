@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useContext, useCallback } from "react"; // ⚡️ 導入 useCallback
+import React, { useState, useEffect, useContext } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSlidersH } from "@fortawesome/free-solid-svg-icons";
@@ -9,86 +9,77 @@ import RestaurantListPage from "./RestaurantListPage";
 import Modal from "../Modal";
 import { AuthContext } from "../../lib/auth-context";
 
-// ⚡️ 輔助函數：將物件形式的菜系篩選器轉換為字串陣列
-const normalizeCuisineFilters = (filters) => {
-  const normalizedFilters = {};
-
-  for (const [key, value] of Object.entries(filters)) {
-    if (key === "cuisineType") {
-      let cuisineValues = [];
-
-      if (Array.isArray(value)) {
-        // 情況 1: 已經是字串陣列或物件陣列 (需要轉換)
-        cuisineValues = value
-          .map((v) => {
-            if (typeof v === "string") return v;
-            if (typeof v === "object" && v !== null && v.subType)
-              return v.subType; // 優先取 subType
-            return null;
-          })
-          .filter(Boolean);
-      } else if (typeof value === "object" && value !== null && value.subType) {
-        // 情況 2: 是單個物件 {category: "...", subType: "..."}
-        cuisineValues = [value.subType];
-      } else if (typeof value === "string") {
-        // 情況 3: 單個字串
-        cuisineValues = [value];
-      }
-
-      if (cuisineValues.length > 0) {
-        // 確保結果是去重後的字串陣列
-        normalizedFilters[key] = Array.from(new Set(cuisineValues));
-      }
-    } else {
-      normalizedFilters[key] = value;
-    }
-  }
-  return normalizedFilters;
-};
-
 const RestaurantContent = () => {
   const { modalMessage, setModalMessage } = useContext(AuthContext);
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // ⚡️ 核心修正：更穩定的 URL 參數解析邏輯
+  // 1. 初始化一個集合，包含所有應視為陣列的鍵
+  const ARRAY_KEYS = [
+    "category",
+    "subCategory",
+    "reservationModes",
+    "paymentMethods",
+    "facilities",
+    "favoriteRestaurantIds",
+  ];
+
   let appliedFilters = {};
   const filtersFromUrl = searchParams.get("filters");
 
   if (filtersFromUrl) {
-    // 1. PRIMARY PATH: 嘗試解析 JSON 'filters' 參數
+    // 保持不變 (如果使用單一 JSON 格式的 filters 參數)
     try {
-      const parsedFilters = JSON.parse(filtersFromUrl);
-      appliedFilters = normalizeCuisineFilters(parsedFilters);
+      appliedFilters = JSON.parse(filtersFromUrl);
     } catch (e) {
-      console.error("Failed to parse 'filters' JSON from URL:", e);
-      // 如果解析失敗，appliedFilters 保持為 {}，將進入 fallback
+      console.error("Failed to parse filters from URL:", e);
     }
-  }
-
-  // 2. FALLBACK PATH: 如果 appliedFilters 仍然為空，檢查扁平化參數
-  if (Object.keys(appliedFilters).length === 0) {
-    let flatFilters = {};
+  } else {
+    // 2. 修正的 URL 遍歷和解析邏輯
+    const rawFilters = {};
     for (const [key, value] of searchParams.entries()) {
-      if (key === "search" || key === "filters") continue;
+      if (key === "search" || key === "page" || key === "currentPage") continue;
 
       const allValues = searchParams.getAll(key);
-      if (allValues.length > 1) {
-        flatFilters[key] = allValues; // 處理多值參數
-      } else {
-        // 嘗試解析單值，如數字、布林值或被 JSON.stringify 過的單個物件
-        try {
-          flatFilters[key] = JSON.parse(value);
-        } catch (e) {
-          flatFilters[key] = value; // 視為單個字串
+
+      // 統一使用 getAll() 的結果
+      if (allValues.length > 0) {
+        // 處理多個值，或僅有一個值但我們想將其視為陣列的情況 (如 category/subCategory)
+
+        // 對於應該是陣列的鍵，直接賦值 allValues (即便只有一個元素)
+        if (ARRAY_KEYS.includes(key)) {
+          appliedFilters[key] = allValues;
+        } else if (allValues.length > 1) {
+          appliedFilters[key] = allValues; // 其它多值參數
+        } else {
+          // 對於單值的參數 (如 province, city, maxAvgSpending)
+          const singleValue = allValues[0];
+          try {
+            // 嘗試將數字型參數（如 maxAvgSpending, min/maxSeatingCapacity）轉換為數字
+            appliedFilters[key] = JSON.parse(singleValue);
+          } catch (e) {
+            // 保持為字符串 (例如 province="台北", businessHours="營業中")
+            appliedFilters[key] = singleValue;
+          }
         }
       }
     }
-    // 對從扁平參數讀取到的篩選器進行規範化
-    appliedFilters = normalizeCuisineFilters(flatFilters);
-  }
 
-  // 保持 search 獨立
+    // 額外處理：確保 min/maxSeatingCapacity 被正確處理為數字
+    if (appliedFilters.minSeatingCapacity) {
+      appliedFilters.minSeatingCapacity = Number(
+        appliedFilters.minSeatingCapacity
+      );
+    }
+    if (appliedFilters.maxSeatingCapacity) {
+      appliedFilters.maxSeatingCapacity = Number(
+        appliedFilters.maxSeatingCapacity
+      );
+    }
+    if (appliedFilters.maxAvgSpending) {
+      appliedFilters.maxAvgSpending = Number(appliedFilters.maxAvgSpending);
+    }
+  }
   const searchQuery = searchParams.get("search") || "";
 
   const [isGridView, setIsGridView] = useState(false);
@@ -98,6 +89,67 @@ const RestaurantContent = () => {
   const [hasMore, setHasMore] = useState(true);
   const [lastDocId, setLastDocId] = useState(null);
   const [controller, setController] = useState(null);
+
+  // 新增狀態: 追蹤當前頁碼 (用於 UI 顯示)
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // --- 核心資料獲取函式 ---
+  // 現在 fetchMoreRestaurants 是 fetchRestaurants 的一個通用版本
+  const fetchRestaurants = async (startAfterDocId = null, abortSignal) => {
+    console.log("Starting to fetch restaurants...");
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      for (const key in appliedFilters) {
+        const value = appliedFilters[key];
+        if (Array.isArray(value)) {
+          value.forEach((item) => params.append(key, item));
+        } else if (value !== "" && value !== undefined && value !== null) {
+          params.append(key, value);
+        }
+      }
+      if (searchQuery) {
+        params.append("search", searchQuery);
+      }
+
+      // 傳入分頁指標
+      if (startAfterDocId) {
+        params.append("startAfterDocId", startAfterDocId);
+      }
+
+      const url = `/api/filter?${params.toString()}`;
+      console.log("Constructed API URL:", url);
+
+      const response = await fetch(url, {
+        signal: abortSignal,
+      });
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
+      }
+      const data = await response.json();
+
+      if (!abortSignal.aborted) {
+        // *** 傳統分頁模式: 不論是否為第一頁，都使用新數據替換現有列表 ***
+        setRestaurants(data.restaurants);
+        setHasMore(data.hasMore);
+        setLastDocId(data.lastDocId);
+      }
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        console.error("Failed to fetch restaurants:", error);
+        // 如果是第一頁請求失敗，清空列表
+        if (!startAfterDocId) {
+          setRestaurants([]);
+        }
+        setHasMore(false);
+      }
+    } finally {
+      if (!abortSignal.aborted) {
+        console.log("Finished fetching.");
+        setLoading(false);
+      }
+    }
+  };
 
   // 核心邏輯：當 URL 變更時觸發資料獲取
   useEffect(() => {
@@ -112,205 +164,89 @@ const RestaurantContent = () => {
     setRestaurants([]);
     setLastDocId(null);
     setHasMore(true);
+    setCurrentPage(1); // <--- 重置頁碼為第一頁
 
-    const fetchRestaurants = async (startAfterDocId = null, abortSignal) => {
-      console.log("Starting to fetch restaurants...");
-      setLoading(true);
-      try {
-        const params = new URLSearchParams();
-
-        // 確保將所有篩選條件 JSON 編碼到 'filters' 參數中，以便API集中處理
-        const apiFilters = normalizeCuisineFilters(appliedFilters);
-        if (Object.keys(apiFilters).length > 0) {
-          params.set("filters", JSON.stringify(apiFilters));
-        }
-
-        if (searchQuery) {
-          params.append("search", searchQuery);
-        }
-        if (startAfterDocId) {
-          params.append("startAfterDocId", startAfterDocId);
-        }
-
-        const url = `/api/filter?${params.toString()}`;
-        console.log("Constructed API URL:", url);
-
-        const response = await fetch(url, {
-          signal: abortSignal,
-        });
-        if (!response.ok) {
-          throw new Error(`API error: ${response.statusText}`);
-        }
-        const data = await response.json();
-        if (!abortSignal.aborted) {
-          if (startAfterDocId) {
-            setRestaurants((prev) => [...prev, ...data.restaurants]);
-          } else {
-            setRestaurants(data.restaurants);
-          }
-          setHasMore(data.hasMore);
-          setLastDocId(data.lastDocId);
-        }
-      } catch (error) {
-        if (error.name !== "AbortError") {
-          console.error("Failed to fetch restaurants:", error);
-          if (!startAfterDocId) {
-            setRestaurants([]);
-          }
-          setHasMore(false);
-        }
-      } finally {
-        if (!abortSignal.aborted) {
-          console.log("Finished fetching.");
-          setLoading(false);
-        }
-      }
-    };
-
+    // 啟動第一次資料獲取 (startAfterDocId 為 null)
     fetchRestaurants(null, newController.signal);
 
     return () => {
       console.log("useEffect cleanup. Aborting fetch.");
       newController.abort();
     };
-  }, [searchParams]); // 依賴於 searchParams 的變動
+  }, [searchParams]);
 
-  // 單獨處理「載入更多」
-  const fetchMoreRestaurants = async () => {
-    if (!hasMore || loading) return;
+  // --- 新增: 下一頁按鈕點擊處理函式 ---
+  const handleNextPage = () => {
+    // 確保有更多數據、不在載入中且有 lastDocId 才能點擊
+    if (!hasMore || loading || !lastDocId) return;
 
-    const abortSignal = controller?.signal;
-    if (abortSignal) {
-      console.log("Fetching more restaurants...");
-      setLoading(true);
-      try {
-        const params = new URLSearchParams();
+    console.log(`Moving to page ${currentPage + 1}...`);
 
-        // ⚡️ 使用 JSON 編碼的 'filters' 參數
-        const apiFilters = normalizeCuisineFilters(appliedFilters);
-        if (Object.keys(apiFilters).length > 0) {
-          params.set("filters", JSON.stringify(apiFilters));
-        }
+    // 1. 更新頁碼
+    setCurrentPage((prev) => prev + 1);
 
-        if (searchQuery) {
-          params.append("search", searchQuery);
-        }
-        if (lastDocId) {
-          params.append("startAfterDocId", lastDocId);
-        }
-
-        const url = `/api/filter?${params.toString()}`;
-        console.log("Constructed API URL for more data:", url);
-
-        const response = await fetch(url, {
-          signal: abortSignal,
-        });
-        if (!response.ok) {
-          throw new Error(`API error: ${response.statusText}`);
-        }
-        const data = await response.json();
-        if (!abortSignal.aborted) {
-          setRestaurants((prev) => [...prev, ...data.restaurants]);
-          setHasMore(data.hasMore);
-          setLastDocId(data.lastDocId);
-        }
-      } catch (error) {
-        if (error.name !== "AbortError") {
-          console.error("Failed to fetch more restaurants:", error);
-          setHasMore(false);
-        }
-      } finally {
-        if (!abortSignal.aborted) {
-          console.log("Finished fetching more data.");
-          setLoading(false);
-        }
-      }
-    }
+    // 2. 呼叫 fetchRestaurants 載入下一頁數據
+    // 注意：這裡使用 fetchRestaurants，並傳遞 lastDocId 作為下一頁的起點
+    fetchRestaurants(lastDocId, controller?.signal);
   };
 
-  // ⚡️ 修正：使用 useCallback 包裹 updateUrl
-  const updateUrl = useCallback(
-    (newFilters, newSearchQuery = "") => {
-      const newSearchParams = new URLSearchParams();
+  // *** 移除原有的 fetchMoreRestaurants 函式，因為它的邏輯已整合到 fetchRestaurants 並由 handleNextPage 呼叫 ***
 
-      // 將所有篩選條件 JSON 編碼到 'filters' 參數
-      const filtersToStore = normalizeCuisineFilters(newFilters);
-
-      if (Object.keys(filtersToStore).length > 0) {
-        newSearchParams.set("filters", JSON.stringify(filtersToStore));
+  const updateUrl = (newFilters, newSearchQuery = "") => {
+    const newSearchParams = new URLSearchParams();
+    // 統一將所有篩選條件獨立地加入 URL，確保後端可以讀取
+    for (const key in newFilters) {
+      const value = newFilters[key];
+      if (Array.isArray(value)) {
+        value.forEach((item) => newSearchParams.append(key, item));
+      } else if (value !== "" && value !== undefined && value !== null) {
+        newSearchParams.append(key, value);
       }
-      if (newSearchQuery) {
-        newSearchParams.set("search", newSearchQuery);
-      }
-      const newUrl = `/restaurants?${newSearchParams.toString()}`;
-      router.push(newUrl); // 觸發 URL 變更，進而觸發 useEffect 進行數據獲取
-    },
-    [router]
-  );
+    }
 
-  // ⚡️ 修正：使用 useCallback 包裹 handleApplyFilters
-  const handleApplyFilters = useCallback(
-    (filters) => {
-      // 這裡的 filters 可能是來自 FilterSidebar/Modal 的物件
-      // updateUrl 函數會負責將其 JSON 編碼並更新 URL
-      updateUrl(filters);
-      setIsFilterModalOpen(false);
-    },
-    [updateUrl]
-  );
+    if (newSearchQuery) {
+      newSearchParams.set("search", newSearchQuery);
+    }
+    // 重置分頁狀態，讓 useEffect 重新從第一頁開始
 
-  // ⚡️ 修正：使用 useCallback 包裹 handleResetFilters
-  const handleResetFilters = useCallback(() => {
+    const newUrl = `?${newSearchParams.toString()}`;
+    router.push(newUrl);
+  };
+
+  const handleApplyFilters = (filters) => {
+    updateUrl(filters);
+    setIsFilterModalOpen(false);
+  };
+
+  const handleResetFilters = () => {
     updateUrl({});
     setIsFilterModalOpen(false);
-  }, [updateUrl]);
+  };
 
-  // ⚡️ 修正：使用 useCallback 包裹 handleRemoveFilter
-  const handleRemoveFilter = useCallback(
-    (key, valueToRemove) => {
-      let newFilters = { ...appliedFilters };
-
-      if (key === "favoriteRestaurantIds") {
-        delete newFilters.favoriteRestaurantIds;
-      } else if (key === "cuisineType") {
-        // 處理 cuisineType 的移除
-        if (Array.isArray(newFilters[key])) {
-          newFilters[key] = newFilters[key].filter(
-            (item) => item !== valueToRemove
-          );
-        }
-        // 處理單個字串的移除 (從 fallback 邏輯中來)
-        else if (newFilters[key] === valueToRemove) {
-          delete newFilters[key];
-        }
-
-        if (Array.isArray(newFilters[key]) && newFilters[key].length === 0) {
-          delete newFilters[key];
-        }
-      } else if (Array.isArray(newFilters[key])) {
-        newFilters[key] = newFilters[key].filter(
-          (item) => item !== valueToRemove
-        );
-        if (newFilters[key].length === 0) {
-          delete newFilters[key];
-        }
-      } else if (key === "maxAvgSpending") {
-        delete newFilters.maxAvgSpending;
-      } else if (key === "minSeatingCapacity" || key === "maxSeatingCapacity") {
-        delete newFilters.minSeatingCapacity;
-        delete newFilters.maxSeatingCapacity;
-      } else {
+  const handleRemoveFilter = (key, valueToRemove) => {
+    const newFilters = { ...appliedFilters };
+    if (key === "favoriteRestaurantIds") {
+      delete newFilters.favoriteRestaurantIds;
+    } else if (Array.isArray(newFilters[key])) {
+      newFilters[key] = newFilters[key].filter(
+        (item) => item !== valueToRemove
+      );
+      if (newFilters[key].length === 0) {
         delete newFilters[key];
       }
-
-      // 再次呼叫 updateUrl，它會進行最終的正規化並更新 URL
-      updateUrl(newFilters, searchQuery);
-    },
-    [appliedFilters, searchQuery, updateUrl]
-  );
+    } else if (key === "maxAvgSpending") {
+      delete newFilters.maxAvgSpending;
+    } else if (key === "minSeatingCapacity" || key === "maxSeatingCapacity") {
+      delete newFilters.minSeatingCapacity;
+      delete newFilters.maxSeatingCapacity;
+    } else {
+      delete newFilters[key];
+    }
+    updateUrl(newFilters, searchQuery);
+  };
 
   const handleSearch = (query) => {
-    updateUrl(appliedFilters, query);
+    updateUrl({}, query);
   };
 
   const toggleView = () => setIsGridView((prev) => !prev);
@@ -327,7 +263,6 @@ const RestaurantContent = () => {
           <div className="w-1/4 flex-shrink-0 relative">
             <div className="sticky top-[140px] h-[calc(100vh-140px)] overflow-y-auto">
               <FilterSidebar
-                // 這裡傳遞給 FilterSidebar 的 appliedFilters 已經是正確解析的物件
                 initialFilters={appliedFilters}
                 onApplyFilters={handleApplyFilters}
                 onResetFilters={handleResetFilters}
@@ -345,7 +280,8 @@ const RestaurantContent = () => {
               </button>
             </div>
             <RestaurantListPage
-              filters={appliedFilters} // 確保這裡接收到正確的 filters
+              filters={appliedFilters}
+              currentPage={currentPage}
               onClearFilters={handleResetFilters}
               onRemoveFilter={handleRemoveFilter}
               searchQuery={searchQuery}
@@ -355,9 +291,40 @@ const RestaurantContent = () => {
               loading={loading}
               isFavoritesFilterActive={isFavoritesFilterActive}
               hasMore={hasMore}
-              fetchMoreRestaurants={fetchMoreRestaurants}
-              onSearch={handleSearch}
+              // 不再傳遞 fetchMoreRestaurants 進行無限滾動
             />
+
+            {/* --- 新增分頁按鈕區塊 --- */}
+            <div className="flex justify-center mt-8 space-x-4">
+              {/* 顯示當前頁碼 (只是視覺上的頁碼，非精確計數) */}
+              <span className="flex items-center text-lg text-gray-700">
+                目前頁面: {currentPage}
+              </span>
+
+              {/* 上一頁按鈕 (可選，但需要更複雜的後端邏輯來實現) */}
+              {/* 由於 Firestore Cursor 分頁難以實現「上一頁」，這裡暫時隱藏或禁用 */}
+              <button
+                disabled={true} // 禁用上一頁按鈕 (因為 Firestore 難以反向分頁)
+                className="px-6 py-3 text-lg font-semibold rounded-lg transition-colors bg-gray-300 text-gray-500 cursor-not-allowed"
+              >
+                上一頁
+              </button>
+
+              {/* 下一頁按鈕 */}
+              <button
+                onClick={handleNextPage}
+                // 禁用條件：載入中 OR 沒有更多數據 OR 找不到下一頁的起始 ID
+                disabled={loading || !hasMore || !lastDocId}
+                className={`px-6 py-3 text-lg font-semibold rounded-lg transition-colors ${
+                  loading || !hasMore || !lastDocId
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
+              >
+                下一頁
+              </button>
+            </div>
+            {/* --------------------- */}
           </div>
         </div>
       </div>

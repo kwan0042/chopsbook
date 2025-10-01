@@ -52,15 +52,30 @@ const RestaurantCard = ({
           "餐廳圖片"
       )}`;
 
-  // ⚡️ 修正點：規範化 cuisineType 的顯示文本
+  
   const cuisineTypeText = (() => {
-    const cuisine = restaurant.cuisineType;
-    if (cuisine && typeof cuisine === "object" && cuisine.subType) {
-      // 如果是物件 {category: "...", subType: "..."}，則顯示 subType
-      return cuisine.subType;
+    // 假設扁平化後，餐廳物件上會有 category (主菜系) 和 subCategory (細分菜系) 陣列
+    const categories = Array.isArray(restaurant.category)
+      ? restaurant.category
+      : [];
+    const subCategories = Array.isArray(restaurant.subCategory)
+      ? restaurant.subCategory
+      : [];
+
+    // 合併並去重，選擇前三個顯示，或只顯示主菜系
+    const allCuisines = [...new Set([...categories, ...subCategories])];
+
+    if (allCuisines.length > 0) {
+      return (
+        allCuisines.slice(0, 3).join(" / ") +
+        (allCuisines.length > 3 ? "..." : "")
+      );
     }
-    // 如果是字串或N/A
-    return cuisine || "N/A";
+
+  
+
+    // 如果都沒有，顯示 N/A
+    return "N/A";
   })();
 
   const handleFavoriteClick = (e) => {

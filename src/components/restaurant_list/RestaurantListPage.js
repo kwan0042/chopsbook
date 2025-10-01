@@ -20,6 +20,9 @@ const RestaurantListPage = ({
   toggleView,
   restaurants, // 從父組件接收已篩選好的餐廳列表
   loading, // 從父組件接收載入狀態
+  onNextPage,
+  onPrevPage,
+  hasMore,
 }) => {
   const { toggleFavoriteRestaurant, currentUser } = useContext(AuthContext);
 
@@ -31,7 +34,7 @@ const RestaurantListPage = ({
     }
   };
 
-  // 檢查是否有篩選條件或搜尋詞 (邏輯保持不變，但移除舊的物件形式檢查)
+  // 檢查是否有篩選條件或搜尋詞 (邏輯修正以適應新的陣列篩選)
   const hasFiltersOrSearch =
     Object.entries(filters).some(([key, value]) => {
       // 排除不應該被視為篩選條件的 key
@@ -52,17 +55,19 @@ const RestaurantListPage = ({
       // 檢查數字：大於 0 則為有效篩選
       if (typeof value === "number" && value > 0) return true;
 
-      // 排除所有物件形式 (因為 cuisineType 現在是陣列，舊的物件形式應該被淘汰)
+      // 排除所有物件形式 (防止意外的物件值)
       if (typeof value === "object" && value !== null) return false;
 
       return false;
     }) || searchQuery.length > 0;
 
+  // ⚡️ 修正：更新菜系鍵名
   const getFilterLabel = (key) => {
     const labels = {
       province: "省份",
       city: "城市",
-      cuisineType: "餐廳菜系",
+      category: "主菜系", // ⚡️ 新增
+      subCategory: "細分菜系", // ⚡️ 新增
       minRating: "最低評分",
       minSeatingCapacity: "座位數",
       maxSeatingCapacity: "座位數",
@@ -95,7 +100,6 @@ const RestaurantListPage = ({
     if (key === "favoriteRestaurantIds") {
       return "我的收藏";
     }
-    // 💥 移除舊的 cuisineType 物件處理邏輯 (因為現在 cuisineType 應該是陣列)
     // 最終防護：如果 value 意外是物件，將其轉換為字串
     return String(value);
   };
@@ -183,8 +187,21 @@ const RestaurantListPage = ({
         continue;
       }
 
-      // ⚡️ 核心修正：處理所有多選列表 (包含 cuisineType, reservationModes, paymentMethods, facilities)
-      if (Array.isArray(value) && value.length > 0) {
+      // ⚡️ 核心修正：處理所有多選列表 (包含 category, subCategory, reservationModes, paymentMethods, facilities)
+      // ⚠️ 新增 category 和 subCategory
+      const multiSelectKeys = [
+        "category",
+        "subCategory",
+        "reservationModes",
+        "paymentMethods",
+        "facilities",
+      ];
+
+      if (
+        multiSelectKeys.includes(key) &&
+        Array.isArray(value) &&
+        value.length > 0
+      ) {
         value.forEach((val) => {
           // 確保陣列內的值是原始類型 (字串/數字)，並排除空值
           if (typeof val !== "string" && typeof val !== "number") return;
@@ -210,8 +227,6 @@ const RestaurantListPage = ({
         continue;
       }
 
-      // 💥 移除對單個物件形式 cuisineType 的處理 (已淘汰)
-
       // 處理所有其他單值篩選器
       if (
         value !== undefined &&
@@ -220,7 +235,7 @@ const RestaurantListPage = ({
         // 排除 '所有省份' 和 0 (除非是 minRating=0，但通常不會有)
         value !== "所有省份" &&
         value !== 0 &&
-        // 💥 確保單值也不是物件（例如 reservationDate/Time/partySize 可能是物件）
+        // 確保單值也不是物件
         typeof value !== "object"
       ) {
         tags.push(
@@ -275,6 +290,7 @@ const RestaurantListPage = ({
           )}
         </div>
       </div>
+      {/* 篩選標籤顯示區域 */}
       <div className="flex flex-wrap items-center gap-2 mb-3 text-sm">
         {renderFilterTags()}
       </div>
@@ -309,6 +325,26 @@ const RestaurantListPage = ({
               />
             ))}
           </div>
+          {restaurants.length > 0 && (
+            <div className="flex justify-center gap-4 mt-6">
+              {onPrevPage && (
+                <button
+                  onClick={onPrevPage}
+                  className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                >
+                  上一頁
+                </button>
+              )}
+              {hasMore && onNextPage && (
+                <button
+                  onClick={onNextPage}
+                  className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                >
+                  下一頁
+                </button>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
