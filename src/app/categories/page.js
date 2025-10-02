@@ -7,8 +7,9 @@ import { useRouter } from "next/navigation";
 
 // === 匯入數據 (現在 cuisineOptions 是物件) ===
 import {
-  cuisineOptions,
+  cuisineOptions, // ⚠️ 這是陣列
   restaurantTypeOptions,
+  SUB_CATEGORY_MAP, // ⚠️ 匯入用於子分類映射的物件
 } from "@/data/restaurant-options";
 
 // =======================================================
@@ -27,20 +28,19 @@ const DEFAULT_TYPE_ICON = ""; // 清空圖示
 const CategoriesPage = () => {
   const router = useRouter();
 
-  // 由於中菜特殊邏輯被移除，這個狀態可以移除，但暫時保留，防止點擊事件錯誤
-  const [showChineseSub, setShowChineseSub] = useState(false);
+  // 由於不再需要中菜特殊邏輯，我們將 useState 保持在這裡，但如果沒有其他用途，也可以移除導入。
 
   // 處理和合併所有類別數據
   const { categoryGroups, typeGroup } = useMemo(() => {
     // 1. 數據檢查
-    const validCuisine =
-      typeof cuisineOptions === "object" && cuisineOptions !== null;
+    // ⚡️ 修正 1: 檢查 cuisineOptions 是否為陣列
+    const validCuisine = Array.isArray(cuisineOptions);
     const validRestaurantType =
       Array.isArray(restaurantTypeOptions) && restaurantTypeOptions.length > 0;
 
     if (!validCuisine || !validRestaurantType) {
       console.error(
-        "錯誤: 數據匯入失敗。cuisineOptions 必須是物件，restaurantTypeOptions 必須是數組。"
+        "錯誤: 數據匯入失敗。cuisineOptions 必須是數組，restaurantTypeOptions 必須是數組。"
       );
       return { categoryGroups: [], typeGroup: null };
     }
@@ -57,19 +57,24 @@ const CategoriesPage = () => {
     };
 
     // --- A. 處理菜系群組 (Cuisine Groups) ---
-    const categoryGroups = Object.keys(cuisineOptions).map((groupName) => {
-      const subNames = cuisineOptions[groupName] || [];
+    // ⚡️ 修正 2: 直接遍歷 cuisineOptions 陣列
+    const categoryGroups = cuisineOptions.map((groupName) => {
+      // ⚡️ 修正 3: 這裡不再是 Object.keys(cuisineOptions) 的遍歷，所以 subNames 的獲取方式改變
+      // 我們從 SUB_CATEGORY_MAP 中查找子分類。如果沒有找到，就用空陣列。
+      const rawSubNames = SUB_CATEGORY_MAP[groupName];
+      const subNames = Array.isArray(rawSubNames) ? rawSubNames : [];
 
       const mainCategory = {
         name: groupName,
-        filterKey: "cuisineType",
+        filterKey: "category", // 確保使用 'category'
         icon: "", // 移除圖示
         filterValue: groupName,
       };
 
+      // 這裡的 subNames 執行 .map() 時，現在保證是一個 Array
       const subCategories = subNames.map((subName) => ({
         name: subName,
-        filterKey: "cuisineType",
+        filterKey: "subCategory", // 確保使用 'subCategory'
         icon: "", // 移除圖示
         filterValue: subName,
       }));
@@ -103,18 +108,20 @@ const CategoriesPage = () => {
   const handleCategoryClick = (category) => {
     const { name, filterKey, filterValue } = category;
 
-    // 移除中菜特殊點擊邏輯，讓它和其他群組一樣導航
-    // if (name === CHINESE_GROUP_NAME && filterKey === 'cuisineType') {
-    //   setShowChineseSub((prev) => !prev);
-    //   return;
-    // }
-
     const finalFilterValue = filterValue || name;
 
-    const newFilters = { [filterKey]: finalFilterValue };
-    const path = `/restaurants?filters=${encodeURIComponent(
-      JSON.stringify(newFilters)
-    )}`;
+    const params = new URLSearchParams();
+
+    // 根據 filterKey 將單一值作為陣列傳遞給 URLSearchParams
+    if (filterKey === "category" || filterKey === "subCategory") {
+      // 將單一值作為一個陣列元素追加 (e.g., subCategory=川菜)
+      params.append(filterKey, finalFilterValue);
+    } else {
+      // 其他單一值參數 (e.g., restaurantType=咖啡廳)
+      params.set(filterKey, finalFilterValue);
+    }
+
+    const path = `/restaurants?${params.toString()}`;
     router.push(path);
 
     console.log(
