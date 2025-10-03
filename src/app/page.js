@@ -1,6 +1,19 @@
-import React from "react";
-import HomePage from "@/components/home/HomePage";
+// src/app/page.js
+// 預設為 Server Component (SSR)，專注於 SEO 和靜態內容。
 
+import React from "react";
+// Server Component / 靜態內容區塊
+import PromotionsSection from "@/components/home/PromotionsSection";
+import LatestReviewsSection from "@/components/home/LatestReviewsSection";
+import TrendingCateSection from "@/components/home/TrendingCateSection";
+import TrendingTopicsSection from "@/components/home/TrendingTopicsSection";
+
+// Client Component (用於互動或需要 Context/狀態的區塊)
+import HeroSectionClient from "@/components/home/HeroSection";
+import ClientSideHomeWrapper from "@/components/home/ClientSideHomeWrapper";
+import HeroSection from "@/components/home/HeroSection";
+
+// --- SEO 最佳化：定義靜態 Metadata ---
 export const metadata = {
   title: "ChopsBook - 多倫多餐廳食評交流平台",
   description:
@@ -65,12 +78,48 @@ export const metadata = {
     languages: {
       "zh-HK": "https://www.chopsbook.com",
       "zh-TW": "https://www.chopsbook.com",
-      "en": "https://www.chopsbook.com/en",
+      en: "https://www.chopsbook.com/en",
     },
   },
 };
+// ------------------------------------
 
+export default async function HomePageServer() {
+  return (
+    <div className="min-h-screen flex flex-col font-inter">
+      <main className="flex-grow">
+        {/* SEO H1 標籤：放在 Server Component，確保即時索引 */}
+        <h1 className="sr-only">ChopsBook - 多倫多餐廳食評交流平台</h1>
 
-export default function Page() {
-  return <HomePage />;
+        <HeroSection />
+
+        <div className="mx-auto py-10 px-2 sm:px-2 lg:px-12">
+          <div className="grid grid-cols-6 md:grid-cols-6 gap-4">
+            {/* 1. 左側欄位 (col-span-1)：Client Component (個人化推薦 / 排名) */}
+            <div className="col-span-1 grid grid-cols-1 gap-4 h-fit">
+              {/* 💡 傳遞 side="left" 渲染左側欄的 Client 區塊 */}
+              <ClientSideHomeWrapper side="left" />
+            </div>
+
+            {/* 2. 中央內容區 (col-span-4)：Server Component (推廣 / 熱門話題) */}
+            <div className="col-span-4 grid grid-cols-1 gap-4">
+              <PromotionsSection />
+              <TrendingTopicsSection />
+            </div>
+
+            {/* 3. 右側欄位 (col-span-1)：Server & Client Component 混合 */}
+            <div className="col-span-1 grid grid-cols-1 gap-4 h-fit">
+              {/* 最新評論 (Server Component - 靜態 SEO 內容) */}
+              <LatestReviewsSection />
+
+              {/* 💡 傳遞 side="right" 渲染右側欄的 Client 區塊 (投票/是但食) */}
+              <ClientSideHomeWrapper side="right" />
+            </div>
+          </div>
+
+          <TrendingCateSection />
+        </div>
+      </main>
+    </div>
+  );
 }

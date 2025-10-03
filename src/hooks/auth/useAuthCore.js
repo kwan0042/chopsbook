@@ -11,11 +11,26 @@ import {
 } from "../../lib/firebase";
 import {
   onAuthStateChanged,
-  
   setPersistence,
   browserLocalPersistence,
 } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+
+/**
+ * 輔助函數：判斷是否應更新 lastLogin
+ * @param {string} lastLoginIsoString - 上次登入時間的 ISO 8601 格式字串
+ * @param {number} delayHours - 延遲更新的小時數 (例如: 24 小時)
+ * @returns {boolean}
+ */
+const shouldUpdateLastLogin = (lastLoginIsoString, delayHours = 24) => {
+  if (!lastLoginIsoString) return true; // 如果沒有上次登入記錄，則執行更新
+
+  const lastLoginTime = new Date(lastLoginIsoString).getTime();
+  const currentTime = new Date().getTime();
+  const delayMs = delayHours * 60 * 60 * 1000;
+
+  return currentTime - lastLoginTime > delayMs;
+};
 
 /**
  * useAuthCore Hook:
@@ -68,8 +83,6 @@ export const useAuthCore = (setGlobalModalMessage) => {
       measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
     };
 
-    
-
     const initializeAndAuthenticateFirebase = async () => {
       try {
         const firebaseApp = initializeFirebaseApp(currentFirebaseConfig);
@@ -100,6 +113,7 @@ export const useAuthCore = (setGlobalModalMessage) => {
                 firestoreDb,
                 `artifacts/${projectAppId}/users/${user.uid}`
               );
+              // 維持原有的私人資料文檔讀取邏輯
               const privateDocRef = doc(
                 firestoreDb,
                 `artifacts/${projectAppId}/users/${user.uid}/privateData/${user.uid}`
@@ -115,6 +129,15 @@ export const useAuthCore = (setGlobalModalMessage) => {
                 ? privateDocSnap.data()
                 : {};
 
+              // 檢查是否需要更新 lastLogin
+              const needsLastLoginUpdate = shouldUpdateLastLogin(
+                publicData.lastLogin,
+                24
+              );
+
+              const newLastLogin = new Date().toISOString();
+
+              // 構建合併後的資料
               const mergedData = {
                 ...publicData,
                 ...privateData,
@@ -122,12 +145,17 @@ export const useAuthCore = (setGlobalModalMessage) => {
                   publicData.username ||
                   user.displayName ||
                   (privateData.email ? privateData.email.split("@")[0] : ""),
-                lastLogin: new Date().toISOString(),
+                lastLogin: needsLastLoginUpdate
+                  ? newLastLogin
+                  : publicData.lastLogin, // 使用新的或原有的 lastLogin
               };
 
-              await updateDoc(userDocRef, {
-                lastLogin: mergedData.lastLogin,
-              });
+              // **只有在超過 24 小時後才執行寫入操作**
+              if (needsLastLoginUpdate) {
+                await updateDoc(userDocRef, {
+                  lastLogin: newLastLogin,
+                });
+              }
 
               const userWithProfile = { ...user, ...mergedData };
               setCurrentUser(userWithProfile);
@@ -146,8 +174,6 @@ export const useAuthCore = (setGlobalModalMessage) => {
           setAuthReady(true);
         });
 
-       
-
         return () => unsubscribe();
       } catch (error) {
         console.error("Firebase 初始化或初始認證失敗:", error);
@@ -163,7 +189,7 @@ export const useAuthCore = (setGlobalModalMessage) => {
     };
 
     initializeAndAuthenticateFirebase();
-  }, [setGlobalModalMessage, app]);
+  }, [setGlobalModalMessage]);
 
   const getToken = useCallback(async () => {
     if (auth && auth.currentUser) {

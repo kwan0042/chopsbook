@@ -226,7 +226,7 @@ const CategoriesPage = () => {
 
       <main className="max-w-6xl mx-auto   overflow-hidden">
         {/* 1. 菜系群組列表 */}
-        <section className="border border-gray-200 bg-white ">
+        <section className="border border-gray-200 bg-white text-center">
           <h2 className="text-xl font-bold text-gray-800 p-4 border-b border-gray-200 bg-gray-50">
             主要菜系分類
           </h2>

@@ -1,245 +1,165 @@
-"use client";
+import { db } from "@/lib/firebase-admin"; // 引入您提供的 Admin SDK db
+import BlogsClientPage from "@/components/blogs/BlogsClientPage"; // 引入 Client Component
+import LoadingSpinner from "@/components/LoadingSpinner"; // 雖然在 SSR 數據層不常顯示，但仍保留
 
-import React, { useState, useEffect, useContext } from "react";
-import { AuthContext } from "@/lib/auth-context";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import { toast } from "react-toastify";
+const ITEMS_PER_PAGE = 9; // 每頁 9 篇文章
 
-// 使用 Tailwind CSS 來進行樣式設計，不需要外部 CSS 檔案
-const BlogsPage = () => {
-  const { db, appId, loadingUser, formatDateTime } = useContext(AuthContext);
-  const [allBlogs, setAllBlogs] = useState([]); // 儲存所有文章
-  const [filteredBlogs, setFilteredBlogs] = useState([]); // 顯示在頁面上的文章（已篩選但未分頁）
-  const [displayedBlogs, setDisplayedBlogs] = useState([]); // 顯示在當前頁面的文章
-  const [loading, setLoading] = useState(true);
-  const [searchKeyword, setSearchKeyword] = useState("");
-  const [selectedTag, setSelectedTag] = useState("");
+// --- SEO 優化：設置靜態 Metadata ---
+export const metadata = {
+  // 頁面標題：最關鍵的 SEO 元素
+  title: "所有文章 | ChopsBook",
 
-  const [availableTags, setAvailableTags] = useState([]); // ✅ 修正：定義 setAvailableTags
+  // 頁面描述
+  description:
+    "瀏覽最全面的多倫多餐廳食評與美食交流文章。發掘多倫多最佳餐廳推介、必食菜單及餐飲趨勢。使用智慧搜尋和菜系標籤，快速找到您下一餐的美食靈感！",
 
-  const [currentPage, setCurrentPage] = useState(1); // 當前頁碼
-  const itemsPerPage = 24; // 每頁顯示的文章數量
+  // Open Graph 標籤 (用於社群媒體)
+  openGraph: {
+    title: "所有文章 | ChopsBook",
+    description: "瀏覽最全面的多倫多餐廳食評與美食交流文章。發掘多倫多最佳餐廳推介、必食菜單及餐飲趨勢。使用智慧搜尋和菜系標籤，快速找到您下一餐的美食靈感！",
+    url: "https://chopsbook.com/blogs", // 💡 請替換為您的實際域名
+    siteName: "ChopsBook", // 💡 請替換為您的網站名稱
+    images: [
+      {
+        url: "https://chopsbook/Chopsbook_logo_white_v2.png", // 💡 設置一個默認圖片
+        width: 800,
+        height: 600,
+      },
+    ],
+  },
 
-  useEffect(() => {
-    if (loadingUser || !db || !appId) {
-      if (!loadingUser) {
-        setLoading(false);
-      }
-      return;
+  // 設置機器人指令
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
+// ------------------------------------
+
+// Server Component 接收 Next.js 的 searchParams
+const BlogsPage = async ({ searchParams }) => {
+  if (!db) {
+    console.error("Firebase Admin DB 未初始化。");
+    return (
+      <div className="flex justify-center items-center h-screen p-8 text-center text-red-500">
+        <p>服務初始化失敗，請稍後再試。</p>
+      </div>
+    );
+  }
+
+  // 從 URL 獲取參數
+  const currentPage = parseInt(searchParams.page) || 1;
+  const searchKeyword = searchParams.keyword || "";
+  const selectedTag = searchParams.tag || "";
+  // lastCursor 格式：submittedAt_id
+  const lastCursor = searchParams.lastCursor || "";
+
+  let initialBlogs = [];
+  let totalBlogsCount = 0;
+  let availableTags = [];
+  let nextCursor = ""; // 儲存下一頁的起始遊標
+  const blogsColRef = db.collection(`artifacts/${process.env.FIREBASE_ADMIN_APP_ID}/public/data/blogs`);
+  // 🚨 請將 'appId_placeholder' 替換為您的實際 appId 變數或值
+  
+  try {
+    // 1. 獲取總文章數 (用於計算總頁數，較節省讀取量)
+    const countSnapshot = await blogsColRef
+      .where("status", "==", "published")
+      .count()
+      .get();
+    totalBlogsCount = countSnapshot.data().count;
+
+    // 2. 獲取所有標籤 (通常在生產環境應快取此列表)
+    const tagsSnapshot = await blogsColRef
+      .where("status", "==", "published")
+      .select("tags") // 只讀取 tags 字段
+      .get();
+
+    availableTags = tagsSnapshot.docs
+      .reduce((acc, doc) => {
+        const blog = doc.data();
+        if (blog.tags && Array.isArray(blog.tags)) {
+          blog.tags.forEach((tag) => {
+            if (tag && !acc.includes(tag)) {
+              acc.push(tag);
+            }
+          });
+        }
+        return acc;
+      }, [])
+      .sort();
+
+    // 3. 建立基礎查詢
+    let finalQuery = blogsColRef
+      .where("status", "==", "published")
+      // 必須按照 submittedAt 排序，才能使用 startAfter
+      .orderBy("submittedAt", "desc")
+      .limit(ITEMS_PER_PAGE);
+
+    // 4. 應用標籤篩選
+    if (selectedTag) {
+      finalQuery = finalQuery.where("tags", "array-contains", selectedTag);
     }
 
-    const fetchPublishedBlogs = async () => {
-      try {
-        setLoading(true);
-        const blogsRef = collection(db, `artifacts/${appId}/public/data/blogs`);
-        const q = query(
-          blogsRef,
-          where("status", "==", "published"),
-          orderBy("submittedAt", "desc")
-        );
-        const querySnapshot = await getDocs(q);
+    // 5. 應用分頁遊標 (Cursor-based Pagination)
+    if (lastCursor && currentPage > 1) {
+      const parts = lastCursor.split("_");
+      const submittedAt = parseInt(parts[0]);
+      const docId = parts[1];
 
-        const fetchedBlogs = querySnapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-          };
-        });
+      // 使用 submittedAt 和 docId 作為 startAfter 的兩個排序鍵
+      // 這是確保分頁準確的標準做法
+      finalQuery = finalQuery.startAfter(submittedAt, docId);
+    }
 
-        const tags = fetchedBlogs.reduce((acc, blog) => {
-          if (blog.tags && Array.isArray(blog.tags)) {
-            blog.tags.forEach((tag) => {
-              if (tag && !acc.includes(tag)) {
-                acc.push(tag);
-              }
-            });
-          }
-          return acc;
-        }, []);
+    // 6. 執行分頁查詢
+    const querySnapshot = await finalQuery.get();
 
-        setAllBlogs(fetchedBlogs);
-        setAvailableTags(tags.sort());
-        setFilteredBlogs(fetchedBlogs);
-      } catch (error) {
-        console.error("載入已發布文章失敗:", error);
-        toast.error("無法載入文章列表，請稍後再試。");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPublishedBlogs();
-  }, [db, appId, loadingUser]);
-
-  useEffect(() => {
-    // 根據搜尋關鍵字和選定的標籤篩選文章
-    const keyword = searchKeyword.toLowerCase();
-    const filtered = allBlogs.filter((blog) => {
-      const matchesKeyword =
-        blog.title.toLowerCase().includes(keyword) ||
-        (blog.summary && blog.summary.toLowerCase().includes(keyword));
-
-      const matchesTag =
-        !selectedTag || (blog.tags && blog.tags.includes(selectedTag));
-
-      return matchesKeyword && matchesTag;
+    initialBlogs = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title,
+        summary: data.summary || "",
+        tags: data.tags || [],
+        submittedAt: data.submittedAt,
+        coverImage: data.coverImage || null,
+      };
     });
-    setFilteredBlogs(filtered);
-    setCurrentPage(1); // 當篩選條件改變時，重設到第一頁
-  }, [searchKeyword, selectedTag, allBlogs]);
 
-  useEffect(() => {
-    // 根據當前頁碼來顯示文章
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    setDisplayedBlogs(filteredBlogs.slice(startIndex, endIndex));
-  }, [currentPage, filteredBlogs, itemsPerPage]);
-
-  const totalPages = Math.ceil(filteredBlogs.length / itemsPerPage); // 計算總頁數
-
-  const handlePageChange = (pageNumber) => {
-    if (pageNumber > 0 && pageNumber <= totalPages) {
-      setCurrentPage(pageNumber);
+    // 7. 設置下一頁的遊標
+    if (initialBlogs.length > 0) {
+      const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
+      const lastSubmittedAt = lastDoc.data().submittedAt;
+      const lastId = lastDoc.id;
+      nextCursor = `${lastSubmittedAt}_${lastId}`;
     }
-  };
-
-  const renderPageNumbers = () => {
-    const pageNumbers = [];
-    for (let i = 1; i <= totalPages; i++) {
-      pageNumbers.push(
-        <button
-          key={i}
-          onClick={() => handlePageChange(i)}
-          className={`px-4 py-2 rounded-md mx-1 transition-colors duration-200 ${
-            i === currentPage
-              ? "bg-blue-600 text-white font-bold"
-              : "bg-gray-200 text-gray-800 hover:bg-gray-300"
-          }`}
-        >
-          {i}
-        </button>
-      );
-    }
-    return pageNumbers;
-  };
-
-  if (loading || loadingUser) {
+  } catch (error) {
+    console.error("載入已發布文章失敗:", error);
     return (
-      <div className="flex justify-center items-center h-screen">
-        <LoadingSpinner />
-        <p className="ml-4 text-gray-600">載入中...</p>
+      <div className="flex justify-center items-center h-screen p-8 text-center text-red-500">
+        <p>無法載入文章列表，請稍後再試。</p>
       </div>
     );
   }
 
-  if (allBlogs.length === 0) {
-    return (
-      <>
-        <div className="flex justify-center items-center h-screen p-8 text-center text-gray-500">
-          <p>目前沒有已發布的文章。</p>
-        </div>
-      </>
-    );
-  }
+  // 計算總頁數
+  const totalPages = Math.ceil(totalBlogsCount / ITEMS_PER_PAGE);
 
+  // 傳遞所有必要的數據給 Client Component
   return (
-    <>
-      <div className="container bg-cbbg mx-auto p-4 md:p-8">
-        <h1 className="text-2xl font-bold text-center mb-8 text-gray-800">
-          所有文章
-        </h1>
-        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-8">
-          <input
-            type="text"
-            placeholder="搜尋標題或摘要..."
-            value={searchKeyword}
-            onChange={(e) => setSearchKeyword(e.target.value)}
-            className="w-full sm:w-1/2 px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-          />
-          <select
-            value={selectedTag}
-            onChange={(e) => setSelectedTag(e.target.value)}
-            className="w-full sm:w-1/4 px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-          >
-            <option value="">所有主題</option>
-            {availableTags.map((tag) => (
-              <option key={tag} value={tag}>
-                {tag}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {displayedBlogs.length === 0 ? (
-          <div className="text-center text-gray-500 mt-8">
-            <p>沒有找到與 {searchKeyword} 相關的文章。</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayedBlogs.map((blog) => (
-              <div
-                key={blog.id}
-                className="bg-white rounded-lg shadow-lg overflow-hidden transition-transform duration-300 hover:scale-105"
-              >
-                {blog.coverImage ? (
-                  <img
-                    src={blog.coverImage}
-                    alt={blog.title}
-                    className="w-full h-48 object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-48 bg-gray-200 flex items-center justify-center text-gray-500">
-                    <p>無封面圖</p>
-                  </div>
-                )}
-                <div className="p-4 grid grid-cols-4 grid-rows-3 ">
-                  <div className="col-span-4 row-span-2">
-                    <h2 className="text-xl font-semibold mb-2 text-gray-800 line-clamp-2">
-                      {blog.title}
-                    </h2>
-                  </div>
-                  <div className="col-span-2 row-span-1">
-                    <a href={`/blogs/${blog.id}`}>
-                      <div className="inline-block bg-blue-600 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-blue-700 transition-colors duration-200 cursor-pointer">
-                        查看詳情
-                      </div>
-                    </a>
-                  </div>
-                  <div className="col-span-2 row-span-1 w-full h-full flex items-center justify-end">
-                    <span className="text-gray-400">
-                      {formatDateTime(blog.submittedAt).split(" ")[0]}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ✅ 新增：分頁控制項 */}
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center mt-8 space-x-2">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-4 py-2 rounded-md bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              上一頁
-            </button>
-            {renderPageNumbers()}
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-4 py-2 rounded-md bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              下一頁
-            </button>
-          </div>
-        )}
-      </div>
-    </>
+    <BlogsClientPage
+      initialBlogs={initialBlogs}
+      availableTags={availableTags}
+      itemsPerPage={ITEMS_PER_PAGE}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      initialKeyword={searchKeyword}
+      initialTag={selectedTag}
+      nextCursor={nextCursor}
+      // 為了處理 "上一頁" 的複雜性，我們只在下一頁傳輸遊標。
+      // "上一頁"會清空遊標並重新從頭開始計算。
+    />
   );
 };
 
