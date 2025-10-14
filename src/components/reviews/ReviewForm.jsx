@@ -1,9 +1,25 @@
 // src/components/reviews/ReviewForm.js
 "use client";
 
-import React, { useState, useEffect, useContext, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  useCallback,
+  useRef,
+} from "react";
 import { AuthContext } from "../../lib/auth-context";
-import { collection, query, getDocs, doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  getDocs,
+  doc,
+  getDoc,
+  where,
+  limit,
+  orderBy,
+  startAfter,
+} from "firebase/firestore";
 import LoadingSpinner from "../LoadingSpinner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -15,7 +31,7 @@ import ReviewDishSection from "./review_form_components/ReviewDishSection";
 import ReviewImageUploader from "./review_form_components/ReviewImageUploader";
 import ReviewFormButtons from "./review_form_components/ReviewFormButtons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faSpinner } from "@fortawesome/free-solid-svg-icons";
 
 const ratingCategories = [
   { key: "taste", label: "味道" },
@@ -26,24 +42,32 @@ const ratingCategories = [
   { key: "drinks", label: "酒/飲料" },
 ];
 
+const SEARCH_LIMIT = 10;
+
 const ReviewForm = ({
   onBack,
   draftId,
   restaurantIdFromUrl,
   restaurantNameFromUrl,
-  initialDraftData, // 從父組件接收草稿數據
-  initialRestaurants, // 從父組件接收餐廳列表
+  initialDraftData,
+  initialRestaurants,
 }) => {
   const { db, currentUser, appId, saveReviewDraft } = useContext(AuthContext);
   const router = useRouter();
 
-  // 根據是否有 initialRestaurants 來決定初始載入狀態
-  const [loading, setLoading] = useState(!initialRestaurants);
-  const [restaurants, setRestaurants] = useState(initialRestaurants || []);
+  const hasCheckedDailyLimit = useRef(false);
+
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredRestaurants, setFilteredRestaurants] = useState([]);
+
+  const lastDocRef = useRef(null);
+  const [hasMoreRestaurants, setHasMoreRestaurants] = useState(false);
+
+  const [searchFailedNoResult, setSearchFailedNoResult] = useState(false);
+
   const [selectedRestaurant, setSelectedRestaurant] = useState(() => {
-    // 優先使用草稿數據
     if (initialDraftData) {
       return (
         (initialRestaurants &&
@@ -55,7 +79,6 @@ const ReviewForm = ({
         }
       );
     }
-    // 其次使用 URL 參數
     if (restaurantIdFromUrl && restaurantNameFromUrl) {
       return {
         id: restaurantIdFromUrl,
@@ -118,9 +141,18 @@ const ReviewForm = ({
     resetImages,
   } = useImageUploader(currentUser);
 
+  // Daily Limit 檢查
   useEffect(() => {
+    if (!currentUser || !currentUser.uid) return;
+    if (
+      hasCheckedDailyLimit.current &&
+      process.env.NODE_ENV === "development"
+    ) {
+      return;
+    }
+    hasCheckedDailyLimit.current = true;
+
     const checkDailyLimit = async () => {
-      if (!currentUser || !currentUser.uid) return;
       try {
         const response = await fetch("/api/reviews/get-daily-limit", {
           method: "POST",
@@ -128,6 +160,7 @@ const ReviewForm = ({
           body: JSON.stringify({ userId: currentUser.uid }),
         });
         const data = await response.json();
+
         if (data.isLimitReached) {
           setIsDailyLimitReached(true);
         } else {
@@ -137,8 +170,9 @@ const ReviewForm = ({
         console.error("Error checking daily limit:", error);
       }
     };
+
     checkDailyLimit();
-  }, [currentUser]);
+  }, [currentUser?.uid]);
 
   const hasUnsavedChanges = useCallback(() => {
     const isInitialState =
@@ -204,81 +238,188 @@ const ReviewForm = ({
     }
   }, [ratings]);
 
-  // 1. 新增：如果沒有傳入 initialRestaurants，則自行獲取資料
+  // 監聽 searchQuery 變更，用於重置狀態
   useEffect(() => {
-    if (initialRestaurants) {
-      // 如果有初始資料，就不需要再獲取
-      setRestaurants(initialRestaurants);
-      setLoading(false);
-      return;
+    if (searchQuery.trim() === "") {
+      setFilteredRestaurants([]);
+      setSearchFailedNoResult(false);
+      lastDocRef.current = null;
+      setHasMoreRestaurants(false);
+      setErrors((prev) => ({ ...prev, selectedRestaurant: null }));
     }
+  }, [searchQuery]);
 
-    const fetchRestaurants = async () => {
-      if (!db || !appId) {
-        setLoading(false);
+  // 核心搜尋邏輯：動態語言切換欄位 + 精確分頁
+  const fetchRestaurants = async (isLoadMore = false) => {
+    if (!searchQuery.trim() || !db || !appId) return;
+
+    if (!isLoadMore) {
+      setLoading(true);
+      setFilteredRestaurants([]);
+      lastDocRef.current = null;
+      setHasMoreRestaurants(false);
+      setSearchFailedNoResult(false);
+    } else {
+      setLoadingMore(true);
+      if (!lastDocRef.current) {
+        setLoadingMore(false);
         return;
       }
-      try {
-        const q = query(
-          collection(db, `artifacts/${appId}/public/data/restaurants`)
-        );
-        const querySnapshot = await getDocs(q);
-        const fetched = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setRestaurants(fetched);
-      } catch (error) {
-        console.error("獲取餐廳列表失敗:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRestaurants();
-  }, [db, appId, initialRestaurants]);
-
-  // 2. 搜尋邏輯：依賴 restaurants 狀態
-  useEffect(() => {
-    if (searchQuery) {
-      const normalizedQuery = searchQuery.toLowerCase();
-      setFilteredRestaurants(
-        restaurants.filter(
-          (r) =>
-            r.restaurantName?.["zh-TW"]
-              ?.toLowerCase()
-              .includes(normalizedQuery) ||
-            r.restaurantName?.en?.toLowerCase().includes(normalizedQuery)
-        )
-      );
-    } else {
-      setFilteredRestaurants([]);
     }
-  }, [searchQuery, restaurants]);
+
+    setErrors((prev) => ({ ...prev, selectedRestaurant: null }));
+
+    try {
+      const restaurantsRef = collection(
+        db,
+        `artifacts/${appId}/public/data/restaurants`
+      );
+
+      const queryLimit = SEARCH_LIMIT;
+      let queryConstraints = [];
+
+      // 1. 判斷輸入語言
+      const isChinese = /[\u4e00-\u9fff]/.test(searchQuery.trim());
+
+      // 2. 根據語言選擇搜尋目標欄位 (依照您的要求: 中文用 zh-TW, 英文用 en)
+      const searchTarget = isChinese
+        ? "restaurantName.zh-TW"
+        : "restaurantName.en";
+      const normalizedQuery = searchQuery.trim(); // 不強制轉小寫
+
+      // 3. 設置查詢約束 (範圍查詢)
+      queryConstraints = [
+        where(searchTarget, ">=", normalizedQuery),
+        where(searchTarget, "<=", normalizedQuery + "\uf8ff"),
+        orderBy(searchTarget), // 必須根據 where 條件進行排序
+        orderBy("__name__"), // 使用文件 ID 作為次要排序欄位
+      ];
+
+      // 增加關鍵的除錯輸出
+      const searchLangLabel = isChinese ? "zh-TW" : "en";
+      const startValue = normalizedQuery;
+      const endValue = normalizedQuery + "\uf8ff";
+
+      console.log("------------------------------------------");
+      console.log(`[DEBUG - 查詢] 語言判定結果: ${searchLangLabel}`);
+      console.log(`[DEBUG - 查詢] 目標欄位: ${searchTarget}`);
+      console.log(`[DEBUG - 查詢] 搜尋關鍵字: ${normalizedQuery}`);
+      console.log(
+        `[DEBUG - 查詢] 執行的範圍: >= "${startValue}" 且 <= "${endValue}"`
+      );
+      if (isLoadMore) {
+        console.log(`[DEBUG - 查詢] 分頁參數: startAfter 啟用`);
+      }
+      console.log("------------------------------------------");
+
+      if (isLoadMore && lastDocRef.current) {
+        // startAfter 需要的是 DocumentSnapshot
+        queryConstraints.push(startAfter(lastDocRef.current));
+      }
+
+      queryConstraints.push(limit(queryLimit + 1));
+      const finalQuery = query(restaurantsRef, ...queryConstraints);
+
+      // 這個 log 幫助追蹤實際讀取量
+      console.log(
+        `[Firestore READ] 執行查詢 (${searchTarget}), 預計讀取文件數: ${
+          queryLimit + 1
+        }`
+      );
+
+      const snapshot = await getDocs(finalQuery);
+
+      const newHasMore = snapshot.docs.length > queryLimit;
+      setHasMoreRestaurants(newHasMore);
+
+      const restaurantsToAddDocs = newHasMore
+        ? snapshot.docs.slice(0, queryLimit)
+        : snapshot.docs;
+
+      const restaurantsToAdd = restaurantsToAddDocs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // 設置下一次 startAfter 的指標
+      if (restaurantsToAddDocs.length > 0) {
+        // 保存 DocumentSnapshot
+        lastDocRef.current = snapshot.docs[restaurantsToAddDocs.length - 1];
+      } else if (!isLoadMore) {
+        lastDocRef.current = null;
+      }
+
+      setFilteredRestaurants((prev) => {
+        return isLoadMore ? [...prev, ...restaurantsToAdd] : restaurantsToAdd;
+      });
+
+      console.log(`[DEBUG - 結果] 找到 ${restaurantsToAdd.length} 個結果。`);
+
+      if (restaurantsToAdd.length === 0 && !isLoadMore) {
+        setSearchFailedNoResult(true);
+      } else {
+        setSearchFailedNoResult(false);
+      }
+    } catch (error) {
+      // 捕獲索引錯誤
+      if (
+        error.code === "failed-precondition" &&
+        error.message.includes("The query requires an index")
+      ) {
+        console.error("搜尋餐廳失敗: 缺少索引或索引正在建構。", error);
+        setErrors((prev) => ({
+          ...prev,
+          selectedRestaurant: `搜尋失敗：Firebase要求複合索引。請確認 **${searchTarget}** (升序) 和 **文件ID (__name__)** (升序) 的索引已建立並啟用。`,
+        }));
+      } else {
+        console.error("搜尋餐廳失敗:", error);
+        setErrors((prev) => ({
+          ...prev,
+          selectedRestaurant: `搜尋餐廳時發生錯誤: ${
+            error.message || "請稍後再試。"
+          }`,
+        }));
+      }
+      setSearchFailedNoResult(false);
+      setHasMoreRestaurants(false);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleSearchRestaurant = (e) => {
+    if (e) e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    fetchRestaurants(false);
+  };
+
+  const handleLoadMore = () => {
+    fetchRestaurants(true);
+  };
 
   useEffect(() => {
     const fetchUsername = async () => {
-      if (currentUser && db && appId) {
-        try {
-          const userDocRef = doc(
-            db,
-            `artifacts/${appId}/users`,
-            currentUser.uid
-          );
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setUsername(userData.username);
-          } else {
-            setUsername("匿名用戶");
-          }
-        } catch (error) {
-          console.error("讀取用戶名失敗:", error);
+      if (!currentUser || !currentUser.uid || !db || !appId) return;
+
+      try {
+        const userDocRef = doc(db, `artifacts/${appId}/users`, currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUsername(userData.username);
+        } else {
           setUsername("匿名用戶");
         }
+      } catch (error) {
+        console.error("讀取用戶名失敗:", error);
+        setUsername("匿名用戶");
       }
     };
     fetchUsername();
-  }, [currentUser, db, appId]);
+  }, [currentUser?.uid, db, appId]);
 
   const handleRatingChange = useCallback((categoryKey, value) => {
     setRatings((prev) => ({ ...prev, [categoryKey]: parseFloat(value) }));
@@ -293,6 +434,9 @@ const ReviewForm = ({
     setSelectedRestaurant(restaurant);
     setSearchQuery("");
     setFilteredRestaurants([]);
+    setSearchFailedNoResult(false);
+    lastDocRef.current = null; // 重置分頁狀態
+    setHasMoreRestaurants(false); // 重置分頁狀態
     setErrors((prev) => ({ ...prev, selectedRestaurant: null }));
   }, []);
 
@@ -360,6 +504,7 @@ const ReviewForm = ({
     setSubmitting(true);
     try {
       const submittedRestaurantId = selectedRestaurant.id;
+
       const visitCountResponse = await fetch("/api/reviews/get-visit-count", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -368,15 +513,18 @@ const ReviewForm = ({
           restaurantId: submittedRestaurantId,
         }),
       });
+
       const visitCountData = await visitCountResponse.json();
       if (!visitCountResponse.ok) {
         throw new Error(visitCountData.message || "Failed to get visit count.");
       }
       const { visitCount } = visitCountData;
+
       const uploadedImageUrls = await uploadImagesToFirebase(
         submittedRestaurantId,
         visitCount
       );
+
       const response = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -397,6 +545,7 @@ const ReviewForm = ({
           username: username,
         }),
       });
+
       const data = await response.json();
       if (data.isLimitReached) {
         setIsDailyLimitReached(true);
@@ -455,8 +604,11 @@ const ReviewForm = ({
 
   if (!currentUser) return null;
 
-  // 顯示載入狀態
-  if (loading) {
+  if (
+    loading &&
+    filteredRestaurants.length === 0 &&
+    searchQuery.trim() !== ""
+  ) {
     return (
       <div className="flex items-center justify-center min-h-[500px] bg-gray-50 rounded-xl shadow-md p-8 w-full max-w-4xl">
         <LoadingSpinner />
@@ -528,12 +680,14 @@ const ReviewForm = ({
       ) : (
         <form onSubmit={handleSubmitReview} className="space-y-6">
           <ReviewFormFields
+            searchFailedNoResult={searchFailedNoResult}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             filteredRestaurants={filteredRestaurants}
             selectedRestaurant={selectedRestaurant}
             handleSelectRestaurant={handleSelectRestaurant}
             handleRemoveSelectedRestaurant={handleRemoveSelectedRestaurant}
+            handleSearchClick={handleSearchRestaurant}
             costPerPerson={costPerPerson}
             setCostPerPerson={setCostPerPerson}
             timeOfDay={timeOfDay}
@@ -547,7 +701,12 @@ const ReviewForm = ({
             errors={errors}
             setErrors={setErrors}
             isRestaurantPreselected={!!restaurantIdFromUrl}
+            // 傳遞分頁相關的 props 給子元件
+            hasMoreRestaurants={hasMoreRestaurants}
+            handleLoadMore={handleLoadMore}
+            loadingMore={loadingMore}
           />
+
           <ReviewRatingSection
             overallRating={overallRating}
             handleOverallRatingChange={handleOverallRatingChange}

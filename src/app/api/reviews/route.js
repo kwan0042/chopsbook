@@ -99,15 +99,20 @@ export async function POST(request) {
 
       const restaurantData = restaurantDoc.data();
       const currentReviewCount = restaurantData.reviewCount || 0;
-      const currentRatingSum = restaurantData.ratingSum || 0;
+      const currentRatingSum = restaurantData.totalRatingSum || 0;
+
       const newReviewCount = currentReviewCount + 1;
       const newRatingSum = currentRatingSum + overallRating;
-      const newAverageRating = newRatingSum / newReviewCount;
+
+      let newAverageRating = newRatingSum / newReviewCount;
+
+      // ✅ 修正：四捨五入到小數點後兩位 (乘以 100 後四捨五入，然後除以 100)
+      newAverageRating = Math.round(newAverageRating * 100) / 100;
 
       transaction.update(restaurantRef, {
         reviewCount: newReviewCount,
-        ratingSum: newRatingSum,
-        averageRating: newAverageRating,
+        totalRatingSum: newRatingSum,
+        averageRating: newAverageRating, // 儲存四捨五入後的數值
       });
 
       transaction.set(reviewRef, {
@@ -128,7 +133,7 @@ export async function POST(request) {
         visitCount,
       });
 
-      // **更新：將新創建的 reviewId 加入用戶的 publishedReviews 陣列**
+      // 更新：將新創建的 reviewId 加入用戶的 publishedReviews 陣列
       transaction.update(userRef, {
         publishedReviews: FieldValue.arrayUnion(reviewRef.id),
       });

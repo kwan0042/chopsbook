@@ -4,6 +4,15 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase-admin";
 
 /**
+ * 小工具：監控 Firestore Read
+ * @param {string} page - API 名稱或呼叫來源
+ * @param {number} count - 讀取的文件數量
+ */
+function logFirestoreRead(page, count) {
+  console.log(`[Firestore READ] ${page} → ${count} docs`);
+}
+
+/**
  * API Route: 獲取餐廳列表，支援多種篩選、搜尋和分頁。
  * @description 這個版本專門為前端的收藏列表分頁設計。
  */
@@ -20,6 +29,10 @@ export async function POST(request) {
 
     let restaurants = [];
 
+    console.log(
+      `[API CALL] /api/restaurants POST - favorite IDs: ${favoriteRestaurantIds.length}`
+    ); // 追蹤 API 呼叫
+
     // ✅ 這是最終且最簡單的邏輯：只處理收藏 ID 查詢
     if (favoriteRestaurantIds.length > 0) {
       // 將 ID 陣列分組，每組最多 10 個
@@ -35,8 +48,15 @@ export async function POST(request) {
       });
 
       const snapshots = await Promise.all(promises);
+
       const fetchedRestaurants = [];
-      snapshots.forEach((snapshot) => {
+      snapshots.forEach((snapshot, index) => {
+        // --- 【Firestore Read 追蹤點 1: 收藏餐廳分組查詢】 ---
+        logFirestoreRead(
+          `/api/restaurants POST [chunk ${index + 1}/${chunks.length}]`,
+          snapshot.size
+        );
+        // ---------------------------------------------------
         snapshot.docs.forEach((doc) => {
           fetchedRestaurants.push({ id: doc.id, ...doc.data() });
         });
@@ -50,13 +70,13 @@ export async function POST(request) {
         );
       });
 
-
       return NextResponse.json({
         success: true,
         restaurants: fetchedRestaurants,
       });
     } else {
       // ✅ 處理沒有收藏 ID 的情況
+      logFirestoreRead(`/api/restaurants POST [empty favorites]`, 0);
       return NextResponse.json({
         success: true,
         restaurants: [],
@@ -70,6 +90,3 @@ export async function POST(request) {
     );
   }
 }
-
-// ⚠️ 注意：為了確保代碼的清晰，我移除了這個檔案中的 GET 邏輯。
-// 如果您的應用程式同時需要一般搜尋，請考慮將這段程式碼移回一個單獨的 GET 路由。

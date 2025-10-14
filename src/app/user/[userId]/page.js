@@ -50,9 +50,24 @@ export default function UserReviewsPage({ params }) {
       return;
     }
     const userDocRef = doc(db, `artifacts/${appId}/users/${userId}`);
+
+    // --- 【Firebase Read 追蹤點 1: onSnapshot 讀取 (用戶資料)】 ---
+    console.log(
+      "FIREBASE_READ_TRACKER: Setting up onSnapshot for user profile."
+    );
+    let readCount = 0;
+    // ---------------------------------------------------------------
+
     const unsubscribe = onSnapshot(
       userDocRef,
       (docSnap) => {
+        // --- 【Firebase Read 追蹤點 1: 每次 onSnapshot 觸發時】 ---
+        readCount += 1;
+        console.log(
+          `FIREBASE_READ_TRACKER: User profile read - Count: ${readCount}`
+        );
+        // ---------------------------------------------------------------
+
         if (docSnap.exists()) {
           const userData = docSnap.data();
           setProfileUser({ id: docSnap.id, ...userData });
@@ -76,18 +91,26 @@ export default function UserReviewsPage({ params }) {
   const fetchReviewsAndFavorites = async (userData) => {
     if (!db || !userId) return;
 
-    // ================== 獲取最近食評 ==================
+    // ================== 獲取最近食評 (API 路由) ==================
     try {
       // ✅ 使用 API 路由獲取最近的食評
-      const response = await fetch(
-        `/api/reviews/user-reviews?userId=${userId}&appId=${appId}`
-      );
+      const apiUrl = `/api/reviews/user-reviews?userId=${userId}&appId=${appId}`;
+      console.log(`API_READ_TRACKER: Fetching recent reviews from: ${apiUrl}`); // 追蹤 API 請求
+
+      const response = await fetch(apiUrl);
 
       if (!response.ok) {
         throw new Error(`API 請求失敗: ${response.statusText}`);
       }
 
       const data = await response.json();
+
+      // 注意: API 路由中的讀取次數，必須在 API 路由的伺服器端程式碼中加入 console.log 或回傳。
+      console.log(
+        "API_READ_TRACKER: Recent reviews fetch complete. Total reviews:",
+        data.reviews.length
+      );
+
       // API 已經處理了排序和限制，我們直接使用返回的 reviews 陣列
       setPublishedReviews(data.reviews);
     } catch (error) {
@@ -101,7 +124,12 @@ export default function UserReviewsPage({ params }) {
       userData.favoriteRestaurants.length > 0
     ) {
       try {
-        const response = await fetch("/api/restaurants", {
+        const apiUrl = "/api/restaurants";
+        console.log(
+          `API_READ_TRACKER: Fetching favorite restaurants from: ${apiUrl}`
+        ); // 追蹤 API 請求
+
+        const response = await fetch(apiUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -116,6 +144,13 @@ export default function UserReviewsPage({ params }) {
         }
 
         const data = await response.json();
+
+        // 注意: API 路由中的讀取次數，必須在 API 路由的伺服器端程式碼中加入 console.log 或回傳。
+        console.log(
+          "API_READ_TRACKER: Favorite restaurants fetch complete. Total restaurants:",
+          data.restaurants.length
+        );
+
         const restaurants = data.restaurants.slice(0, 3); // 只取前 3 個
         setRecentFavorites(restaurants);
       } catch (error) {

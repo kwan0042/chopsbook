@@ -9,6 +9,7 @@ import { RestaurantContext } from "../../../lib/restaurant-context";
 import { useRestaurantData } from "../../../hooks/useRestaurantData";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   faStar,
   faStarHalfStroke,
@@ -27,6 +28,7 @@ import {
 import { reviewFields } from "@/lib/translation-data";
 
 export default function RestaurantOverviewPage() {
+  const router = useRouter();
   const { restaurantId } = useParams();
   const { restaurant } = useContext(RestaurantContext);
   const { db, appId } = useContext(AuthContext);

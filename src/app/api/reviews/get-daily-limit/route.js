@@ -26,7 +26,8 @@ export async function POST(request) {
       .collection(reviewsCollectionPath)
       .where("userId", "==", userId)
       .where("createdAt", ">=", startOfToday)
-      .orderBy("createdAt", "desc");
+      .orderBy("createdAt", "desc")
+      .limit(11);
 
     const todayReviewsSnapshot = await todayReviewsQuery.get();
 

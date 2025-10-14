@@ -203,12 +203,7 @@ export async function GET(request) {
       }
 
       // 獨立篩選器 1: category (精確匹配 - 單一或多個)
-      // category 應是字串，但為了應對 UI 可能的多選，這裡假設它在 Firestore 中是單一 String
-      // 由於 Firestore 限制，如果 categoriesArray.length > 1，只能使用 array-contains-any，
-      // 但 category 是 String。因此，這裡改用 array-contains-any 搜尋 'category' 欄位。
-      // 這是假設 category 在 DB 中是 String，但 UI 可能多選，會使用 'in' 查詢（限制 10 個）。
       if (categoriesArray.length > 0) {
-        // 如果有多個主菜系，使用 where('category', 'in', categoriesArray)
         if (categoriesArray.length > 1) {
           // ⚠️ 複合查詢限制: 'in' 查詢不能與其他 array-contains-any 同時存在，請確認索引
           q = q.where("category", "in", categoriesArray.slice(0, 10)); // 限制 in 查詢最多 10 個
@@ -218,7 +213,6 @@ export async function GET(request) {
       }
 
       // 獨立篩選器 2: subCategory (陣列 OR)
-      // subCategory 是一個陣列，使用 array-contains-any 查詢 (最多 10 個)
       if (subCategoryArray.length > 0) {
         // ⚠️ 這需要複合索引 (category/province/city), (subCategory, array-contains-any)
         q = q.where(
@@ -275,9 +269,12 @@ export async function GET(request) {
 
     // 3. 分頁與限制區 (保持不變)
 
+    let startAfterReadCount = 0;
     // 處理分頁 (startAfter)
     if (startAfterDocId) {
       const startAfterDoc = await restaurantsColRef.doc(startAfterDocId).get();
+      startAfterReadCount = 1; // 追蹤讀取量
+
       if (startAfterDoc.exists) {
         q = q.startAfter(startAfterDoc);
       }
@@ -289,6 +286,14 @@ export async function GET(request) {
 
     // 執行查詢
     const snapshot = await q.get();
+
+    // ✅ 新增：console.log 追蹤讀取量
+    console.log(
+      `[Firestore READ] /api/restaurants - Start After Read: ${startAfterReadCount} doc`
+    );
+    console.log(
+      `[Firestore READ] /api/restaurants - Main Query Read: ${snapshot.size} docs`
+    );
 
     let restaurantsFromDb = [];
     snapshot.forEach((doc) => {
@@ -308,9 +313,6 @@ export async function GET(request) {
       const passesMaxAvgSpending =
         !maxAvgSpending ||
         restaurant.avgSpending <= parseInt(maxAvgSpending, 10);
-
-      // 【移除】： passesCategory 邏輯，因為 category 和 subCategory 已移到 Firestore 查詢
-      // const passesCategory = true;
 
       // 設定為 true，因為已在 Firestore 查詢中處理 (不變)
       const passesMinRating = true;
@@ -374,7 +376,7 @@ export async function GET(request) {
         return isOpen;
       })();
 
-      // 伺服器端過濾 7: Search 輔助過濾 
+      // 伺服器端過濾 7: Search 輔助過濾
       const passesSearch = (() => {
         if (!search) return true;
         const normalizedQuery = search.toLowerCase();
