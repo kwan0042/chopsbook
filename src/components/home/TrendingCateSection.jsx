@@ -18,7 +18,7 @@ const TrendingCateSection = () => {
     { name: "西式料理", icon: "🍝", filterKey: "restaurantType" },
     { name: "火鍋", icon: "🍲", filterKey: "restaurantType" },
     { name: "咖啡廳 (Cafe)", icon: "☕", filterKey: "restaurantType" },
-    { name: "甜點", icon: "🍰", filterKey: "restaurantType" },
+    { name: "甜品", icon: "🍰", filterKey: "restaurantType" },
   ];
 
   // 關鍵修正：將 filterKey 設為 "cuisineType"
@@ -26,9 +26,8 @@ const TrendingCateSection = () => {
     { name: "香港菜", icon: "🇭🇰", filterKey: "cuisineType" },
     { name: "台灣菜", icon: "🇹🇼", filterKey: "cuisineType" },
     { name: "韓國菜", icon: "🇰🇷", filterKey: "cuisineType" },
-    { name: "美國菜", icon: "🍔", filterKey: "cuisineType" },
     { name: "泰國菜", icon: "🇹🇭", filterKey: "cuisineType" },
-    { name: "中國菜", icon: "🍜", filterKey: "cuisineType" },
+    
   ];
 
   // 將兩種列表合併
