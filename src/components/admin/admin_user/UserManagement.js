@@ -3,7 +3,7 @@
 
 import React, { useState, useContext, useEffect, useCallback } from "react";
 import { AuthContext } from "../../../lib/auth-context";
-import { collection, onSnapshot, query, doc, getDoc } from "firebase/firestore";
+import { collection, query, doc, getDoc, getDocs } from "firebase/firestore"; // 💡 修正：引入 getDocs
 import LoadingSpinner from "../../LoadingSpinner";
 import { useRouter } from "next/navigation";
 import Modal from "../../Modal";
@@ -28,7 +28,7 @@ const UserManagement = () => {
     setModalType("");
   };
 
-  // 實時獲取所有用戶資料，包含來自 privateData 的數據
+  // 單次獲取所有用戶資料，包含來自 privateData 的數據
   useEffect(() => {
     if (!db || !appId) {
       setLoadingUsers(false);
@@ -42,9 +42,11 @@ const UserManagement = () => {
     const usersCollectionRef = collection(db, `artifacts/${appId}/users`);
     const q = query(usersCollectionRef);
 
-    const unsubscribe = onSnapshot(
-      q,
-      async (querySnapshot) => {
+    // 💡 核心修改：使用 getDocs 進行單次讀取
+    const fetchUsers = async () => {
+      try {
+        const querySnapshot = await getDocs(q); // 單次讀取所有公共用戶文件
+
         if (querySnapshot.empty) {
           setUsers([]);
           setLoadingUsers(false);
@@ -56,6 +58,7 @@ const UserManagement = () => {
           const publicData = userDoc.data();
           const uid = userDoc.id;
 
+          // 讀取對應的私有文件 (N+1 讀取點，但現在只在頁面載入時觸發一次)
           const privateDocRef = doc(
             db,
             `artifacts/${appId}/users/${uid}/privateData/${uid}`
@@ -90,17 +93,20 @@ const UserManagement = () => {
         const fetchedUsers = await Promise.all(userPromises);
         setUsers(fetchedUsers);
         setLoadingUsers(false);
-      },
-      (error) => {
-        console.error("實時監聽用戶資料失敗:", error);
-        setModalMessage(`實時監聽用戶資料失敗: ${error.message}`, "error");
+      } catch (error) {
+        console.error("載入用戶資料失敗:", error);
+        setModalMessage(`載入用戶資料失敗: ${error.message}`, "error");
         setLoadingUsers(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
+    fetchUsers();
+
+    // 💡 清理函數：現在沒有監聽器需要取消訂閱
+    return () => {};
   }, [db, appId]);
 
+  // ... handleUpdateAdminStatus, handleViewUserDetails, 和 render 邏輯保持不變 ...
   const handleUpdateAdminStatus = useCallback(
     async (user, newIsAdmin) => {
       if (!auth?.currentUser) {

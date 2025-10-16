@@ -281,11 +281,18 @@ const ReviewForm = ({
       // 1. 判斷輸入語言
       const isChinese = /[\u4e00-\u9fff]/.test(searchQuery.trim());
 
-      // 2. 根據語言選擇搜尋目標欄位 (依照您的要求: 中文用 zh-TW, 英文用 en)
+      // 2. 根據語言選擇搜尋目標欄位
       const searchTarget = isChinese
-        ? "restaurantName.zh-TW"
-        : "restaurantName.en";
-      const normalizedQuery = searchQuery.trim(); // 不強制轉小寫
+        ? "restaurantName.zh-TW" // 中文使用原本的欄位
+        : "name_lowercase_en"; // 🚨 變更點：英文使用 name_lowercase_en 欄位
+
+      let normalizedQuery = searchQuery.trim();
+
+      // 🚨 變更點：如果是非中文（英文），則強制轉為小寫
+      if (!isChinese) {
+        normalizedQuery = normalizedQuery.toLowerCase();
+      }
+      // 🚨 變更點結束
 
       // 3. 設置查詢約束 (範圍查詢)
       queryConstraints = [
@@ -296,7 +303,7 @@ const ReviewForm = ({
       ];
 
       // 增加關鍵的除錯輸出
-      const searchLangLabel = isChinese ? "zh-TW" : "en";
+      const searchLangLabel = isChinese ? "zh-TW" : "en" + " (lowercase)";
       const startValue = normalizedQuery;
       const endValue = normalizedQuery + "\uf8ff";
 

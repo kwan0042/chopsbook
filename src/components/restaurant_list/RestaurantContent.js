@@ -1,3 +1,4 @@
+// src/components/RestaurantContent.js
 "use client";
 import React, { useState, useEffect, useContext } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -8,6 +9,9 @@ import FilterModal from "../filters/FilterModal";
 import RestaurantListPage from "./RestaurantListPage";
 import Modal from "../Modal";
 import { AuthContext } from "../../lib/auth-context";
+
+// 輔助函數：判斷是否為中文 (新增)
+const isChinese = (text) => /[\u4e00-\u9fff]/.test(text.trim());
 
 const RestaurantContent = () => {
   const { modalMessage, setModalMessage } = useContext(AuthContext);
@@ -108,9 +112,27 @@ const RestaurantContent = () => {
           params.append(key, value);
         }
       }
+
+      // ⬇️ 核心修改區塊 ⬇️
       if (searchQuery) {
-        params.append("search", searchQuery);
+        const query = searchQuery.trim();
+        const isZh = isChinese(query);
+
+        // 1. 告訴後端搜尋目標語言
+        params.append("searchLanguage", isZh ? "zh" : "en");
+
+        // 2. 傳遞正規化後的查詢字串
+        // 如果是英文，轉為小寫，以匹配 Firestore 的 name_lowercase_en
+        const normalizedQuery = isZh ? query : query.toLowerCase();
+        params.append("search", normalizedQuery);
+
+        console.log(
+          `[Search Debug] Query: "${normalizedQuery}", Language: ${
+            isZh ? "中文" : "英文(小寫)"
+          }`
+        );
       }
+      // ⬆️ 核心修改區塊 ⬆️
 
       // 傳入分頁指標
       if (startAfterDocId) {

@@ -7,7 +7,6 @@ import { AuthContext } from "@/lib/auth-context";
 import {
   collection,
   query,
-  onSnapshot,
   doc,
   getDocs,
   where,

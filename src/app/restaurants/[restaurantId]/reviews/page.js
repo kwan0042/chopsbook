@@ -155,7 +155,7 @@ export default function RestaurantReviewsPage() {
       {recentReviews.length === 0 ? (
         <div className="text-center text-gray-600 p-8 border-2 border-dashed border-gray-300 rounded-lg">
           <p>此餐廳尚未有任何評論。</p>
-          <Link href={`/personal/reviews`}>成為第一個食評家啦！</Link>
+          <Link className="text-blue-950 font-bold underline px-2" href={`/personal/reviews`}>成為第一個食評家啦！</Link>
         </div>
       ) : (
         <div className="space-y-6  mx-auto">

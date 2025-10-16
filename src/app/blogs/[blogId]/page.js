@@ -1,7 +1,9 @@
+// src/components/blog/BlogPage.js
+
 "use client";
 
 import React, { useState, useEffect, useRef, useContext } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore"; 
 import { useParams } from "next/navigation";
 import { AuthContext } from "../../../lib/auth-context";
 
@@ -29,10 +31,9 @@ const BlogPage = () => {
   const parsedContentCache = useRef(null);
 
   useEffect(() => {
-    // Ensure all dependencies are ready before starting the listener
+    // Ensure all dependencies are ready before starting the fetch
     if (!authReady || !db || !appId || !blogId) {
       if (authReady) {
-        // If auth is ready but other deps are not, show an error.
         console.error(
           "Required dependencies are missing. db:",
           !!db,
@@ -47,7 +48,7 @@ const BlogPage = () => {
       return;
     }
 
-    console.log("BlogPage: Firebase 服務已準備，開始監聽文章。");
+    console.log("BlogPage: Firebase 服務已準備，開始讀取文章。");
     setLoading(true);
 
     const blogDocRef = doc(
@@ -55,29 +56,31 @@ const BlogPage = () => {
       `artifacts/${appId}/public/data/blogs/${blogId}`
     );
 
-    const unsubscribe = onSnapshot(
-      blogDocRef,
-      (docSnap) => {
+    // 💡 核心修改：使用 getDoc 進行單次讀取
+    const fetchBlogData = async () => {
+      try {
+        const docSnap = await getDoc(blogDocRef); // 執行單次讀取
+
         if (docSnap.exists()) {
           const data = docSnap.data();
           setBlog({ id: docSnap.id, ...data });
-          setLoading(false);
           setError(null);
         } else {
           // If the document does not exist, set a specific error message
           setError("找不到此文章。");
-          setLoading(false);
         }
-      },
-      (err) => {
+      } catch (err) {
         console.error("載入文章時發生錯誤:", err);
         setError("載入文章時發生錯誤。");
+      } finally {
         setLoading(false);
       }
-    );
+    };
 
-    // Clean up the listener
-    return () => unsubscribe();
+    fetchBlogData();
+
+    // 💡 清理函數：現在沒有監聽器需要取消訂閱，但我們可以保留一個空的清理函數以保持 React 習慣
+    return () => {};
   }, [authReady, db, appId, blogId]);
 
   // Handle the case where the user navigates without a blogId

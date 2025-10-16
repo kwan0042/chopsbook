@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Navbar from "./Navbar";
 import FilterModal from "@/components/filters/FilterModal";
 import { AuthContext } from "@/lib/auth-context";
+import Footer from "./Footer.jsx";
 
 // 假設這裡從另一個地方導入了 setRestaurants，用於更新頁面數據
 // import { useRestaurantContext } from '@/lib/restaurant-context';
@@ -67,9 +68,7 @@ const AppLayout = ({ children }) => {
           // 🚨 這是修復 onResetFilters is not a function 的關鍵！
           
         />
-        <footer className="bg-gray-800 text-white text-center py-6  text-sm font-light">
-          &copy; {new Date().getFullYear()} ChopsBook. 版權所有.
-        </footer>
+        <Footer/>
       </div>
     </>
   );

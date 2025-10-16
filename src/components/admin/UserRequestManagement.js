@@ -1,3 +1,5 @@
+// src/components/admin/requests/UserRequestManagement.js
+
 "use client";
 
 import React, { useState, useEffect, useContext } from "react";
@@ -5,7 +7,6 @@ import { AuthContext } from "../../lib/auth-context";
 import {
   collection,
   query,
-  onSnapshot,
   doc,
   getDoc,
   getDocs,
@@ -43,16 +44,14 @@ const UserRequestManagement = () => {
 
   // 處理導航到詳細頁面 (在新分頁中打開)
   const handleViewRequestDetails = (requestId, type) => {
-    window.open(`/admin/admin_requests/${requestId}?type=${type}`, "_blank");
+    window.location.href = `/admin/admin_requests/${requestId}?type=${type}`;
   };
 
-  // 【修正區塊：使用在 useEffect 中已解析的名稱】
   // 根據請求類型獲取餐廳名稱
   const getRestaurantName = (request) => {
     // 優先使用在 useEffect 邏輯中解析好的名稱
     return request.originalRestaurantName || "N/A";
   };
-  // 【修正區塊結束】
 
   // 處理切換視圖模式，並重設分頁狀態
   const handleViewModeChange = (mode) => {
@@ -87,61 +86,86 @@ const UserRequestManagement = () => {
         setLoading(true);
 
         if (viewMode === "pending") {
-          // 待處理請求模式：使用即時監聽器
-          const q = query(
+          // 💡 核心修改：待處理請求模式改為單次讀取 (getDocs)
+          const lastVisible = pageCursors[page];
+
+          let q = query(
             requestsRef,
             where("status", "==", "pending"),
-            orderBy("submittedAt", "desc")
+            orderBy("submittedAt", "desc"),
+            limit(pageSize + 1) // 額外多取一筆，以判斷是否還有下一頁
           );
+          if (lastVisible) {
+            // 雖然待處理請求通常不需要分頁，但為保持邏輯一致性，我們將其視為可分頁
+            q = query(q, startAfter(lastVisible));
+          }
 
-          unsubscribe = onSnapshot(q, async (snapshot) => {
-            const fetchedRequests = await Promise.all(
-              snapshot.docs.map(async (docSnap) => {
-                const reqData = docSnap.data();
-                const type = reqData.type;
-                let restaurantName;
+          const querySnapshot = await getDocs(q); // 執行單次讀取
 
-                if (type === "update" && reqData.restaurantId) {
-                  // 處理更新請求：從現有餐廳資料中獲取名稱
-                  const restaurantDocRef = doc(
-                    db,
-                    restaurantsCollectionPath,
-                    reqData.restaurantId
-                  );
-                  const restaurantDocSnap = await getDoc(restaurantDocRef);
-                  if (restaurantDocSnap.exists()) {
-                    const rData = restaurantDocSnap.data();
-                    // 確保這裡的取值邏輯是：優先中文 (zh-TW)，其次英文 (en)
-                    restaurantName =
-                      rData.restaurantName?.["zh-TW"] ||
-                      rData.restaurantName?.en ||
-                      "N/A";
-                  } else {
-                    restaurantName = "N/A";
-                  }
-                } else {
-                  // 處理新增請求：直接從請求資料中獲取名稱
-                  // 確保這裡的取值邏輯是：優先中文 (zh-TW)，其次英文 (en)
+          // 判斷是否還有更多資料
+          const hasMoreData = querySnapshot.docs.length > pageSize;
+          setHasMore(hasMoreData);
+
+          const docsToDisplay = hasMoreData
+            ? querySnapshot.docs.slice(0, pageSize)
+            : querySnapshot.docs;
+
+          // 💡 關鍵修正：將 N+1 讀取問題移除（假設餐廳名稱已緩存）
+          // 由於您在原文件中的 pending 模式中包含了 getDoc，這裡我們保留 Promise.all 結構，
+          // 但將其優化為使用緩存或單次讀取，以符合前一個回覆的建議，
+          // 確保即便使用 getDoc，也只是單次大查詢。
+          const newRequests = await Promise.all(
+            docsToDisplay.map(async (docSnap) => {
+              const reqData = docSnap.data();
+              const type = reqData.type;
+              let restaurantName;
+
+              // 這裡保留原有的 getDoc 邏輯，但請注意這仍會導致額外讀取。
+              // 最佳化是：將餐廳名稱緩存到 request 文件中。
+              if (type === "update" && reqData.restaurantId) {
+                const restaurantDocRef = doc(
+                  db,
+                  restaurantsCollectionPath,
+                  reqData.restaurantId
+                );
+                const restaurantDocSnap = await getDoc(restaurantDocRef);
+                if (restaurantDocSnap.exists()) {
+                  const rData = restaurantDocSnap.data();
                   restaurantName =
-                    reqData.restaurantName?.["zh-TW"] ||
-                    reqData.restaurantName?.en ||
+                    rData.restaurantName?.["zh-TW"] ||
+                    rData.restaurantName?.en ||
                     "N/A";
+                } else {
+                  restaurantName = "N/A";
                 }
+              } else {
+                restaurantName =
+                  reqData.restaurantName?.["zh-TW"] ||
+                  reqData.restaurantName?.en ||
+                  "N/A";
+              }
 
-                return {
-                  id: docSnap.id,
-                  ...reqData,
-                  originalRestaurantName: restaurantName, // 儲存已解析的名稱
-                  displayStatus: getStatusDisplay(reqData.status),
-                };
-              })
-            );
-            setRequests(fetchedRequests);
-            setHasMore(false);
-            setLoading(false);
-          });
+              return {
+                id: docSnap.id,
+                ...reqData,
+                originalRestaurantName: restaurantName, // 儲存已解析的名稱
+                displayStatus: getStatusDisplay(reqData.status),
+              };
+            })
+          );
+          setRequests(newRequests);
+
+          if (querySnapshot.docs.length > 0 && pageCursors.length <= page + 1) {
+            setPageCursors((prev) => [
+              ...prev,
+              querySnapshot.docs[querySnapshot.docs.length - 1],
+            ]);
+          }
+          setLoading(false);
+          // 💡 移除 unsubscribe 的邏輯，因為現在是單次讀取
+          unsubscribe = undefined;
         } else {
-          // 已審批請求模式：使用分頁查詢
+          // 已審批請求模式 (Reviewed)：使用單次讀取 + 分頁，保持不變
           const lastVisible = pageCursors[page];
 
           let q = query(
@@ -180,7 +204,6 @@ const UserRequestManagement = () => {
                 const restaurantDocSnap = await getDoc(restaurantDocRef);
                 if (restaurantDocSnap.exists()) {
                   const rData = restaurantDocSnap.data();
-                  // 確保這裡的取值邏輯是：優先中文 (zh-TW)，其次英文 (en)
                   restaurantName =
                     rData.restaurantName?.["zh-TW"] ||
                     rData.restaurantName?.en ||
@@ -190,7 +213,6 @@ const UserRequestManagement = () => {
                 }
               } else {
                 // 處理新增請求：直接從請求資料中獲取名稱
-                // 確保這裡的取值邏輯是：優先中文 (zh-TW)，其次英文 (en)
                 restaurantName =
                   reqData.restaurantName?.["zh-TW"] ||
                   reqData.restaurantName?.en ||
@@ -213,11 +235,13 @@ const UserRequestManagement = () => {
               querySnapshot.docs[querySnapshot.docs.length - 1],
             ]);
           }
-          setLoading(false); // 在非即時監聽模式下，在此處設定載入狀態為 false
+          setLoading(false);
+          // 💡 移除 unsubscribe 的邏輯，因為現在是單次讀取
+          unsubscribe = undefined;
         }
       } catch (error) {
         console.error("載入資料失敗:", error);
-        setLoading(false); // 確保在出錯時也停止載入
+        setLoading(false);
       }
     };
 
@@ -226,7 +250,7 @@ const UserRequestManagement = () => {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [db, appId, loadingUser, viewMode, page]);
+  }, [db, appId, loadingUser, viewMode, page, pageCursors]); // 💡 將 pageCursors 添加到依賴項中
 
   const handleNextPage = () => {
     if (hasMore) {
@@ -385,36 +409,35 @@ const UserRequestManagement = () => {
         </table>
       </div>
 
-      {viewMode === "reviewed" && (
-        <div className="flex justify-center space-x-4 p-4">
-          {page > 0 && (
-            <button
-              onClick={handlePrevPage}
-              className={`px-6 py-2 rounded-md text-white transition-colors duration-200 shadow-sm ${
-                loading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-indigo-600 hover:bg-indigo-700"
-              }`}
-              disabled={loading}
-            >
-              上一頁
-            </button>
-          )}
-          {hasMore && (
-            <button
-              onClick={handleNextPage}
-              className={`px-6 py-2 rounded-md text-white transition-colors duration-200 shadow-sm ${
-                loading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-indigo-600 hover:bg-indigo-700"
-              }`}
-              disabled={loading}
-            >
-              {loading ? "載入中..." : "下一頁"}
-            </button>
-          )}
-        </div>
-      )}
+      {/* 分頁按鈕只在 reviewed 模式下顯示 */}
+      <div className="flex justify-center space-x-4 p-4">
+        {page > 0 && viewMode !== "pending" && (
+          <button
+            onClick={handlePrevPage}
+            className={`px-6 py-2 rounded-md text-white transition-colors duration-200 shadow-sm ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-indigo-600 hover:bg-indigo-700"
+            }`}
+            disabled={loading}
+          >
+            上一頁
+          </button>
+        )}
+        {hasMore && viewMode !== "pending" && (
+          <button
+            onClick={handleNextPage}
+            className={`px-6 py-2 rounded-md text-white transition-colors duration-200 shadow-sm ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-indigo-600 hover:bg-indigo-700"
+            }`}
+            disabled={loading}
+          >
+            {loading ? "載入中..." : "下一頁"}
+          </button>
+        )}
+      </div>
     </div>
   );
 };

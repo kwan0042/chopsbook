@@ -4,13 +4,9 @@
 import React, { useContext, useEffect, useState, useCallback } from "react";
 import { AuthContext } from "@/lib/auth-context";
 import {
-  collection,
-  query,
-  onSnapshot,
+  // 移除 collection, query, getDocs, where, documentId,
   doc,
-  getDocs,
-  where,
-  documentId,
+  getDoc,
 } from "firebase/firestore";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Activities from "@/components/user/Activities";
@@ -43,54 +39,53 @@ export default function UserReviewsPage({ params }) {
   const [mostLikedReviews, setMostLikedReviews] = useState([]);
   const [mostCheckIns, setMostCheckIns] = useState([]);
 
-  // 1. 獲取當前頁面顯示的用戶的個人資料
-  useEffect(() => {
+  // ✅ 步驟 1: 將資料獲取邏輯提取為一個獨立的 useCallback 函數
+  const loadUserProfile = useCallback(async () => {
     if (!db || !userId) {
       setLoadingProfileUser(false);
       return;
     }
+    setLoadingProfileUser(true); // 重新載入時設置為 true
     const userDocRef = doc(db, `artifacts/${appId}/users/${userId}`);
 
-    // --- 【Firebase Read 追蹤點 1: onSnapshot 讀取 (用戶資料)】 ---
-    console.log(
-      "FIREBASE_READ_TRACKER: Setting up onSnapshot for user profile."
-    );
-    let readCount = 0;
-    // ---------------------------------------------------------------
+    try {
+      // --- 【Firebase Read 追蹤點 1: getDoc 讀取 (用戶資料)】 ---
+      console.log(
+        "FIREBASE_READ_TRACKER: Performing single getDoc read for user profile."
+      );
+      // ---------------------------------------------------------------
 
-    const unsubscribe = onSnapshot(
-      userDocRef,
-      (docSnap) => {
-        // --- 【Firebase Read 追蹤點 1: 每次 onSnapshot 觸發時】 ---
-        readCount += 1;
-        console.log(
-          `FIREBASE_READ_TRACKER: User profile read - Count: ${readCount}`
-        );
-        // ---------------------------------------------------------------
+      const docSnap = await getDoc(userDocRef);
 
-        if (docSnap.exists()) {
-          const userData = docSnap.data();
-          setProfileUser({ id: docSnap.id, ...userData });
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        setProfileUser({ id: docSnap.id, ...userData });
 
-          fetchReviewsAndFavorites(userData);
-        } else {
-          setProfileUser(null);
-        }
-        setLoadingProfileUser(false);
-      },
-      (error) => {
-        console.error("獲取用戶資料失敗:", error);
-        setModalMessage(`獲取用戶資料失敗: ${error.message}`);
-        setLoadingProfileUser(false);
+        // 獲取列表資料 (假設列表資料可能依賴於個人資料中的某些字段)
+        fetchReviewsAndFavorites(userData);
+      } else {
+        setProfileUser(null);
       }
-    );
-    return () => unsubscribe();
+      setLoadingProfileUser(false);
+    } catch (error) {
+      console.error("獲取用戶資料失敗:", error);
+      setModalMessage(`獲取用戶資料失敗: ${error.message}`);
+      setLoadingProfileUser(false);
+    }
   }, [db, userId, appId, setModalMessage]);
+
+  // 1. 獲取當前頁面顯示的用戶的個人資料 (在組件掛載時呼叫)
+  useEffect(() => {
+    loadUserProfile();
+    // 💡 移除：由於是單次讀取，不需要清理函數
+    return () => {};
+  }, [loadUserProfile]); // 依賴 loadUserProfile
 
   // ✅ 核心修正：將所有資料獲取邏輯整合到一個函式中
   const fetchReviewsAndFavorites = async (userData) => {
     if (!db || !userId) return;
 
+    // ... (獲取食評和最愛餐廳的 API 邏輯保持不變) ...
     // ================== 獲取最近食評 (API 路由) ==================
     try {
       // ✅ 使用 API 路由獲取最近的食評
@@ -163,7 +158,7 @@ export default function UserReviewsPage({ params }) {
     }
   };
 
-  // 舊有的監聽器，現在不需要了，因為我們從主文件獲取資料
+  // 舊有的監聽器，現在不需要了，因為我們從主文件獲取資料 (保留以避免修改其他邏輯)
   useEffect(() => {
     setMostLikedReviews([]);
     setMostCheckIns([]);
@@ -182,12 +177,18 @@ export default function UserReviewsPage({ params }) {
       }
       try {
         await updateUserProfile(userId, updates);
+
+        // ✅ 步驟 2: 更新成功後，手動呼叫重新載入資料
+        console.log("用戶資料更新成功，正在手動重新載入用戶檔案...");
+        await loadUserProfile();
+
+        setModalMessage("個人檔案更新成功!", "success"); // 顯示成功訊息
       } catch (error) {
-        setModalMessage(`更新失敗: ${error.message}`);
+        setModalMessage(`更新失敗: ${error.message}`, "error");
         console.error("更新失敗:", error);
       }
     },
-    [userId, updateUserProfile, setModalMessage]
+    [userId, updateUserProfile, setModalMessage, loadUserProfile] // 依賴 loadUserProfile
   );
 
   if (loadingUser || loadingProfileUser) {

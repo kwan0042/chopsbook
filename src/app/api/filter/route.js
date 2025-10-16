@@ -111,6 +111,7 @@ export async function GET(request) {
       limit = 18,
       startAfterDocId,
       search,
+      searchLanguage, // 🚨 新增：接收前端傳來的語言標誌
       favoriteRestaurantIds,
       province,
       city,
@@ -172,17 +173,36 @@ export async function GET(request) {
       ? [category]
       : [];
 
-    // *** 滿足需求 1: 處理 search 邏輯 (不變) ***
+    // ----------------------------------------------------
+    // ⬇️ 關鍵修改區塊：處理 search 邏輯 ⬇️
+    // ----------------------------------------------------
     if (search) {
-      const normalizedQuery = search.toLowerCase();
+      const normalizedQuery = search; // 前端已處理小寫和 trim
       const endBoundary = normalizedQuery + "\uf8ff";
 
+      // 🚨 動態選擇搜尋欄位
+      let searchField;
+      if (searchLanguage === "zh") {
+        searchField = "restaurantName.zh-TW";
+      } else {
+        // 如果是 'en' 或未指定語言 (預設為英文/小寫)
+        searchField = "name_lowercase_en";
+      }
+
+      console.log(
+        `[Search API Debug] Searching field: ${searchField}, Query: ${normalizedQuery}`
+      );
+
+      // 設置範圍查詢
       q = q
-        .where("name_lowercase_en", ">=", normalizedQuery)
-        .where("name_lowercase_en", "<=", endBoundary);
+        .where(searchField, ">=", normalizedQuery)
+        .where(searchField, "<=", endBoundary);
 
-      q = q.orderBy("name_lowercase_en");
+      // 設置主要排序 (必須與 where 條件一致)
+      q = q.orderBy(searchField);
+      q = q.orderBy("__name__"); // 使用文件ID作為次要排序
 
+      // 確保在搜尋模式下，地區篩選條件能夠與 searchField 一起組成有效的複合索引
       if (province) {
         q = q.where("province", "==", province);
       }
@@ -190,7 +210,9 @@ export async function GET(request) {
         q = q.where("city", "==", city);
       }
     } else {
-      // *** 滿足需求 2 & 3: 處理無 search 的篩選和排序 ***
+      // ----------------------------------------------------
+      // *** 滿足需求 2 & 3: 處理無 search 的篩選和排序 (保持不變) ***
+      // ----------------------------------------------------
 
       // A. 處理 Where 條件 (精確匹配與單一範圍查詢)
 
@@ -265,7 +287,15 @@ export async function GET(request) {
         // ⚠️ 這需要複合索引 (priority, desc), (rating, desc)
         q = q.orderBy("rating", "desc");
       }
+
+      // 添加一個預設排序，如果沒有其他排序
+      if (categoriesArray.length === 0 && parsedMinRating === 0) {
+        q = q.orderBy("__name__");
+      }
     }
+    // ----------------------------------------------------
+    // ⬆️ 關鍵修改區塊結束 ⬆️
+    // ----------------------------------------------------
 
     // 3. 分頁與限制區 (保持不變)
 
@@ -379,7 +409,7 @@ export async function GET(request) {
       // 伺服器端過濾 7: Search 輔助過濾
       const passesSearch = (() => {
         if (!search) return true;
-        const normalizedQuery = search.toLowerCase();
+        const normalizedQuery = search.toLowerCase(); // 這裡必須轉小寫以匹配
 
         // 檢查中文名稱 (.includes) - 作為英文前綴搜尋的補充
         return (
