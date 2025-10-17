@@ -317,7 +317,7 @@ const RestaurantContent = () => {
             />
 
             {/* --- 新增分頁按鈕區塊 --- */}
-            <div className="flex justify-center mt-8 space-x-4">
+            <div className="flex justify-center mb-3 space-x-4">
               {/* 顯示當前頁碼 (只是視覺上的頁碼，非精確計數) */}
               <span className="flex items-center text-lg text-gray-700">
                 目前頁面: {currentPage}

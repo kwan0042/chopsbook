@@ -299,7 +299,7 @@ const ReviewForm = ({
         where(searchTarget, ">=", normalizedQuery),
         where(searchTarget, "<=", normalizedQuery + "\uf8ff"),
         orderBy(searchTarget), // 必須根據 where 條件進行排序
-        orderBy("__name__"), // 使用文件 ID 作為次要排序欄位
+        orderBy("priority","desc"), // 使用文件 ID 作為次要排序欄位
       ];
 
       // 增加關鍵的除錯輸出
@@ -376,7 +376,7 @@ const ReviewForm = ({
         console.error("搜尋餐廳失敗: 缺少索引或索引正在建構。", error);
         setErrors((prev) => ({
           ...prev,
-          selectedRestaurant: `搜尋失敗：Firebase要求複合索引。請確認 **${searchTarget}** (升序) 和 **文件ID (__name__)** (升序) 的索引已建立並啟用。`,
+          selectedRestaurant: `搜尋失敗：Firebase要求複合索引。請確認 **${searchTarget}** (升序) 和 **文件ID (priority)** (升序) 的索引已建立並啟用。`,
         }));
       } else {
         console.error("搜尋餐廳失敗:", error);

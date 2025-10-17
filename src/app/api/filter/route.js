@@ -92,6 +92,9 @@ const passesSeatingFilter = (restaurant, partySize) => {
 
 // --- API 核心函數 ---
 export async function GET(request) {
+  // 🚨 變動點 1: 初始化 Firestore 讀取計數器
+  let firestoreReadCount = 0;
+
   try {
     // 1. 參數解析區
     const { searchParams } = new URL(request.url);
@@ -127,20 +130,108 @@ export async function GET(request) {
       reservationDate,
       reservationTime,
       category, // 頂層菜系 (String)
+      restaurantType, // 🚨 新增: 接收 restaurantType 參數
       subCategory, // 細分菜系/特色 (Array)
       businessHours,
     } = filters;
 
-    // 2. Firestore 查詢構建區
+    // 將 favoriteRestaurantIds 轉換為陣列
+    const favoriteIdsArray = Array.isArray(favoriteRestaurantIds)
+      ? favoriteRestaurantIds
+      : favoriteRestaurantIds
+      ? [favoriteRestaurantIds]
+      : [];
+
     const appId = process.env.FIREBASE_ADMIN_APP_ID;
     const restaurantsColRef = db.collection(
       `artifacts/${appId}/public/data/restaurants`
     );
 
+    let restaurantsFromDb = [];
+    let hasMore = false;
+    let lastDocId = null;
+
+    // ----------------------------------------------------
+    // ⬇️ 關鍵修改區塊：處理專屬收藏列表的快速路徑 ⬇️
+    // ----------------------------------------------------
+
+    const hasOnlyFavoriteFilter =
+      favoriteIdsArray.length > 0 &&
+      !search &&
+      !province &&
+      !city &&
+      !category &&
+      !restaurantType &&
+      !subCategory &&
+      !minAvgSpending &&
+      !maxAvgSpending &&
+      !minRating &&
+      !minSeatingCapacity &&
+      !maxSeatingCapacity &&
+      !reservationModes &&
+      !paymentMethods &&
+      !facilities &&
+      !reservationDate &&
+      !reservationTime &&
+      !businessHours;
+
+    if (hasOnlyFavoriteFilter) {
+      console.log("[API DEBUG] Executing Favorites ONLY Fast Path.");
+      const docRefs = favoriteIdsArray.map((id) => restaurantsColRef.doc(id));
+
+      // 限制讀取數量，以避免 db.getAll 超過 Firestore 限制 (最大 10 個，但這裡用 ID 陣列長度)
+      const maxBatchReadLimit = 10;
+      const idsToFetch = docRefs.slice(0, maxBatchReadLimit);
+
+      const docs = await db.getAll(...idsToFetch);
+      firestoreReadCount += docs.length; // 記錄讀取量
+
+      restaurantsFromDb = docs
+        .filter((doc) => doc.exists)
+        .map((doc) => ({ id: doc.id, ...doc.data() }));
+
+      // 由於是精確讀取，不需要分頁邏輯，但為了保持API結構，還是設置 hasMore/lastDocId
+      const limitNum = parseInt(limit, 10);
+      restaurantsFromDb = restaurantsFromDb.slice(0, limitNum);
+
+      if (favoriteIdsArray.length > limitNum) {
+        hasMore = true;
+        // 這裡的 lastDocId 應是下一批次的起始，但因為我們是 db.getAll，
+        // 簡化處理：如果數量超過限制，hasMore=true
+        lastDocId = favoriteIdsArray[limitNum - 1];
+      }
+
+      // 🚨 如果是純收藏列表，直接返回結果，跳過主查詢和伺服器端二次過濾
+      // (因為這裡已經精確地拿到了文件，只需處理分頁/排序)
+
+      // 確保至少依據 priority 或 ID 排序
+      restaurantsFromDb.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+      console.log(
+        `[API REQUEST END] Total Firestore Reads (Fast Path): ${firestoreReadCount}`
+      );
+      const debugInfo = { firestoreReadCount, path: "FastPath" };
+
+      return NextResponse.json({
+        success: true,
+        restaurants: restaurantsFromDb,
+        hasMore,
+        lastDocId:
+          restaurantsFromDb.length > 0
+            ? restaurantsFromDb[restaurantsFromDb.length - 1].id
+            : null,
+        debug: debugInfo,
+      });
+    }
+
+    // ----------------------------------------------------
+    // ⬆️ 收藏快速路徑結束 - 進入標準過濾流程 ⬇️
+    // ----------------------------------------------------
+
     // 核心查詢：構建 Firestore 查詢以利用索引
     let q = restaurantsColRef;
 
-    // 將多值參數轉換為陣列，便於 Firestore 查詢
+    // 將多值參數轉換為陣列，便於 Firestore 查詢 (重新定義 favoriteRestaurantIds 以避免與上方變數混淆)
     const facilitiesArray = Array.isArray(facilities)
       ? facilities
       : facilities
@@ -169,12 +260,19 @@ export async function GET(request) {
     // 【修正】：準備 category 陣列用於 Firestore 查詢
     const categoriesArray = Array.isArray(category)
       ? category
-      : category
+      : category && category !== "" // 🚨 檢查 category 是否為空字串
       ? [category]
       : [];
 
+    // 🚨 準備 restaurantType 陣列用於 Firestore 查詢
+    const restaurantTypesArray = Array.isArray(restaurantType)
+      ? restaurantType
+      : restaurantType && restaurantType !== "" // 🚨 檢查 restaurantType 是否為空字串
+      ? [restaurantType]
+      : [];
+
     // ----------------------------------------------------
-    // ⬇️ 關鍵修改區塊：處理 search 邏輯 ⬇️
+    // ⬇️ 標準查詢邏輯 (Search) ⬇️
     // ----------------------------------------------------
     if (search) {
       const normalizedQuery = search; // 前端已處理小寫和 trim
@@ -227,10 +325,24 @@ export async function GET(request) {
       // 獨立篩選器 1: category (精確匹配 - 單一或多個)
       if (categoriesArray.length > 0) {
         if (categoriesArray.length > 1) {
-          // ⚠️ 複合查詢限制: 'in' 查詢不能與其他 array-contains-any 同時存在，請確認索引
+          // ⚠️ 複合查詢限制: 'in' 查詢不能與其他 array-contains-any/in 同時存在，請確認索引
           q = q.where("category", "in", categoriesArray.slice(0, 10)); // 限制 in 查詢最多 10 個
         } else {
           q = q.where("category", "==", categoriesArray[0]);
+        }
+      }
+
+      // 🚨 獨立篩選器 1.5: restaurantType (精確匹配 - 單一或多個)
+      if (restaurantTypesArray.length > 0) {
+        if (restaurantTypesArray.length > 1) {
+          // ⚠️ 注意 Firestore 限制：不能同時有兩個 'in' 查詢，但可以有一個 'in' 和多個 '=='
+          q = q.where(
+            "restaurantType",
+            "in",
+            restaurantTypesArray.slice(0, 10)
+          );
+        } else {
+          q = q.where("restaurantType", "==", restaurantTypesArray[0]);
         }
       }
 
@@ -289,20 +401,26 @@ export async function GET(request) {
       }
 
       // 添加一個預設排序，如果沒有其他排序
-      if (categoriesArray.length === 0 && parsedMinRating === 0) {
+      if (
+        categoriesArray.length === 0 &&
+        restaurantTypesArray.length === 0 &&
+        parsedMinRating === 0
+      ) {
         q = q.orderBy("__name__");
       }
     }
     // ----------------------------------------------------
-    // ⬆️ 關鍵修改區塊結束 ⬆️
+    // ⬆️ 標準查詢邏輯結束 ⬆️
     // ----------------------------------------------------
 
-    // 3. 分頁與限制區 (保持不變)
+    // 3. 分頁與限制區
 
     let startAfterReadCount = 0;
     // 處理分頁 (startAfter)
     if (startAfterDocId) {
+      // 🚨 變動點 2: 記錄 startAfter 查詢的讀取量 (+1)
       const startAfterDoc = await restaurantsColRef.doc(startAfterDocId).get();
+      firestoreReadCount += 1; // 記錄本次讀取
       startAfterReadCount = 1; // 追蹤讀取量
 
       if (startAfterDoc.exists) {
@@ -317,6 +435,10 @@ export async function GET(request) {
     // 執行查詢
     const snapshot = await q.get();
 
+    // 🚨 變動點 3: 記錄主查詢的讀取量
+    // Firestore 的 q.get() 讀取量等於返回的文件數量 (snapshot.size)
+    firestoreReadCount += snapshot.size;
+
     // ✅ 新增：console.log 追蹤讀取量
     console.log(
       `[Firestore READ] /api/restaurants - Start After Read: ${startAfterReadCount} doc`
@@ -325,7 +447,7 @@ export async function GET(request) {
       `[Firestore READ] /api/restaurants - Main Query Read: ${snapshot.size} docs`
     );
 
-    let restaurantsFromDb = [];
+    restaurantsFromDb = []; // 重置為從主查詢獲取的數據
     snapshot.forEach((doc) => {
       restaurantsFromDb.push({ id: doc.id, ...doc.data() });
     });
@@ -349,14 +471,14 @@ export async function GET(request) {
       const passesReservationModes = true;
       const passesPaymentMethods = true;
       const passesFacilities = true;
+      const passesRestaurantType = true;
+      const passesCategory = true;
 
-      // 伺服器端過濾 3: 收藏餐廳篩選 (不變)
+      // 伺服器端過濾 3: 收藏餐廳篩選 (只有在標準流程中，才在這裡過濾)
       const passesFavorites =
-        !favoriteRestaurantIds ||
-        favoriteRestaurantIds.length === 0 ||
-        (Array.isArray(favoriteRestaurantIds)
-          ? favoriteRestaurantIds.includes(restaurant.id)
-          : favoriteRestaurantIds === restaurant.id);
+        !favoriteIdsArray || // 使用 favoriteIdsArray
+        favoriteIdsArray.length === 0 ||
+        favoriteIdsArray.includes(restaurant.id);
 
       // 伺服器端過濾 4: Min/Max Seating Capacity (不變)
       const { min: restaurantMinCapacity, max: restaurantMaxCapacity } =
@@ -420,11 +542,11 @@ export async function GET(request) {
           (restaurant.restaurantName?.en || "")
             .toLowerCase()
             .includes(normalizedQuery) ||
-          (restaurant.category || "") // 檢查新的 category 欄位
+          (restaurant.category || "") // 檢查 category 欄位
             .toLowerCase()
             .includes(normalizedQuery) ||
           (restaurant.subCategory || []).some(
-            (sub) => sub.toLowerCase().includes(normalizedQuery) // 檢查新的 subCategory 陣列
+            (sub) => sub.toLowerCase().includes(normalizedQuery) // 檢查 subCategory 陣列
           ) ||
           (restaurant.fullAddress || "").toLowerCase().includes(normalizedQuery)
         );
@@ -434,7 +556,8 @@ export async function GET(request) {
       return (
         passesMinAvgSpending &&
         passesMaxAvgSpending &&
-        // passesCategory 已經移除
+        passesCategory &&
+        passesRestaurantType &&
         passesMinRating &&
         passesReservationModes &&
         passesPaymentMethods &&
@@ -447,25 +570,34 @@ export async function GET(request) {
       );
     });
 
-    // 5. 準備最終結果與分頁資訊區 (不變)
+    // 5. 準備最終結果與分頁資訊區
 
     const limitNum = parseInt(limit, 10);
-    const hasMore = filteredRestaurants.length > limitNum;
+    hasMore = filteredRestaurants.length > limitNum;
 
     const paginatedRestaurants = hasMore
       ? filteredRestaurants.slice(0, limitNum)
       : filteredRestaurants;
 
-    const lastDocId =
+    lastDocId =
       paginatedRestaurants.length > 0
         ? paginatedRestaurants[paginatedRestaurants.length - 1].id
         : null;
+
+    // 🚨 變動點 4: 在控制台輸出總讀取量
+    console.log(
+      `[API REQUEST END] Total Firestore Reads: ${firestoreReadCount}`
+    );
+
+    // 🚨 可選: 將讀取量加入響應 (用於調試，生產環境可能要移除)
+    const debugInfo = { firestoreReadCount, path: "Standard" };
 
     return NextResponse.json({
       success: true,
       restaurants: paginatedRestaurants,
       hasMore,
       lastDocId,
+      debug: debugInfo, // 為了方便您測試，將計數器加入響應
     });
   } catch (error) {
     console.error("API Filter Error:", error);

@@ -326,7 +326,7 @@ const RestaurantListPage = ({
             ))}
           </div>
           {restaurants.length > 0 && (
-            <div className="flex justify-center gap-4 mt-6">
+            <div className="flex justify-center gap-4 ">
               {onPrevPage && (
                 <button
                   onClick={onPrevPage}

@@ -287,7 +287,6 @@ export default function RestaurantReviewsPage() {
                     </p>
                   </div>
                   {/* 圖片區域 */}
-                  {console.log(review.uploadedImageUrls)}
                   {review.uploadedImageUrls &&
                     review.uploadedImageUrls.length > 0 && (
                       <div className="mx-2 p-4 relative">

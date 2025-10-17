@@ -87,7 +87,7 @@ export const metadata = {
 export default async function HomePageServer() {
   return (
     <div className="min-h-screen flex flex-col font-inter">
-      <main className="flex-grow">
+      <main className="flex-grow mb-4">
         {/* SEO H1 標籤：放在 Server Component，確保即時索引 */}
         <h1 className="sr-only">ChopsBook - 多倫多餐廳食評交流平台</h1>
 

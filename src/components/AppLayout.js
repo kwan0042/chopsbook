@@ -60,7 +60,7 @@ const AppLayout = ({ children }) => {
           onShowFilterModal={handleShowFilterModal}
           isRestaurantsPage={isRestaurantsPage}
         />
-        <main className="flex-grow">{children}</main>
+        <main className="flex-grow mb-6">{children}</main>
         <FilterModal
           isOpen={isFilterModalOpen}
           onClose={handleCloseFilterModal}
