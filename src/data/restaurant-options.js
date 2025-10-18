@@ -1,4 +1,4 @@
-export const cuisineOptions = [
+export const categoryOptions = [
   // 這些作為頂層 category (string) 使用
   "港式",
   "日本菜",
@@ -12,8 +12,8 @@ export const cuisineOptions = [
   "特色餐飲", // 簡化為只有主類別
 ];
 
-// ⚠️ 新增：subCategoryOptions 專門用於細分菜系 (從 cuisineOptions 中提取)
-export const subCategoryOptions = [
+// ⚠️ 新增：subcategoryOptions專門用於細分菜系 (從 categoryOptions 中提取)
+export const subcategoryOptions = [
   // 從 '中菜' 中提取
   "粵菜 (廣東菜)",
   "潮州菜",
@@ -85,6 +85,7 @@ export const restaurantTypeOptions = [
   "韓式小食/路邊攤",
   "韓國傳統餐廳/定食",
   "炸雞啤酒專門店 (Chimaek)",
+  "韓式炸雞 (Korean Fried Chicken)",
 
   // IV. 歐美/國際通用場所 (Western/General International)
   "扒房 (Steakhouse)",

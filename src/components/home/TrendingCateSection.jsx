@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation"; // 
+import { useRouter } from "next/navigation"; //
 
 /**
  * TrendingCateSection: 顯示熱門餐廳類別和菜系的區塊。
@@ -21,27 +21,27 @@ const TrendingCateSection = () => {
     { name: "甜品", icon: "🍰", filterKey: "restaurantType" },
   ];
 
-  // 關鍵修正：將 filterKey 設為 "cuisineType"
-  const cuisineTypes = [
-    { name: "香港菜", icon: "🇭🇰", filterKey: "cuisineType" },
-    { name: "台灣菜", icon: "🇹🇼", filterKey: "cuisineType" },
-    { name: "韓國菜", icon: "🇰🇷", filterKey: "cuisineType" },
-    { name: "泰國菜", icon: "🇹🇭", filterKey: "cuisineType" },
-    
+
+  const categorys = [
+    { name: "香港菜", icon: "🇭🇰", filterKey: "category" }, // 🚨 修正 filterKey
+    { name: "台灣菜", icon: "🇹🇼", filterKey: "category" }, // 🚨 修正 filterKey
+    { name: "韓國菜", icon: "🇰🇷", filterKey: "category" }, // 🚨 修正 filterKey
+    { name: "泰國菜", icon: "🇹🇭", filterKey: "category" }, // 🚨 修正 filterKey
   ];
 
   // 將兩種列表合併
-  const categories = [...restaurantTypes, ...cuisineTypes];
+  const categories = [...restaurantTypes, ...categorys];
 
   /**
    * 點擊類別時的處理函式。
    * 會將選定的 typeName 加入 URL 的 filters 參數中，並使用對應的 filterKey。
    * @param {string} typeName - 被點擊的餐廳類型/菜系名稱。
-   * @param {string} filterKey - 用於 URL 篩選條件的 key (e.g., "restaurantType" or "cuisineType")
+   * @param {string} filterKey - 用於 URL 篩選條件的 key (e.g., "restaurantType" or "category")
    */
   const handleCategoryClick = (typeName, filterKey) => {
     // 建立新的篩選條件物件，動態使用 filterKey
-    const newFilters = { [filterKey]: typeName };
+    // 由於篩選器現在對 category 和 restaurantType 預期的是陣列，這裡應該將其包裹在陣列中
+    const newFilters = { [filterKey]: [typeName] }; // 🚨 關鍵修正：將值包裹在陣列中
 
     // 建立新的 URL 查詢參數，並將篩選條件字串化後加入
     const newSearchParams = new URLSearchParams();
@@ -63,7 +63,6 @@ const TrendingCateSection = () => {
         {categories.map((type) => (
           <div
             key={type.name}
-            
             onClick={() => handleCategoryClick(type.name, type.filterKey)}
             className="bg-white rounded-xl shadow-lg p-4 flex flex-col items-center justify-center transition-transform hover:scale-105 cursor-pointer"
           >

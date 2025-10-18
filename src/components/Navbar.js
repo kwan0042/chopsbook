@@ -34,8 +34,11 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
         params.set("search", searchText);
       }
       router.push(`/restaurants?${params.toString()}`);
+
+      // ✨ 修正：提交搜尋後清除搜尋框內容
+      setSearchText("");
     },
-    [onSearch, searchText, isRestaurantsPage, router]
+    [searchText, router] // 移除不必要的依賴 onSearch, isRestaurantsPage，並確保 setSearchText 隱含地穩定
   );
 
   const handleGoHome = useCallback(() => {

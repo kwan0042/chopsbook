@@ -52,27 +52,49 @@ const RestaurantCard = ({
           "餐廳圖片"
       )}`;
 
-  
-  const cuisineTypeText = (() => {
-    // 假設扁平化後，餐廳物件上會有 category (主菜系) 和 subCategory (細分菜系) 陣列
-    const categories = Array.isArray(restaurant.category)
-      ? restaurant.category
-      : [];
-    const subCategories = Array.isArray(restaurant.subCategory)
-      ? restaurant.subCategory
+  const CategorysText = (() => {
+    // 🚨 修正: category 和 subCategory 現在是字串 (String)
+    const primaryCategory = restaurant.category || "";
+    const secondaryCategory = restaurant.subCategory || "";
+
+    // 🚨 修正: restaurantType 現在是陣列 (Array)
+    const types = Array.isArray(restaurant.restaurantType)
+      ? restaurant.restaurantType
       : [];
 
-    // 合併並去重，選擇前三個顯示，或只顯示主菜系
-    const allCuisines = [...new Set([...categories, ...subCategories])];
+    // 構建一個包含所有有效分類/子分類/類型名稱的陣列
+    let allCuisines = [];
 
-    if (allCuisines.length > 0) {
-      return (
-        allCuisines.slice(0, 3).join(" / ") +
-        (allCuisines.length > 3 ? "..." : "")
-      );
+    // 1. 優先放入 subCategory (最細節的菜系)
+    if (secondaryCategory && secondaryCategory !== "其他") {
+      allCuisines.push(secondaryCategory);
     }
 
-  
+    // 2. 放入 primary Category (主菜系)
+    if (primaryCategory && primaryCategory !== "其他菜系") {
+      // 避免重複：如果 subCategory 和 category 相同，則只保留一個 (雖然很少見，但為了安全)
+      if (!allCuisines.includes(primaryCategory)) {
+        allCuisines.push(primaryCategory);
+      }
+    }
+
+    // 3. 放入 restaurantType (場所類型) - 選擇前兩項作為補充資訊
+    const typeSupplements = types
+      .filter((type) => type !== "其他" && !allCuisines.includes(type))
+      .slice(0, 2);
+
+    allCuisines = [...allCuisines, ...typeSupplements];
+
+    // 🚨 最終顯示邏輯:
+    // 選擇前三個顯示，使用 " / " 分隔
+    if (allCuisines.length > 0) {
+      // 去重並連接
+      const uniqueCuisines = [...new Set(allCuisines)];
+      return (
+        uniqueCuisines.slice(0, 3).join(" | ") +
+        (uniqueCuisines.length > 3 ? "..." : "")
+      );
+    }
 
     // 如果都沒有，顯示 N/A
     return "N/A";
@@ -208,8 +230,15 @@ const RestaurantCard = ({
               isGridView ? "text-sm" : "text-sm"
             }`}
           >
-            {restaurant.city || "N/A"} | {cuisineTypeText} | 人均: $
-            {restaurant.avgSpending || "N/A"}
+            {restaurant.city || "N/A"} | {restaurant.province || "N/A"}
+          </p>
+          <p
+            className={`text-gray-700 mb-1 text-wrap ${
+              isGridView ? "text-sm" : "text-sm"
+            }`}
+          >
+            {" "}
+            {CategorysText}{" "}
           </p>
 
           <p
@@ -217,7 +246,7 @@ const RestaurantCard = ({
               isGridView ? "text-sm" : "text-sm"
             }`}
           >
-            電話: {restaurant.phone || "N/A"}
+            電話: {restaurant.phone || "N/A"} | 人均: ${restaurant.avgSpending || "N/A"}
           </p>
 
           <p

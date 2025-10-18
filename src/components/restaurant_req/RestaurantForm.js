@@ -14,7 +14,7 @@ import { AuthContext } from "../../lib/auth-context";
 
 // 引入所有選項數據
 import {
-  cuisineOptions,
+  categoryOptions,
   restaurantTypeOptions,
   seatingCapacityOptions,
   reservationModeOptions,
@@ -22,7 +22,9 @@ import {
   facilitiesServiceOptions,
   provinceOptions,
   citiesByProvince,
-} from "../../data/restaurant-options";
+  SUB_CATEGORY_MAP,
+  subcategoryOptions, // 確保這個選項集是正確的 (雖然不再需要整個 array，但保留導入)
+} from "@/data/restaurant-options";
 
 // 引入三個子組件
 import RestaurantDetailsSection from "./form_compo/RestaurantDetailsSection";
@@ -99,17 +101,7 @@ const RestaurantForm = ({
   const [errors, setErrors] = useState(flatInitialErrors);
   const [globalErrorMsg, setGlobalErrorMsg] = useState("");
 
-  const [cuisineChoice, setCuisineChoice] = useState({
-    category: formData.cuisineType?.category || "",
-    subType: formData.cuisineType?.subType || "",
-  });
-
-  useEffect(() => {
-    setCuisineChoice({
-      category: formData.cuisineType?.category || "",
-      subType: formData.cuisineType?.subType || "",
-    });
-  }, [formData.cuisineType]);
+  // 🚨 移除 cuisineChoice 狀態和相關 useEffect，因為 category/subCategory 現在是獨立的 String 欄位，直接使用 formData
 
   // ===========================================
   // 圖片預覽邏輯 (修正版 - 依賴 selectedFile 狀態)
@@ -152,15 +144,16 @@ const RestaurantForm = ({
     selectedRestaurantData?.originalFacadePhotoUrls,
   ]);
 
+  // ---------------------------------------------
+  // 圖片處理邏輯 (保持不變)
+  // ---------------------------------------------
   const openFilePicker = () => {
     if (!isUploading && !isSubmittingForm) {
       fileInputRef.current?.click();
     }
   };
 
-  // ===========================================
   // handleFileChange: 處理檔案選擇 (修正版)
-  // ===========================================
   const handleFileChange = (event) => {
     const file = event.target.files[0];
 
@@ -185,9 +178,7 @@ const RestaurantForm = ({
     }
   };
 
-  // ===========================================
   // handleRemovePhoto: 處理移除相片 (修正版)
-  // ===========================================
   const handleRemovePhoto = () => {
     // 清除本地檔案狀態 (觸發 useEffect 清理 Blob URL)
     setSelectedFile(null);
@@ -203,9 +194,9 @@ const RestaurantForm = ({
     // 清空 formData 中的 URL
     handleChange({ target: { name: "facadePhotoUrls", value: [] } });
   };
-  // --- 圖片預覽邏輯結束 ---
+  // ---------------------------------------------
 
-  // --- 地址/菜系選擇邏輯 (保持不變) ---
+  // --- 地址/菜系選擇邏輯 (需要修改) ---
   const handleProvinceChange = (e) => {
     const newProvince = e.target.value;
     handleChange({
@@ -216,40 +207,35 @@ const RestaurantForm = ({
     });
   };
 
+  // 🚨 修正: 直接更新 formData.category
   const handleCuisineCategoryChange = (e) => {
     const newCategory = e.target.value;
 
-    setCuisineChoice({
-      category: newCategory,
-      subType: "",
-    });
-
+    // 1. 更新 category
     handleChange({
       target: {
-        name: "cuisineType",
-        value: {
-          category: newCategory,
-          subType: "",
-        },
+        name: "category",
+        value: newCategory,
+      },
+    });
+
+    // 2. 清空 subCategory (因為主菜系變了，細分菜系必須重選)
+    handleChange({
+      target: {
+        name: "subCategory",
+        value: "",
       },
     });
   };
 
+  // 🚨 修正: 直接更新 formData.subCategory
   const handleSubCuisineChange = (e) => {
     const newSubType = e.target.value;
 
-    setCuisineChoice((prev) => ({
-      ...prev,
-      subType: newSubType,
-    }));
-
     handleChange({
       target: {
-        name: "cuisineType",
-        value: {
-          category: cuisineChoice.category,
-          subType: newSubType,
-        },
+        name: "subCategory",
+        value: newSubType,
       },
     });
   };
@@ -300,8 +286,8 @@ const RestaurantForm = ({
       "fullAddress",
       "facadePhotoUrls",
       "phone",
-      "cuisineCategory",
-      "cuisineSubType",
+      "category", // 🚨 修正: 使用 category
+      "subCategory", // 🚨 修正: 使用 subCategory
       "restaurantType",
       "businessHours",
       "paymentMethods",
@@ -316,8 +302,8 @@ const RestaurantForm = ({
         if (key === "restaurantName") return "restaurantName.en";
 
         // 處理菜系錯誤，滾動到父容器
-        if (key === "cuisineCategory" || key === "cuisineSubType")
-          return "cuisineType";
+        if (key === "category" || key === "subCategory")
+          return "cuisineTypeContainer"; // 🚨 修正: 滾動到新的容器 ID (假設您會在子組件中設置此 ID)
 
         // 處理圖片錯誤
         if (key === "facadePhotoUrls") return "facadePhotoUrls";
@@ -341,6 +327,7 @@ const RestaurantForm = ({
     setGlobalErrorMsg("");
 
     // 1. 執行全面同步驗證
+    // 🚨 驗證時傳遞給 validateRestaurantForm 的 formData 已經是新的結構 (category/subCategory/restaurantType)
     const flatValidationResult = validateRestaurantForm(
       { ...formData, tempSelectedFile: selectedFile },
       isUpdateForm,
@@ -435,7 +422,8 @@ const RestaurantForm = ({
     }
   };
 
-  const subCuisineOptions = cuisineOptions[cuisineChoice.category] || [];
+  // 🚨 修正: 根據 formData.category 決定 subcategoryOptions
+  const currentSubcategoryOptions = SUB_CATEGORY_MAP[formData.category] || [];
 
   const getSubmitButtonText = () => {
     return isUpdateForm ? "提交餐廳更新申請" : "新增餐廳";
@@ -480,10 +468,10 @@ const RestaurantForm = ({
         errors={errors} // 傳遞扁平 errors
         handleCheckboxChange={handleCheckboxChange}
         handleProvinceChange={handleProvinceChange}
-        cuisineChoice={cuisineChoice}
+        // 🚨 移除 cuisineChoice，直接傳遞 category 和 subCategory
         handleCuisineCategoryChange={handleCuisineCategoryChange}
         handleSubCuisineChange={handleSubCuisineChange}
-        subCuisineOptions={subCuisineOptions}
+        subCategoryOptions={currentSubcategoryOptions} // 🚨 修正: 使用當前計算出的選項
         openFilePicker={openFilePicker}
         previewUrl={previewUrl}
         handleRemovePhoto={handleRemovePhoto}
@@ -493,7 +481,7 @@ const RestaurantForm = ({
         seatingCapacityOptions={seatingCapacityOptions}
         provinceOptions={provinceOptions}
         citiesByProvince={citiesByProvince}
-        cuisineOptions={cuisineOptions}
+        CategoryOptions={categoryOptions}
       />
 
       {/* =======================================

@@ -1,3 +1,5 @@
+// src/hooks/useRestaurantData.js (假設這是您的檔案路徑)
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -29,11 +31,18 @@ export const useRestaurantData = (firestoreDb, appId, restaurantId) => {
       setLoading(true);
       setError(null);
 
+      // 追蹤 Firestore 讀取量的局部變數
+      let totalReads = 0;
+
       try {
         const fetchCollection = async (collectionPath, constraints = []) => {
           const collectionRef = collection(firestoreDb, collectionPath);
           const q = query(collectionRef, ...constraints);
           const querySnapshot = await getDocs(q);
+
+          // 累加讀取的文件數量
+          totalReads += querySnapshot.size;
+
           return querySnapshot.docs.map((doc) => {
             const data = doc.data();
             const convertedData = { ...data };
@@ -74,9 +83,18 @@ export const useRestaurantData = (firestoreDb, appId, restaurantId) => {
           topPhotos: photos.slice(0, 10),
           recentReviews: reviews, // 這裡我們不需要 slice，在 UI 處理就好
         });
+
+        // 成功獲取數據後，輸出總讀取量到控制台
+        console.log(
+          `[Firestore Read Count] Restaurant Data Load Success - Total Documents Read: ${totalReads} documents.`
+        );
       } catch (err) {
         console.error("Failed to fetch restaurant data:", err);
         setError("無法載入餐廳數據。請稍後再試。");
+        // 錯誤時，也輸出讀取量
+        console.log(
+          `[Firestore Read Count] Restaurant Data Load Error - Documents Read Before Failure: ${totalReads} documents.`
+        );
       } finally {
         setLoading(false);
       }
@@ -85,5 +103,6 @@ export const useRestaurantData = (firestoreDb, appId, restaurantId) => {
     fetchData();
   }, [firestoreDb, appId, restaurantId]);
 
+  // 保持原始的 Hook 返回值 (沒有 readCount)
   return { ...data, loading, error };
 };

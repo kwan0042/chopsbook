@@ -1,4 +1,4 @@
-// src/components/personal/FavRestaurantCard.js
+// src/components/user/FavRestaurantCard.js
 "use client";
 
 import React, { useContext, useCallback } from "react";
@@ -100,14 +100,18 @@ const FavRestaurantCard = ({ restaurant, onRemove, index, isMyProfile }) => {
     return null;
   };
 
-  const getCuisineDisplayName = (cuisine) => {
-    if (!cuisine) return "N/A";
-    // 檢查是否為物件，如果是，則返回 subType 屬性
-    if (typeof cuisine === "object" && cuisine !== null && cuisine.subType) {
-      return cuisine.subType;
+  // 🚨 修正：根據新的結構獲取菜系顯示名稱
+  const getCuisineDisplayName = (restaurant) => {
+    // 優先使用 subCategory (如果存在且非空字串)
+    if (restaurant.subCategory && restaurant.subCategory !== "") {
+      // 檢查是否為 "不適用" (這來自表單邏輯，雖然我們希望它存為 ""，但作為防禦性檢查)
+      if (restaurant.subCategory === "不適用") {
+        return restaurant.category || "N/A";
+      }
+      return restaurant.subCategory;
     }
-    // 否則，假設它是單個字串
-    return cuisine;
+    // 否則使用 category
+    return restaurant.category || "N/A";
   };
 
   const showRankBadge = index < 5;
@@ -134,11 +138,10 @@ const FavRestaurantCard = ({ restaurant, onRemove, index, isMyProfile }) => {
               {restaurant.fullAddress || "N/A"}
             </p>
 
-            {/* ⚡️ 修正：使用 getCuisineDisplayName 處理 cuisineType 物件 */}
+            {/* ⚡️ 修正：直接傳遞 restaurant 物件給新的 getCuisineDisplayName */}
             <p className="text-gray-700 mb-1 text-wrap text-sm">
-              {restaurant.city || "N/A"} |{" "}
-              {getCuisineDisplayName(restaurant.cuisineType)} | 人均: $
-              {restaurant.avgSpending || "N/A"}
+              {restaurant.city || "N/A"} | {getCuisineDisplayName(restaurant)} |
+              人均: ${restaurant.avgSpending || "N/A"}
             </p>
 
             <p className="text-gray-700 mb-1 text-wrap text-sm">

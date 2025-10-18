@@ -2,19 +2,7 @@
 
 import React, { useState, useEffect, useContext, useRef } from "react";
 import { AuthContext } from "@/lib/auth-context";
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  writeBatch,
-  setDoc,
-  addDoc,
-  collection,
-  onSnapshot,
-  query,
-  where,
-  increment, // 引入 Firestore 的 increment 函數
-} from "firebase/firestore";
+import { doc, writeBatch, collection, onSnapshot } from "firebase/firestore";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useRouter, useParams } from "next/navigation";
 import Modal from "@/components/Modal";
@@ -164,8 +152,6 @@ const AddRestaurantRequestPage = ({ requestId }) => {
         reviewedBy: currentUser.email || currentUser.uid,
       });
 
-      
-
       await batch.commit();
       setLocalModalMessage("已成功批准此請求並創建新餐廳！");
       setModalType("success");
@@ -192,8 +178,6 @@ const AddRestaurantRequestPage = ({ requestId }) => {
         reviewedBy: currentUser.email || currentUser.uid,
         reviewedAt: new Date(),
       });
-
-      
 
       await batch.commit(); // 執行批次寫入
 

@@ -131,7 +131,7 @@ export async function GET(request) {
       reservationTime,
       category, // 頂層菜系 (String)
       restaurantType, // 🚨 新增: 接收 restaurantType 參數
-      subCategory, // 細分菜系/特色 (Array)
+      subCategory, // 細分菜系/特色 (String) ⚠️ 這裡從 Array 變為 String
       businessHours,
     } = filters;
 
@@ -231,7 +231,7 @@ export async function GET(request) {
     // 核心查詢：構建 Firestore 查詢以利用索引
     let q = restaurantsColRef;
 
-    // 將多值參數轉換為陣列，便於 Firestore 查詢 (重新定義 favoriteRestaurantIds 以避免與上方變數混淆)
+    // 將多值參數轉換為陣列，便於 Firestore 查詢
     const facilitiesArray = Array.isArray(facilities)
       ? facilities
       : facilities
@@ -250,24 +250,24 @@ export async function GET(request) {
       ? [reservationModes]
       : [];
 
-    // 【新增】：準備 subCategory 陣列用於 Firestore 查詢
-    const subCategoryArray = Array.isArray(subCategory)
-      ? subCategory
-      : subCategory
-      ? [subCategory]
-      : [];
-
     // 【修正】：準備 category 陣列用於 Firestore 查詢
     const categoriesArray = Array.isArray(category)
       ? category
-      : category && category !== "" // 🚨 檢查 category 是否為空字串
+      : category && category !== ""
       ? [category]
       : [];
 
-    // 🚨 準備 restaurantType 陣列用於 Firestore 查詢
+    // 🚨 【修正】：準備 subCategory 陣列用於 Firestore 查詢 (DB 欄位現在是 String，但前端可能傳多個值，所以我們使用 'in')
+    const subCategoriesArray = Array.isArray(subCategory)
+      ? subCategory
+      : subCategory && subCategory !== ""
+      ? [subCategory]
+      : [];
+
+    // 🚨 【修正】：準備 restaurantType 陣列用於 Firestore 查詢 (DB 欄位現在是 Array，所以使用 array-contains-any)
     const restaurantTypesArray = Array.isArray(restaurantType)
       ? restaurantType
-      : restaurantType && restaurantType !== "" // 🚨 檢查 restaurantType 是否為空字串
+      : restaurantType && restaurantType !== ""
       ? [restaurantType]
       : [];
 
@@ -309,7 +309,7 @@ export async function GET(request) {
       }
     } else {
       // ----------------------------------------------------
-      // *** 滿足需求 2 & 3: 處理無 search 的篩選和排序 (保持不變) ***
+      // *** 處理無 search 的篩選和排序 ***
       // ----------------------------------------------------
 
       // A. 處理 Where 條件 (精確匹配與單一範圍查詢)
@@ -325,34 +325,30 @@ export async function GET(request) {
       // 獨立篩選器 1: category (精確匹配 - 單一或多個)
       if (categoriesArray.length > 0) {
         if (categoriesArray.length > 1) {
-          // ⚠️ 複合查詢限制: 'in' 查詢不能與其他 array-contains-any/in 同時存在，請確認索引
+          // 'in' 查詢不能與其他 array-contains-any/in 同時存在
           q = q.where("category", "in", categoriesArray.slice(0, 10)); // 限制 in 查詢最多 10 個
         } else {
           q = q.where("category", "==", categoriesArray[0]);
         }
       }
 
-      // 🚨 獨立篩選器 1.5: restaurantType (精確匹配 - 單一或多個)
-      if (restaurantTypesArray.length > 0) {
-        if (restaurantTypesArray.length > 1) {
-          // ⚠️ 注意 Firestore 限制：不能同時有兩個 'in' 查詢，但可以有一個 'in' 和多個 '=='
-          q = q.where(
-            "restaurantType",
-            "in",
-            restaurantTypesArray.slice(0, 10)
-          );
+      // 🚨 獨立篩選器 1.5: subCategory (DB 欄位是 String，使用 'in' 進行多選篩選)
+      if (subCategoriesArray.length > 0) {
+        if (subCategoriesArray.length > 1) {
+          // 'in' 查詢不能與其他 array-contains-any/in 同時存在
+          q = q.where("subCategory", "in", subCategoriesArray.slice(0, 10));
         } else {
-          q = q.where("restaurantType", "==", restaurantTypesArray[0]);
+          q = q.where("subCategory", "==", subCategoriesArray[0]);
         }
       }
 
-      // 獨立篩選器 2: subCategory (陣列 OR)
-      if (subCategoryArray.length > 0) {
-        // ⚠️ 這需要複合索引 (category/province/city), (subCategory, array-contains-any)
+      // 🚨 獨立篩選器 2: restaurantType (DB 欄位是 Array，使用 'array-contains-any' 進行 OR 篩選)
+      if (restaurantTypesArray.length > 0) {
+        // ⚠️ 複合查詢限制: 'array-contains-any' 查詢不能與 'in' 或其他 'array-contains-any' 同時存在
         q = q.where(
-          "subCategory",
+          "restaurantType",
           "array-contains-any",
-          subCategoryArray.slice(0, 10) // 限制 array-contains-any 查詢最多 10 個
+          restaurantTypesArray.slice(0, 10) // 限制 array-contains-any 查詢最多 10 個
         );
       }
 
@@ -404,6 +400,7 @@ export async function GET(request) {
       if (
         categoriesArray.length === 0 &&
         restaurantTypesArray.length === 0 &&
+        subCategoriesArray.length === 0 && // 🚨 納入 subCategory 檢查
         parsedMinRating === 0
       ) {
         q = q.orderBy("__name__");
@@ -466,13 +463,17 @@ export async function GET(request) {
         !maxAvgSpending ||
         restaurant.avgSpending <= parseInt(maxAvgSpending, 10);
 
-      // 設定為 true，因為已在 Firestore 查詢中處理 (不變)
+      // 設置為 true，因為已在 Firestore 查詢中處理 (不變)
       const passesMinRating = true;
       const passesReservationModes = true;
       const passesPaymentMethods = true;
       const passesFacilities = true;
-      const passesRestaurantType = true;
       const passesCategory = true;
+
+      // 🚨 修正: restaurantType 已在 Firestore 查詢中使用 array-contains-any 處理，因此這裡設為 true
+      const passesRestaurantType = true;
+      // 🚨 修正: subCategory 已在 Firestore 查詢中使用 ==/in 處理，因此這裡設為 true
+      const passesSubCategory = true;
 
       // 伺服器端過濾 3: 收藏餐廳篩選 (只有在標準流程中，才在這裡過濾)
       const passesFavorites =
@@ -545,9 +546,10 @@ export async function GET(request) {
           (restaurant.category || "") // 檢查 category 欄位
             .toLowerCase()
             .includes(normalizedQuery) ||
-          (restaurant.subCategory || []).some(
-            (sub) => sub.toLowerCase().includes(normalizedQuery) // 檢查 subCategory 陣列
-          ) ||
+          // 🚨 修正: subCategory 現在是 String，直接檢查是否包含
+          (restaurant.subCategory || "")
+            .toLowerCase()
+            .includes(normalizedQuery) ||
           (restaurant.fullAddress || "").toLowerCase().includes(normalizedQuery)
         );
       })();
@@ -557,7 +559,8 @@ export async function GET(request) {
         passesMinAvgSpending &&
         passesMaxAvgSpending &&
         passesCategory &&
-        passesRestaurantType &&
+        passesRestaurantType && // 設為 true
+        passesSubCategory && // 設為 true
         passesMinRating &&
         passesReservationModes &&
         passesPaymentMethods &&

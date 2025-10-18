@@ -1,6 +1,6 @@
 import React from "react";
 import {
-  cuisineOptions,
+  categoryOptions,
   provinceOptions,
   citiesByProvince,
   restaurantTypeOptions,
@@ -16,27 +16,28 @@ const RestaurantDetailsSection = ({
   errors,
   handleCheckboxChange,
   handleProvinceChange,
-  // 菜系相關 props
-  cuisineChoice,
+  // 菜系相關 props (更新為使用獨立欄位)
   handleCuisineCategoryChange,
   handleSubCuisineChange,
-  subCuisineOptions,
+  subCategoryOptions,
   // 圖片相關 props (已完整包含)
   openFilePicker,
   previewUrl,
   handleRemovePhoto,
-  selectedFile, // 雖然在組件內未使用，但保持接受，用於展示檔案名稱
-  isUploading, // 新增：用於顯示上傳狀態
-  isSubmittingForm, // 新增：用於禁用按鈕
+  selectedFile,
+  isUploading,
+  isSubmittingForm,
 }) => {
   // 根據選擇的省份動態獲取城市列表
   const citiesForSelectedProvince = citiesByProvince[formData.province] || [
     "選擇城市",
   ];
 
+  // 判斷當前選擇的主菜系是否有子菜系
+  const hasSubCategories = subCategoryOptions && subCategoryOptions.length > 0;
+
   return (
     <div className="border-b border-gray-200 pb-6">
-      <h3 className="text-2xl font-bold text-gray-800 mb-4">餐廳詳細資料</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div ref={(el) => (inputRefs.current["restaurantName.zh-TW"] = el)}>
           {" "}
@@ -302,7 +303,7 @@ const RestaurantDetailsSection = ({
               </button>
             )}
           </div>
-          {/* 🔥 核心修正：圖片預覽顯示區塊 🔥 */}
+          {/* 🔥 圖片預覽顯示區塊 🔥 */}
           {previewUrl && (
             <div className="mt-4 border border-gray-300 p-4 rounded-lg relative bg-gray-100 flex justify-center items-center">
               <img
@@ -357,7 +358,7 @@ const RestaurantDetailsSection = ({
                 ? "border-red-500 focus:ring-red-500"
                 : "border-gray-300 focus:ring-blue-500"
             }`}
-            placeholder="請輸入 8 位數字的電話號碼"
+            placeholder="請輸入電話號碼 (例如：1234 5678)"
           />
         </div>
         <div ref={(el) => (inputRefs.current["website"] = el)}>
@@ -383,36 +384,37 @@ const RestaurantDetailsSection = ({
       {/* 級聯菜系選擇 */}
       <div
         className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4"
-        ref={(el) => (inputRefs.current["cuisineType"] = el)}
+        ref={(el) => (inputRefs.current["cuisineTypeContainer"] = el)} // 🚨 修正: 為了滾動到父容器
       >
         {" "}
         <div>
           <label
-            htmlFor="cuisineCategory"
+            htmlFor="category" // 🚨 修正: ID 使用 category
             className="block text-gray-700 text-sm font-bold mb-2"
           >
             菜系類別 <span className="text-red-500">*</span>
-            {errors.cuisineCategory && (
+            {errors.category && (
               <span className="text-red-500 font-normal text-xs ml-2">
-                {errors.cuisineCategory}
+                {errors.category}
               </span>
             )}
           </label>
           <select
-            id="cuisineCategory"
-            name="cuisineCategory"
-            value={cuisineChoice.category}
+            id="category"
+            name="category" // 🚨 修正: name 使用 category
+            value={formData.category} // 🚨 修正: 直接綁定 formData.category
             onChange={handleCuisineCategoryChange}
             className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-              errors.cuisineCategory
+              errors.category
                 ? "border-red-500 focus:ring-red-500"
                 : "border-gray-300 focus:ring-blue-500"
             }`}
+            ref={(el) => (inputRefs.current["category"] = el)} // 🚨 修正: 設置 ref
           >
             <option value="" disabled>
               選擇菜系類別
             </option>
-            {Object.keys(cuisineOptions).map((category) => (
+            {categoryOptions.map((category) => (
               <option key={category} value={category}>
                 {category}
               </option>
@@ -421,36 +423,43 @@ const RestaurantDetailsSection = ({
         </div>
         <div>
           <label
-            htmlFor="cuisineType"
+            htmlFor="subCategory" // 🚨 修正: ID 使用 subCategory
             className="block text-gray-700 text-sm font-bold mb-2"
           >
             子菜系 <span className="text-red-500">*</span>
-            {errors.cuisineSubType && (
+            {errors.subCategory && (
               <span className="text-red-500 font-normal text-xs ml-2">
-                {errors.cuisineSubType}
+                {errors.subCategory}
               </span>
             )}
           </label>
           <select
-            id="cuisineType"
-            name="cuisineType"
-            value={cuisineChoice.subType}
+            id="subCategory"
+            name="subCategory" // 🚨 修正: name 使用 subCategory
+            value={formData.subCategory || (hasSubCategories ? "" : "")} // 🚨 修正: 直接綁定 formData.subCategory
             onChange={handleSubCuisineChange}
             className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
-              errors.cuisineSubType
+              errors.subCategory
                 ? "border-red-500 focus:ring-red-500"
                 : "border-gray-300 focus:ring-blue-500"
             } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
-            disabled={!cuisineChoice.category}
+            disabled={!formData.category || !hasSubCategories} // 🚨 修正: 禁用邏輯
+            ref={(el) => (inputRefs.current["subCategory"] = el)} // 🚨 修正: 設置 ref
           >
-            <option value="" disabled>
-              選擇子菜系
+            {/* 🚨 修正: 根據有無子菜系顯示不同的預設選項 */}
+            <option value="" disabled={hasSubCategories}>
+              {hasSubCategories ? "選擇子菜系" : "不適用"}
             </option>
-            {subCuisineOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
+            {hasSubCategories ? (
+              subCategoryOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))
+            ) : (
+              // 當沒有子菜系時，確保有一個 "不適用" 的選項，但我們將其值設為 "" 以便於數據庫處理
+              <option value="">不適用</option>
+            )}
           </select>
         </div>
       </div>
@@ -462,33 +471,42 @@ const RestaurantDetailsSection = ({
             htmlFor="restaurantType"
             className="block text-gray-700 text-sm font-bold mb-2"
           >
-            餐廳類型 <span className="text-red-500">*</span>
+            餐廳類型 (多選) <span className="text-red-500">*</span>
             {errors.restaurantType && (
               <span className="text-red-500 font-normal text-xs ml-2">
                 {errors.restaurantType}
               </span>
             )}
           </label>
-          <select
-            id="restaurantType"
-            name="restaurantType"
-            value={formData.restaurantType || ""}
-            onChange={handleChange}
-            className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+          {/* 🚨 變動點: 由於 restaurantType 現在是 Array，需要將這裡的 select 改為多選 checkbox 或保留 select 但多選*/}
+          {/* **為了簡化，我們先將其轉換為多選 Checkbox 列表** */}
+          <div
+            className={`p-3 border rounded-md focus:outline-none focus:ring-2 h-40 overflow-y-auto ${
               errors.restaurantType
                 ? "border-red-500 focus:ring-red-500"
                 : "border-gray-300 focus:ring-blue-500"
             }`}
           >
-            <option value="" disabled>
-              選擇餐廳類型
-            </option>
             {restaurantTypeOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
+              <div key={option} className="flex items-center">
+                <input
+                  type="checkbox"
+                  id={`restaurantType-${option}`}
+                  name="restaurantType" // 🚨 確保使用陣列名稱
+                  value={option}
+                  checked={formData.restaurantType.includes(option)}
+                  onChange={handleCheckboxChange}
+                  className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                />
+                <label
+                  htmlFor={`restaurantType-${option}`}
+                  className="ml-2 text-sm text-gray-700"
+                >
+                  {option}
+                </label>
+              </div>
             ))}
-          </select>
+          </div>
         </div>
         <div ref={(el) => (inputRefs.current["avgSpending"] = el)}>
           {" "}

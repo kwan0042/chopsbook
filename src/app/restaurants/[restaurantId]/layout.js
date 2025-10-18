@@ -144,36 +144,65 @@ export default function RestaurantDetailLayout({ children }) {
   const renderCuisineOrType = (data) => {
     if (!data) return "N/A";
 
-    // 如果是陣列，則渲染逗號分隔的字串
+    // 1. 處理 Array: 適用於 restaurantType, paymentMethods 等多選字段 (字串陣列)
     if (Array.isArray(data)) {
-      return data.join("、");
+      // 確保陣列非空，且元素是字串，然後用頓號連接
+      const filteredData = data.filter(
+        (item) => typeof item === "string" && item.trim() !== ""
+      );
+      return filteredData.length > 0 ? filteredData.join("、") : "N/A";
     }
 
-    // 處理物件 (這是錯誤的來源：{category, subType})
+    // 2. 處理 Object: 主要用於菜系結構 { category, subCategory: [...] }
     if (typeof data === "object" && data !== null) {
-      // 處理 {category, subType} 結構
-      if ("category" in data && "subType" in data) {
-        let subTypes = Array.isArray(data.subType)
-          ? data.subType.join("、")
-          : data.subType || "";
+      // 檢查是否包含 category 屬性 (標記為菜系結構)
+      if ("category" in data) {
+        const category = data.category || "";
+        // 🚨 使用 subCategory 欄位 (預期是陣列或空值)
+        const subCategories = data.subCategory;
 
-        if (subTypes) {
-          return `${data.category} (${subTypes})`;
+        if (!category && (!subCategories || subCategories.length === 0)) {
+          return "N/A"; // 兩者都空
         }
-        return data.category || "N/A";
+
+        let subCategoryDisplay = "";
+
+        // 處理 subCategory：如果是陣列，連起來
+        if (Array.isArray(subCategories)) {
+          const filteredSubCategories = subCategories.filter(
+            (item) => typeof item === "string" && item.trim() !== ""
+          );
+          subCategoryDisplay = filteredSubCategories.join("、");
+        }
+        // 如果 subCategory 碰巧是單一非空字串 (防禦性處理，儘管預期是陣列)
+        else if (typeof subCategories === "string") {
+          subCategoryDisplay = subCategories.trim();
+        }
+
+        // 組合顯示
+        if (category && subCategoryDisplay) {
+          return `${category} (${subCategoryDisplay})`;
+        }
+        if (category) {
+          return category;
+        }
+
+        return "N/A";
       }
 
-      // 處理 { label, value } 或其他單層次物件
+      // 處理 { label, value } 或其他單層次物件 (保持原邏輯)
       if (data.label) {
         return data.label;
       }
-
-      // 最終防線：返回一個預設字串
-      return "N/A";
     }
 
-    // 如果是單一字串，直接返回
-    return String(data);
+    // 3. 最終防線：處理單一非空字串 (如果 data 碰巧是字串)
+    if (typeof data === "string" && data.trim() !== "") {
+      return data.trim();
+    }
+
+    // 最終預設值
+    return "N/A";
   };
 
   const renderRatingStars = (averageRating) => (
@@ -270,7 +299,7 @@ export default function RestaurantDetailLayout({ children }) {
 
   // 決定要渲染的菜系/類型字串
   const cuisineDisplay = renderCuisineOrType(
-    restaurant.cuisine || restaurant.restaurantType || restaurant.cuisineType
+    restaurant.category || restaurant.subCategory || restaurant.restaurantType
   );
 
   // 獲取門面照片 URL

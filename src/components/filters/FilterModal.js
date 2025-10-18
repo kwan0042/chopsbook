@@ -13,8 +13,8 @@ import { faChevronUp, faChevronDown } from "@fortawesome/free-solid-svg-icons";
 
 // 導入新的扁平化菜系選項
 import {
-  cuisineOptions, // 這是頂層 category 陣列
-  subCategoryOptions, // 這是細分 subCategory 陣列
+  categoryOptions, // 這是頂層 category 陣列
+  subcategoryOptions, // 這是細分 subCategory 陣列
   restaurantTypeOptions,
   reservationModeOptions,
   paymentMethodOptions,
@@ -84,7 +84,7 @@ const FilterModal = ({
   const [avgSpending, setAvgSpending] = useState(0);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  // 狀態: 控制每個 FilterGroup 的收合狀態 (確保沒有 cuisineType)
+  
   const [isTimeAndPartyCollapsed, setIsTimeAndPartyCollapsed] = useState(true);
   const [isRegionCollapsed, setIsRegionCollapsed] = useState(true);
   const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(true); // 👈 主菜系折疊狀態
@@ -233,9 +233,7 @@ const FilterModal = ({
       }
     });
 
-    // ⚠️ 關鍵：確保 localFilters 內沒有遺留的 cuisineType
-    delete newFilters.cuisineType;
-
+    
     // 移除所有值為空或未定義的屬性
     Object.keys(newFilters).forEach((key) => {
       const value = newFilters[key];
@@ -423,7 +421,7 @@ const FilterModal = ({
           >
             <CheckboxesFilter
               title="category"
-              options={cuisineOptions} // 綁定到主菜系選項
+              options={categoryOptions} // 綁定到主菜系選項
               selected={localFilters.category || []} // 綁定到 category
               onToggle={(value) =>
                 handleMultiSelectFilterChange("category", value)
@@ -440,7 +438,7 @@ const FilterModal = ({
           >
             <CheckboxesFilter
               title="subCategory"
-              options={subCategoryOptions} // 綁定到細分菜系選項
+              options={subcategoryOptions} // 綁定到細分菜系選項
               selected={localFilters.subCategory || []} // 綁定到 subCategory
               onToggle={(value) =>
                 handleMultiSelectFilterChange("subCategory", value)

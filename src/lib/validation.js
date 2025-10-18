@@ -8,6 +8,10 @@
  * @param {string[]} [originalFacadePhotoUrls=[]] - 原始圖片 URL (用於照片驗證)。
  * @returns {object} 彙總的錯誤物件，key 為欄位名稱，value 為錯誤訊息或錯誤陣列。
  */
+
+// 🚨 導入 SUB_CATEGORY_MAP：請根據您的檔案結構調整路徑！
+import { SUB_CATEGORY_MAP } from "../data/restaurant-options";
+
 export const validateRestaurantForm = (
   data,
   isUpdateForm = false,
@@ -45,18 +49,30 @@ export const validateRestaurantForm = (
   // 3. 聯絡電話 (餐廳電話)
   if (!data.phone || String(data.phone).trim().length === 0) {
     errors.phone = "餐廳電話為必填項目。";
-  } else if (!/^\d{10}$/.test(String(data.contactPhone).trim())) {
-    errors.contactPhone = "聯絡人電話必須是 10 位數字（區號 + 號碼）。";
+    // 修正：驗證餐廳電話格式，假設為 10 位數字。
+  } else if (!/^\d{10}$/.test(String(data.phone).trim())) {
+    errors.phone = "餐廳電話必須是 10 位數字（區號 + 號碼）。";
   }
 
-  // 4. 類型
-  if (!data.cuisineType?.category) {
-    errors.cuisineCategory = "請選擇菜系。";
+  // 4. 類型 (使用獨立欄位 category 和 subCategory)
+  if (!data.category) {
+    errors.category = "請選擇菜系類別。";
+  } else {
+    // 獲取當前主菜系是否有子選項
+    const subOptions = SUB_CATEGORY_MAP[data.category] || [];
+
+    // 🚨 修正核心邏輯：如果主菜系有子選項 (subOptions.length > 0)，則子菜系必填
+    // 檢查 subCategory 是否為空字串或未定義 (注意：在沒有子菜系時，表單組件會將其設為 "")
+    // 這裡我們只檢查：如果應該有子菜系，但用戶沒有選擇一個有效值，則報錯。
+    if (
+      subOptions.length > 0 &&
+      (!data.subCategory || data.subCategory === "")
+    ) {
+      errors.subCategory = `選擇 ${data.category} 後，請選擇子菜系。`;
+    }
   }
 
-  if (!data.cuisineType?.subType) {
-    errors.cuisineSubType = "請選擇菜類別。";
-  }
+  // 餐廳類型 (現在是 Array)
   if (!data.restaurantType || data.restaurantType.length === 0) {
     errors.restaurantType = "餐廳類型為必填項目。";
   }

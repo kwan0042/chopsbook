@@ -1,3 +1,5 @@
+// src/components/restaurant_req/AddRestaurantPage.js
+
 "use client";
 
 import React, { useState, useContext, useEffect, useRef } from "react";
@@ -60,8 +62,11 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     fullAddress: "",
     phone: "",
     website: "",
-    cuisineType: { category: "", subType: "" }, // 確保 cuisineType 是一個物件
-    restaurantType: [],
+    // 🚨 變動點 1: 更改為新的單一欄位 category 和 subCategory
+    category: "", // String 頂層菜系
+    subCategory: "", // String 細分菜系/特色
+    // 🚨 變動點 2: restaurantType 現在是 Array
+    restaurantType: [], // Array 場所類型
     avgSpending: "",
     facadePhotoUrls: [],
     seatingCapacity: "",
@@ -74,9 +79,9 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     closedDates: "",
     isHolidayOpen: false,
     holidayHours: "",
-    reservationMode: "", // 使用 reservationMode 統一名稱
+    reservationModes: [], // 統一使用 reservationModes (Array)
     paymentMethods: [],
-    facilitiesAndServices: [], // 使用 facilitiesAndServices 統一名稱
+    facilitiesServices: [], // 統一使用 facilitiesServices (Array)
     otherInfo: "",
     isManager: false,
     contactName: "",
@@ -117,11 +122,11 @@ const AddRestaurantPage = ({ onBackToHome }) => {
         return newFormData;
       });
     }
-    // 處理 cuisineType 的物件更新，這裡需要特殊處理，避免覆蓋 subType
-    else if (name === "cuisineType" && typeof value === "object") {
+    // 處理 category 和 subCategory 的單一字串更新 (現在它們是單獨的欄位)
+    else if (name === "category" || name === "subCategory") {
       setFormData((prev) => ({
         ...prev,
-        cuisineType: value,
+        [name]: value,
       }));
     } else if (name.startsWith("restaurantName")) {
       const lang = name.split(".")[1];
@@ -144,6 +149,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
   const handleCheckboxChange = (e) => {
     const { name, value, checked } = e.target;
     setFormData((prev) => {
+      // 處理 restaurantType, paymentMethods, facilitiesServices, reservationModes (Array 欄位)
       const currentArray = prev[name] || [];
       if (checked) {
         return { ...prev, [name]: [...currentArray, value] };
@@ -175,9 +181,6 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     setModalMessage("");
     setModalType("");
 
-    // 由於 RestaurantForm 已經在內部執行了驗證並在有錯誤時阻止了傳遞到這裡，
-    // 因此這裡我們主要檢查 Firestore 服務狀態。
-
     if (!db || !currentUser || !appId) {
       setModalMessage("錯誤：數據庫服務未準備或用戶未登入。");
       setModalType("error");
@@ -187,19 +190,42 @@ const AddRestaurantPage = ({ onBackToHome }) => {
 
     const dataToSubmit = { ...updatedFormDataWithImageUrl };
 
-    // 提交前，移除 transient/helper field
+    // 1. 提交前，移除 transient/helper field
     delete dataToSubmit.noChineseName;
     delete dataToSubmit.tempSelectedFile;
-    delete dataToSubmit.originalFacadePhotoUrls; // 確保新增時不會有此欄位
+    delete dataToSubmit.originalFacadePhotoUrls;
 
-    // 核心：在提交前將特定欄位轉換為數字類型
+    // 🚨 變動點 3: 移除舊的 cuisineType 處理邏輯 (因為現在 category 和 subCategory 是單獨欄位)
+    // 檢查並清理 reservationMode/s 欄位 (防止舊版殘留)
+    if (dataToSubmit.reservationMode) {
+      // 如果舊的單數欄位存在，轉換並移除
+      dataToSubmit.reservationModes = Array.isArray(
+        dataToSubmit.reservationModes
+      )
+        ? dataToSubmit.reservationModes
+        : [dataToSubmit.reservationMode].filter(Boolean); // 過濾空值
+    }
+    delete dataToSubmit.reservationMode;
+
+    // 2. 核心修改：新增 name_lowercase_en 欄位
+    const englishName = dataToSubmit.restaurantName?.en;
+    if (englishName) {
+      dataToSubmit.name_lowercase_en = englishName.toLowerCase().trim();
+    } else {
+      dataToSubmit.name_lowercase_en = "";
+    }
+    // 核心修改結束
+
+    // 3. 核心：在提交前將特定欄位轉換為數字類型和清理
     if (dataToSubmit.avgSpending) {
       dataToSubmit.avgSpending = parseInt(dataToSubmit.avgSpending, 10);
     }
     if (dataToSubmit.phone) {
+      // 確保只存數字
       dataToSubmit.phone = String(dataToSubmit.phone).replace(/[^0-9]/g, "");
     }
     if (dataToSubmit.contactPhone) {
+      // 確保只存數字
       dataToSubmit.contactPhone = String(dataToSubmit.contactPhone).replace(
         /[^0-9]/g,
         ""
@@ -209,16 +235,17 @@ const AddRestaurantPage = ({ onBackToHome }) => {
       dataToSubmit.priority = parseInt(dataToSubmit.priority, 10);
     }
 
-    // 確保 cuisineType 結構正確 (RestaurantForm 已經處理，這裡只是冗餘檢查)
-    if (
-      dataToSubmit.cuisineType &&
-      typeof dataToSubmit.cuisineType === "string"
-    ) {
-      dataToSubmit.cuisineType = {
-        category: dataToSubmit.cuisineType,
-        subType: "",
-      };
+    // 🚨 變動點 4: 清理 category 和 subCategory 確保是字串，且 restaurantType 是陣列 (RestaurantForm 應該保證，這裡只是冗餘檢查)
+    dataToSubmit.category = String(dataToSubmit.category || "").trim();
+    dataToSubmit.subCategory = String(dataToSubmit.subCategory || "").trim();
+    if (!Array.isArray(dataToSubmit.restaurantType)) {
+      dataToSubmit.restaurantType = dataToSubmit.restaurantType
+        ? [dataToSubmit.restaurantType]
+        : [];
     }
+
+    // 由於 formData 中 restaurantType, reservationModes, paymentMethods, facilitiesServices
+    // 都是陣列，不需要額外的轉換。
 
     try {
       await addDoc(

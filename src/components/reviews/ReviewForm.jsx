@@ -269,6 +269,9 @@ const ReviewForm = ({
 
     setErrors((prev) => ({ ...prev, selectedRestaurant: null }));
 
+    // ✅ 變動點 1: 宣告局部變數來追蹤讀取量
+    let restaurantSearchReads = 0;
+
     try {
       const restaurantsRef = collection(
         db,
@@ -299,7 +302,7 @@ const ReviewForm = ({
         where(searchTarget, ">=", normalizedQuery),
         where(searchTarget, "<=", normalizedQuery + "\uf8ff"),
         orderBy(searchTarget), // 必須根據 where 條件進行排序
-        orderBy("priority","desc"), // 使用文件 ID 作為次要排序欄位
+        orderBy("priority", "desc"), // 使用文件 ID 作為次要排序欄位
       ];
 
       // 增加關鍵的除錯輸出
@@ -327,14 +330,17 @@ const ReviewForm = ({
       queryConstraints.push(limit(queryLimit + 1));
       const finalQuery = query(restaurantsRef, ...queryConstraints);
 
-      // 這個 log 幫助追蹤實際讀取量
+      // 這個 log 幫助追蹤實際讀取量 (預計值)
       console.log(
-        `[Firestore READ] 執行查詢 (${searchTarget}), 預計讀取文件數: ${
+        `[Firestore READ] 執行查詢 (${searchTarget}), 預計最大讀取文件數: ${
           queryLimit + 1
         }`
       );
 
       const snapshot = await getDocs(finalQuery);
+
+      // ✅ 變動點 3: 記錄實際讀取量
+      restaurantSearchReads = snapshot.size;
 
       const newHasMore = snapshot.docs.length > queryLimit;
       setHasMoreRestaurants(newHasMore);
@@ -360,6 +366,10 @@ const ReviewForm = ({
         return isLoadMore ? [...prev, ...restaurantsToAdd] : restaurantsToAdd;
       });
 
+      // ✅ 變動點 4: 輸出實際讀取量
+      console.log(
+        `[Firestore READ COUNT] 餐廳搜尋實際讀取文件數: ${restaurantSearchReads} documents.`
+      );
       console.log(`[DEBUG - 結果] 找到 ${restaurantsToAdd.length} 個結果。`);
 
       if (restaurantsToAdd.length === 0 && !isLoadMore) {
@@ -406,13 +416,20 @@ const ReviewForm = ({
     fetchRestaurants(true);
   };
 
+  // ✅ 變動點 5: 追蹤用戶名讀取量
   useEffect(() => {
     const fetchUsername = async () => {
       if (!currentUser || !currentUser.uid || !db || !appId) return;
 
+      // 局部變數來追蹤讀取量
+      let usernameReadCount = 0;
+
       try {
         const userDocRef = doc(db, `artifacts/${appId}/users`, currentUser.uid);
         const userDoc = await getDoc(userDocRef);
+
+        // 讀取單個文件，計數為 1
+        usernameReadCount = 1;
 
         if (userDoc.exists()) {
           const userData = userDoc.data();
@@ -420,9 +437,16 @@ const ReviewForm = ({
         } else {
           setUsername("匿名用戶");
         }
+
+        console.log(
+          `[Firestore READ COUNT] 用戶名讀取實際讀取文件數: ${usernameReadCount} documents.`
+        );
       } catch (error) {
         console.error("讀取用戶名失敗:", error);
         setUsername("匿名用戶");
+        console.log(
+          `[Firestore READ COUNT] 用戶名讀取錯誤發生前讀取文件數: ${usernameReadCount} documents.`
+        );
       }
     };
     fetchUsername();
@@ -509,9 +533,14 @@ const ReviewForm = ({
 
     setErrors({});
     setSubmitting(true);
+
+    // ✅ 變動點 6: 提交時的額外讀取量追蹤
+    let submitReads = 0;
+
     try {
       const submittedRestaurantId = selectedRestaurant.id;
 
+      // 1. 獲取 Visit Count (這是 API 呼叫，但我們假設它可能觸發 Firestore 讀取，但此處無法直接計數)
       const visitCountResponse = await fetch("/api/reviews/get-visit-count", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -527,11 +556,19 @@ const ReviewForm = ({
       }
       const { visitCount } = visitCountData;
 
+      // 注意：get-visit-count 內部的讀取量需要在 Server-side 程式碼 (API 路由) 中計算和日誌記錄。
+      // 在此處的 Client-side 只能記錄 Client-side 的 Firestore 讀取。
+      console.log(
+        `[Firestore READ COUNT] **警告**: 獲取 visit-count 的讀取量無法在此處計數 (Server-side API)。`
+      );
+
+      // 2. 圖片上傳 (不計入 Firestore 讀取)
       const uploadedImageUrls = await uploadImagesToFirebase(
         submittedRestaurantId,
         visitCount
       );
 
+      // 3. 提交 Review (這是 API 呼叫，不計入 Firestore 讀取)
       const response = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -562,6 +599,8 @@ const ReviewForm = ({
       if (!response.ok) {
         throw new Error(data.message || "Failed to submit review.");
       }
+
+      // 成功提交後重置表單
       setSelectedRestaurant(null);
       setReviewTitle("");
       setOverallRating(0);

@@ -1,3 +1,5 @@
+// src/components/CategoriesPage.js (或 src/app/categories/page.js)
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -5,11 +7,11 @@ import { useRouter } from "next/navigation";
 // 移除所有圖標匯入，只保留需要的 hook
 // import { Search, ChevronDown, ChevronUp } from "lucide-react";
 
-// === 匯入數據 (現在 cuisineOptions 是物件) ===
+// === 匯入數據 (修正 categoryOptions 的大小寫) ===
 import {
-  cuisineOptions, // ⚠️ 這是陣列
+  categoryOptions, // 🚨 修正: 匯入名稱與數據檔案一致
   restaurantTypeOptions,
-  SUB_CATEGORY_MAP, // ⚠️ 匯入用於子分類映射的物件
+  SUB_CATEGORY_MAP, // 匯入用於子分類映射的物件
 } from "@/data/restaurant-options";
 
 // =======================================================
@@ -28,20 +30,23 @@ const DEFAULT_TYPE_ICON = ""; // 清空圖示
 const CategoriesPage = () => {
   const router = useRouter();
 
-  // 由於不再需要中菜特殊邏輯，我們將 useState 保持在這裡，但如果沒有其他用途，也可以移除導入。
-
   // 處理和合併所有類別數據
   const { categoryGroups, typeGroup } = useMemo(() => {
     // 1. 數據檢查
-    // ⚡️ 修正 1: 檢查 cuisineOptions 是否為陣列
-    const validCuisine = Array.isArray(cuisineOptions);
-    const validRestaurantType =
-      Array.isArray(restaurantTypeOptions) && restaurantTypeOptions.length > 0;
+    // 🚨 修正 1: 確保它們是陣列，如果不是，則將其視為空陣列
+    const categories = Array.isArray(categoryOptions) ? categoryOptions : []; // 🚨 使用修正後的名稱
+    const restaurantTypes = Array.isArray(restaurantTypeOptions)
+      ? restaurantTypeOptions
+      : [];
+
+    const validCuisine = categories.length > 0;
+    const validRestaurantType = restaurantTypes.length > 0;
 
     if (!validCuisine || !validRestaurantType) {
       console.error(
-        "錯誤: 數據匯入失敗。cuisineOptions 必須是數組，restaurantTypeOptions 必須是數組。"
+        "❌ 錯誤: 數據匯入失敗。categoryOptions 或 restaurantTypeOptions 不是有效的陣列或為空。"
       );
+      // 返回空的數據結構
       return { categoryGroups: [], typeGroup: null };
     }
 
@@ -57,10 +62,9 @@ const CategoriesPage = () => {
     };
 
     // --- A. 處理菜系群組 (Cuisine Groups) ---
-    // ⚡️ 修正 2: 直接遍歷 cuisineOptions 陣列
-    const categoryGroups = cuisineOptions.map((groupName) => {
-      // ⚡️ 修正 3: 這裡不再是 Object.keys(cuisineOptions) 的遍歷，所以 subNames 的獲取方式改變
-      // 我們從 SUB_CATEGORY_MAP 中查找子分類。如果沒有找到，就用空陣列。
+    // ⚡️ 修正 2: 直接遍歷 categories 陣列
+    const categoryGroups = categories.map((groupName) => {
+      // ⚡️ 修正 3: 從 SUB_CATEGORY_MAP 中查找子分類。
       const rawSubNames = SUB_CATEGORY_MAP[groupName];
       const subNames = Array.isArray(rawSubNames) ? rawSubNames : [];
 
@@ -87,7 +91,7 @@ const CategoriesPage = () => {
 
     // --- B. 處理餐廳類型 (Restaurant Types) ---
     const typeCategories = prepareItems(
-      restaurantTypeOptions,
+      restaurantTypes, // ⚡️ 使用修正後的 restaurantTypes 陣列
       "restaurantType"
     ).map((item) => ({ ...item, filterValue: item.name }));
 
@@ -100,7 +104,7 @@ const CategoriesPage = () => {
       categoryGroups,
       typeGroup,
     };
-  }, []);
+  }, []); // 依賴項為空，只在第一次渲染時計算
 
   /**
    * 點擊類別時的處理函式。
@@ -112,12 +116,15 @@ const CategoriesPage = () => {
 
     const params = new URLSearchParams();
 
-    // 根據 filterKey 將單一值作為陣列傳遞給 URLSearchParams
-    if (filterKey === "category" || filterKey === "subCategory") {
-      // 將單一值作為一個陣列元素追加 (e.g., subCategory=川菜)
-      params.append(filterKey, finalFilterValue);
-    } else {
-      // 其他單一值參數 (e.g., restaurantType=咖啡廳)
+    // 根據 DB 結構的最終定案（subCategory: String, restaurantType: Array）來設定篩選鍵
+    if (filterKey === "category") {
+      // category: String (精確匹配)
+      params.set(filterKey, finalFilterValue);
+    } else if (filterKey === "subCategory") {
+      // subCategory: String (精確匹配)
+      params.set(filterKey, finalFilterValue);
+    } else if (filterKey === "restaurantType") {
+      // restaurantType: Array (後端需用 array-contains 處理)
       params.set(filterKey, finalFilterValue);
     }
 

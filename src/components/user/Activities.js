@@ -1,4 +1,4 @@
-// src/components/personal/Activities.js
+// src/components/user/Activities.js
 import React from "react";
 import Link from "next/link";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -89,15 +89,18 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
   };
 
   const renderItem = (item, index) => {
-    // 輔助函式：安全地獲取 cuisineType 的顯示名稱
-    const getCuisineDisplayName = (cuisine) => {
-      if (!cuisine) return "N/A";
-      // 如果是物件，返回 subType
-      if (typeof cuisine === "object" && cuisine.subType) {
-        return cuisine.subType;
+    // 🚨 修正：根據新的結構獲取菜系顯示名稱
+    const getCuisineDisplayName = (item) => {
+      // 優先使用 subCategory (如果存在且非空字串)
+      if (item.subCategory && item.subCategory !== "") {
+        // 如果子菜系是"不適用" (由表單邏輯傳入的空字串轉化)，則使用主菜系
+        if (item.subCategory === "不適用") {
+          return item.category || "N/A";
+        }
+        return item.subCategory;
       }
-      // 如果是單個字串，直接返回
-      return cuisine;
+      // 否則使用 category
+      return item.category || "N/A";
     };
 
     switch (type) {
@@ -183,7 +186,8 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
 
                   <p className="text-gray-700 mb-1 text-wrap text-sm">
                     {item.city || "N/A"} |{" "}
-                    {getCuisineDisplayName(item.cuisineType)} | 人均: $
+                    {/* 🚨 修正：使用新的函式獲取菜系名稱 */}
+                    {getCuisineDisplayName(item)} | 人均: $
                     {item.avgSpending || "N/A"}
                   </p>
                 </div>

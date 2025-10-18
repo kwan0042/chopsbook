@@ -16,7 +16,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import {
-  cuisineOptions,
+  categoryOptions,
   SUB_CATEGORY_MAP, // ⚡️ 導入 SUB_CATEGORY_MAP
   restaurantTypeOptions,
   reservationModeOptions,
@@ -544,7 +544,7 @@ const FilterSidebar = ({
                 ref={categoryRef}
                 className={`space-y-2 text-sm transition-opacity duration-300 w-full`}
               >
-                {cuisineOptions.map((category) => {
+                {categoryOptions.map((category) => {
                   const subTypes = SUB_CATEGORY_MAP[category];
                   const hasSubTypes = subTypes && subTypes.length > 0;
                   const isSelected = isCategorySelected(category);
