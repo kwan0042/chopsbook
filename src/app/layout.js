@@ -1,18 +1,36 @@
 // src/app/layout.js
 import { AuthProvider } from "@/lib/auth-context";
 import AppLayout from "@/components/AppLayout"; // ✅ 引入新的 AppLayout
+import Script from "next/script";
 import "./globals.css";
 
-export const metadata = {icons: {
-  icon: "/chopsbook_icon.ico",
-  shortcut: "/chopsbook_icon.ico",
-},}
-
+export const metadata = {
+  icons: {
+    icon: "/chopsbook_icon.ico",
+    shortcut: "/chopsbook_icon.ico",
+  },
+};
 
 export default function RootLayout({ children }) {
   return (
     <html lang="zh-Hant">
-      <body >
+      <head>
+        {/* ✅ GA4 追蹤代碼（全站生效） */}
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-8MS5RD1TCD"
+        ></script>
+        <Script id="ga4" strategy="afterInteractive">
+          {`
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-8MS5RD1TCD');
+   `}
+        </Script>
+      </head>
+      <body>
         <AuthProvider>
           <AppLayout>{children}</AppLayout> {/* ✅ 在這裡使用 AppLayout */}
         </AuthProvider>
