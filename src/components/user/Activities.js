@@ -161,7 +161,7 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
           </Link>
         );
 
-      // 🚨 修正了 'favorites' 類型中的 cuisineType 渲染
+      
       case "favorites":
         return (
           <div key={item.id} className="relative w-full my-2 group">

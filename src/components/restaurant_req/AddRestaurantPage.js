@@ -195,8 +195,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     delete dataToSubmit.tempSelectedFile;
     delete dataToSubmit.originalFacadePhotoUrls;
 
-    // 🚨 變動點 3: 移除舊的 cuisineType 處理邏輯 (因為現在 category 和 subCategory 是單獨欄位)
-    // 檢查並清理 reservationMode/s 欄位 (防止舊版殘留)
+    
     if (dataToSubmit.reservationMode) {
       // 如果舊的單數欄位存在，轉換並移除
       dataToSubmit.reservationModes = Array.isArray(
@@ -260,8 +259,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
       );
       setModalMessage(
         "謝謝你使用ChopsBook，\n" +
-          "提供餐廳資訊為廣大嘅美食家作出貢獻。\n" +
-          "幕後團隊將火速審批！"
+        "ChopsBook已經收到你的新增餐廳申請"
       );
       setModalType("success");
       setFormData(initialFormData); // 清空表單

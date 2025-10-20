@@ -21,8 +21,39 @@ const ContactInfoSection = ({ formData, handleChange, errors, inputRefs }) => {
         </label>
       </div>
 
+      {/* 🚨 新增：如果 isManager 為 true，顯示餐廳負責人姓名輸入框 */}
+      {formData.isManager && (
+        <div className="mb-4">
+          <label
+            htmlFor="managerName"
+            className="block text-gray-700 text-sm font-bold mb-2"
+          >
+            餐廳負責人姓名 <span className="text-red-500">*</span>
+            {errors.managerName && (
+              <span className="text-red-500 font-normal text-xs ml-2">
+                {errors.managerName}
+              </span>
+            )}
+          </label>
+          <input
+            type="text"
+            id="managerName"
+            name="managerName"
+            value={formData.managerName || ""}
+            onChange={handleChange}
+            ref={(el) => (inputRefs.current["managerName"] = el)}
+            className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+              errors.managerName
+                ? "border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:ring-blue-500"
+            }`}
+            placeholder="餐廳負責人姓名"
+          />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* 姓名 */}
+        {/* 姓名 - 保持必填星號 */}
         <div>
           <label
             htmlFor="contactName"
@@ -51,7 +82,7 @@ const ContactInfoSection = ({ formData, handleChange, errors, inputRefs }) => {
           />
         </div>
 
-        {/* 電話 */}
+        {/* 電話 - 保持必填星號 */}
         <div>
           <label
             htmlFor="contactPhone"
@@ -81,14 +112,13 @@ const ContactInfoSection = ({ formData, handleChange, errors, inputRefs }) => {
         </div>
       </div>
 
-      {/* 電郵 */}
+      {/* 電郵 - 保持非必填 */}
       <div className="mt-4">
         <label
           htmlFor="contactEmail"
           className="block text-gray-700 text-sm font-bold mb-2"
         >
           電郵
-          {/* 💥 添加錯誤顯示 */}
           {errors.contactEmail && (
             <span className="text-red-500 font-normal text-xs ml-2">
               {errors.contactEmail}
@@ -102,7 +132,6 @@ const ContactInfoSection = ({ formData, handleChange, errors, inputRefs }) => {
           value={formData.contactEmail || ""}
           onChange={handleChange}
           ref={(el) => (inputRefs.current["contactEmail"] = el)}
-          // 💥 根據錯誤狀態調整邊框樣式
           className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
             errors.contactEmail
               ? "border-red-500 focus:ring-red-500"

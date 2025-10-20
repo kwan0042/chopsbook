@@ -29,7 +29,7 @@ export const validateRestaurantForm = (
   const hasPhotoUrlInFormData =
     data.facadePhotoUrls && data.facadePhotoUrls.length > 0;
 
-  // 1. 餐廳名稱
+  // 1. 餐廳名稱 (所有模式下必填)
   if (!data.restaurantName?.en?.trim()) {
     errors.restaurantName = { en: "英文名稱為必填項目。" };
   }
@@ -40,46 +40,63 @@ export const validateRestaurantForm = (
     };
   }
 
-  // 2. 地址
-  if (!data.province) errors.province = "省份為必填項目。";
-  if (!data.city) errors.city = "城市為必填項目。";
-  if (!data.postalCode) errors.postalCode = "郵政編碼為必填項目。";
-  if (!data.fullAddress) errors.fullAddress = "詳細地址為必填項目。";
-
-  // 3. 聯絡電話 (餐廳電話)
-  if (!data.phone || String(data.phone).trim().length === 0) {
-    errors.phone = "餐廳電話為必填項目。";
-    // 修正：驗證餐廳電話格式，假設為 10 位數字。
-  } else if (!/^\d{10}$/.test(String(data.phone).trim())) {
-    errors.phone = "餐廳電話必須是 10 位數字（區號 + 號碼）。";
+  // 2. 地址 (🚨 僅在 Create 模式下必填)
+  if (!isUpdateForm) {
+    if (!data.province) errors.province = "省份為必填項目。";
+    if (!data.city) errors.city = "城市為必填項目。";
+    if (!data.postalCode) errors.postalCode = "郵政編碼為必填項目。";
+    if (!data.fullAddress) errors.fullAddress = "詳細地址為必填項目。";
   }
 
-  // 4. 類型 (使用獨立欄位 category 和 subCategory)
-  if (!data.category) {
-    errors.category = "請選擇菜系類別。";
-  } else {
-    // 獲取當前主菜系是否有子選項
-    const subOptions = SUB_CATEGORY_MAP[data.category] || [];
+  // 3. 聯絡電話 (餐廳電話) (🚨 僅在 Create 模式下必填)
+  // 如果是更新模式且該欄位沒有填寫，則跳過驗證。
+  const shouldValidateRestaurantPhone =
+    !isUpdateForm || (data.phone && String(data.phone).trim().length > 0);
 
-    // 🚨 修正核心邏輯：如果主菜系有子選項 (subOptions.length > 0)，則子菜系必填
-    // 檢查 subCategory 是否為空字串或未定義 (注意：在沒有子菜系時，表單組件會將其設為 "")
-    // 這裡我們只檢查：如果應該有子菜系，但用戶沒有選擇一個有效值，則報錯。
-    if (
-      subOptions.length > 0 &&
-      (!data.subCategory || data.subCategory === "")
-    ) {
-      errors.subCategory = `選擇 ${data.category} 後，請選擇子菜系。`;
+  if (!isUpdateForm) {
+    if (!data.phone || String(data.phone).trim().length === 0) {
+      errors.phone = "餐廳電話為必填項目。";
+    } else if (!/^\d{10}$/.test(String(data.phone).trim())) {
+      errors.phone = "餐廳電話必須是 10 位數字（區號 + 號碼）。";
+    }
+  } else if (shouldValidateRestaurantPhone) {
+    // 更新模式下，如果填寫了，則檢查格式
+    if (!/^\d{10}$/.test(String(data.phone).trim())) {
+      errors.phone = "餐廳電話格式不正確（必須是 10 位數字）。";
     }
   }
 
-  // 餐廳類型 (現在是 Array)
-  if (!data.restaurantType || data.restaurantType.length === 0) {
+  // 4. 菜系類別 (category) (🚨 僅在 Create 模式下必填)
+  if (!isUpdateForm || data.category) {
+    if (!data.category) {
+      errors.category = "請選擇菜系類別。";
+    } else {
+      // 獲取當前主菜系是否有子選項
+      const subOptions = SUB_CATEGORY_MAP[data.category] || [];
+
+      // 🚨 修正核心邏輯：如果主菜系有子選項 (subOptions.length > 0)，
+      // 且在 Create 模式下或 Update 模式下 Category 已選，則子菜系必填
+      // 檢查 subCategory 是否為空字串或未定義 (注意：在沒有子菜系時，表單組件會將其設為 "")
+      if (
+        subOptions.length > 0 &&
+        (!data.subCategory || data.subCategory === "")
+      ) {
+        errors.subCategory = `選擇 ${data.category} 後，請選擇子菜系。`;
+      }
+    }
+  }
+
+  // 餐廳類型 (restaurantType) (現在是 Array) (🚨 僅在 Create 模式下必填)
+  if (
+    !isUpdateForm &&
+    (!data.restaurantType || data.restaurantType.length === 0)
+  ) {
     errors.restaurantType = "餐廳類型為必填項目。";
   }
 
-  // 5. 門面照片
-  const hasValidPhotoInfo =
-    hasPhotoUrlInFormData || hasSelectedFile || hasOriginalPhoto;
+  // 5. 門面照片 (facadePhotoUrls) (🚨 僅在 Create 模式下必填)
+  // 圖片在 Update 模式下是完全可選的。
+  // 只有在 Create 模式下，我們才需要確保有圖片（舊圖或新選中的圖）。
   if (!isUpdateForm && !hasValidPhotoInfo) {
     errors.facadePhotoUrls = "請上傳一張餐廳門面照片。";
   }
@@ -90,60 +107,71 @@ export const validateRestaurantForm = (
 
   const businessHoursErrors = [];
 
-  // 1. 營業時間 (Business Hours)
-  if (data.businessHours && Array.isArray(data.businessHours)) {
-    data.businessHours.forEach((bh, index) => {
-      const dayErrors = {};
-      if (bh.isOpen) {
-        if (!bh.startTime) {
-          dayErrors.startTime = "請選擇開始時間。";
-        }
-        if (!bh.endTime) {
-          dayErrors.endTime = "請選擇結束時間。";
-        }
+  // 1. 營業時間 (Business Hours) (🚨 僅在 Create 模式下必填)
+  if (!isUpdateForm) {
+    if (!data.businessHours || !Array.isArray(data.businessHours)) {
+      errors.businessHours = "營業時間為必填項目。";
+    } else {
+      const hasOpenDay = data.businessHours.some((bh) => bh.isOpen);
+      if (!hasOpenDay) {
+        errors.businessHours = "請至少標記一天營業時間。";
       }
-      businessHoursErrors[index] =
-        Object.keys(dayErrors).length > 0 ? dayErrors : null;
-    });
 
-    const hasOpenDay = data.businessHours.some((bh) => bh.isOpen);
-    if (!hasOpenDay) {
-      errors.businessHours = "請至少標記一天營業時間。";
+      data.businessHours.forEach((bh, index) => {
+        const dayErrors = {};
+        if (bh.isOpen) {
+          if (!bh.startTime) {
+            dayErrors.startTime = "請選擇開始時間。";
+          }
+          if (!bh.endTime) {
+            dayErrors.endTime = "請選擇結束時間。";
+          }
+        }
+        businessHoursErrors[index] =
+          Object.keys(dayErrors).length > 0 ? dayErrors : null;
+      });
+
+      // 如果存在具體的時間段錯誤，則用陣列覆蓋（或新增）
+      if (
+        Array.isArray(businessHoursErrors) &&
+        businessHoursErrors.some((err) => err !== null)
+      ) {
+        errors.businessHours = businessHoursErrors;
+      }
     }
-  } else {
-    errors.businessHours = "營業時間為必填項目。";
   }
 
-  // 如果存在具體的時間段錯誤，則用陣列覆蓋（或新增）
+  // 2. 付款方式 (🚨 僅在 Create 模式下必填)
   if (
-    Array.isArray(businessHoursErrors) &&
-    businessHoursErrors.some((err) => err !== null)
+    !isUpdateForm &&
+    (!data.paymentMethods || data.paymentMethods.length === 0)
   ) {
-    errors.businessHours = businessHoursErrors;
-  }
-
-  // 2. 付款方式
-  if (!data.paymentMethods || data.paymentMethods.length === 0) {
     errors.paymentMethods = "請至少選擇一種付款方式。";
   }
 
   // ===================================
   // === Step 3: 聯絡人資訊 驗證邏輯 ===
+  // (🚨 contactName 和 contactPhone 在所有模式下皆為必填)
   // ===================================
 
-  // 1. 聯絡人姓名
+  // 1. 聯絡人姓名 (所有模式下必填)
   if (!data.contactName?.trim()) {
     errors.contactName = "聯絡人姓名為必填項目。";
   }
 
-  // 2. 聯絡人電話
+  // 2. 聯絡人電話 (所有模式下必填)
   if (!data.contactPhone || String(data.contactPhone).trim().length === 0) {
     errors.contactPhone = "聯絡人電話為必填項目。";
   } else if (!/^\d{10}$/.test(String(data.contactPhone).trim())) {
     errors.contactPhone = "聯絡人電話必須是 10 位數字（區號 + 號碼）。";
   }
 
-  // 3. 聯絡人 Email (非必填，但若填寫需驗證格式)
+  // 3. 餐廳負責人姓名 (managerName) - 如果 isManager 勾選，則必填
+  if (data.isManager && !data.managerName?.trim()) {
+    errors.managerName = "餐廳負責人姓名為必填項目。";
+  }
+
+  // 4. 聯絡人 Email (非必填，但若填寫需驗證格式)
   if (data.contactEmail && data.contactEmail.trim()) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(data.contactEmail.trim())) {

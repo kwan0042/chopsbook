@@ -8,31 +8,49 @@ import { useRouter, useParams } from "next/navigation";
 import Modal from "@/components/Modal";
 import { restaurantFields, formatDataForDisplay } from "@/lib/translation-data";
 
-// 將欄位分組到不同區塊
+// 輔助欄位名稱，用於覆蓋 restaurantFields 中可能不準確的名稱
+const fieldDisplayNames = {
+  submittedBy: "建立會員 (電郵/UID)",
+  isManager: "是否為經理",
+};
+
+// 將欄位分組到不同區塊 (🚨 順序和內容已更新)
 const restaurantSections = {
-  basicInfo: {
-    zh: "基本資訊",
+  contactInfo: {
+    // 🚨 第一個區塊
+    zh: "聯絡資訊",
     fields: [
-      "restaurantName", // 修正：使用新的 restaurantName 欄位
-      "cuisineType",
-      "restaurantType",
-      "isManager",
-      "isPermanentlyClosed",
-      "isTemporarilyClosed",
-      "avgSpending",
-      "submittedBy",
-      "createdAt",
+      "submittedBy", // 🚨 建立會員
+      "isManager", // 🚨 是否為經理
+      "contactName", // 🚨 聯絡人姓名
+      "contactPhone", // 🚨 聯絡人電話
     ],
   },
-  contactInfo: {
-    zh: "聯絡資訊",
-    fields: ["contactName", "contactPhone", "phone", "contactEmail", "website"],
+  photos: {
+    // 🚨 第二個區塊
+    zh: "門面照片",
+    fields: ["facadePhotoUrls", "facadePhotoUrl"],
+  },
+  basicInfo: {
+    // 🚨 第三個區塊
+    zh: "基本資訊",
+    fields: [
+      "restaurantName",
+      "category",
+      "subCategory",
+      "restaurantType",
+      "phone", // 餐廳電話 (從舊 Contact 區塊移入)
+      "contactEmail", // 餐廳電郵 (從舊 Contact 區塊移入)
+      "website", // 網站 (從舊 Contact 區塊移入)
+    ],
   },
   location: {
+    // 🚨 第四個區塊
     zh: "位置資訊",
     fields: ["province", "city", "fullAddress"],
   },
   details: {
+    // 🚨 第五個區塊
     zh: "其他詳細資訊",
     fields: [
       "seatingCapacity",
@@ -42,10 +60,71 @@ const restaurantSections = {
       "facilitiesServices",
     ],
   },
-  photos: {
-    zh: "照片",
-    fields: ["facadePhotoUrls", "facadePhotoUrl"],
-  },
+  // 移除：isPermanentlyClosed, isTemporarilyClosed, avgSpending, createdAt
+};
+
+/**
+ * 輔助函數：處理多語言餐廳名稱顯示
+ * @param {object} nameObject - 餐廳名稱的多語言物件
+ * @returns {string} 顯示名稱
+ */
+const formatRestaurantName = (nameObject) => {
+  if (nameObject && typeof nameObject === "object") {
+    return nameObject["zh-TW"] || nameObject.en || "N/A";
+  }
+  return "N/A";
+};
+
+/**
+ * 輔助組件：用於顯示圖片或連結
+ * @param {object} props - 包含 field 和 value
+ * @returns {JSX.Element} 顯示內容
+ */
+const PhotoDisplay = ({ field, value }) => {
+  // 檢查是否為照片欄位
+  const isPhotoField =
+    field === "facadePhotoUrls" || field === "facadePhotoUrl";
+
+  if (!isPhotoField) {
+    // 如果不是照片欄位，回傳格式化的文字
+    return (
+      <pre className="text-gray-800 break-words whitespace-pre-wrap">
+        {field === "restaurantName"
+          ? formatRestaurantName(value)
+          : formatDataForDisplay(value)}
+      </pre>
+    );
+  }
+
+  // 處理單一 URL 或 URL 陣列
+  const urls = Array.isArray(value) ? value : value ? [value] : [];
+
+  if (urls.length === 0) {
+    return <p className="text-gray-500 italic">無圖片</p>;
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-2 mt-2">
+      {urls.map((url, index) => (
+        <div
+          key={index}
+          className="border border-gray-300 rounded-md overflow-hidden shadow-sm"
+        >
+          {/* 簡單的圖片 URL 驗證，防止 XSS 或無效內容 */}
+          {typeof url === "string" && url.startsWith("http") ? (
+            <img
+              src={url}
+              alt={`${field} ${index + 1}`}
+              className="w-full h-auto object-cover max-h-40"
+              loading="lazy"
+            />
+          ) : (
+            <p className="text-red-500 text-xs break-words p-2">無效圖片 URL</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 };
 
 /**
@@ -63,14 +142,6 @@ const AddRestaurantRequestPage = ({ requestId }) => {
   const [modalMessage, setLocalModalMessage] = useState("");
   const [modalType, setModalType] = useState("");
   const changesSectionRef = useRef(null);
-
-  // 輔助函數：處理多語言餐廳名稱顯示
-  const formatRestaurantName = (nameObject) => {
-    if (nameObject && typeof nameObject === "object") {
-      return nameObject["zh-TW"] || nameObject.en || "N/A";
-    }
-    return "N/A";
-  };
 
   useEffect(() => {
     // 只有在 db 和 requestId 都可用時才開始載入資料
@@ -130,7 +201,7 @@ const AddRestaurantRequestPage = ({ requestId }) => {
       const batch = writeBatch(db);
 
       // 解構賦值，排除 `id` 屬性
-      const { id, ...newRestaurantData } = requestData;
+      const { id,type, ...newRestaurantData } = requestData;
 
       // 將餐廳資料寫入主表，使用新生成的ID
       const restaurantDocRef = doc(
@@ -256,10 +327,10 @@ const AddRestaurantRequestPage = ({ requestId }) => {
             <div className="px-6 py-3 bg-gray-50 text-xl font-semibold text-gray-800 border-b border-gray-200">
               <h3>申請的餐廳資料</h3>
             </div>
-            <div className="p-4 space-y-4">
+            <div className="p-4 space-y-6">
               <div className="flex justify-between items-center mb-4 text-sm text-gray-600">
                 <span>
-                  提交者:{" "}
+                  原始提交者:{" "}
                   <span className="font-bold">
                     {dataToDisplay?.submittedBy || "N/A"}
                   </span>
@@ -271,30 +342,41 @@ const AddRestaurantRequestPage = ({ requestId }) => {
                   </span>
                 </span>
               </div>
+              {/* 🚨 根據新順序和欄位渲染區塊 */}
               {Object.entries(restaurantSections).map(
                 ([sectionKey, sectionData]) => {
                   const sectionFields = sectionData.fields.filter(
                     (field) => dataToDisplay && field in dataToDisplay
                   );
+                  // 🚨 僅在有資料時渲染區塊
                   if (sectionFields.length === 0) return null;
 
                   return (
-                    <div key={sectionKey} className="space-y-2">
-                      <h4 className="text-lg font-bold text-gray-700 border-b border-gray-200 pb-1">
+                    <div key={sectionKey} className="space-y-4">
+                      <h4 className="text-lg font-bold text-gray-700 border-b border-gray-200 pb-1 mt-4">
                         {sectionData.zh}
                       </h4>
-                      {sectionFields.map((field) => (
-                        <div key={field} className="p-3 bg-gray-50 rounded-md">
-                          <p className="font-medium text-gray-600">
-                            {restaurantFields[field]?.zh || field}
-                          </p>
-                          <pre className="text-gray-800 break-words whitespace-pre-wrap">
-                            {field === "restaurantName"
-                              ? formatRestaurantName(dataToDisplay?.[field])
-                              : formatDataForDisplay(dataToDisplay?.[field])}
-                          </pre>
-                        </div>
-                      ))}
+                      {/* 🚨 核心改動：大螢幕三列，小螢幕單列 */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {sectionFields.map((field) => (
+                          <div
+                            key={field}
+                            className="p-3 bg-gray-50 rounded-md"
+                          >
+                            <p className="font-medium text-gray-600">
+                              {/* 🚨 使用 fieldDisplayNames 覆蓋顯示名稱 */}
+                              {fieldDisplayNames[field] ||
+                                restaurantFields[field]?.zh ||
+                                field}
+                            </p>
+                            {/* 🚨 使用 PhotoDisplay 組件 */}
+                            <PhotoDisplay
+                              field={field}
+                              value={dataToDisplay?.[field]}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 }

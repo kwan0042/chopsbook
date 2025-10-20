@@ -1,3 +1,4 @@
+// src/components/admin/EditRestaurantRequestPage.js
 "use client";
 
 import React, { useState, useContext, useEffect, useRef } from "react";
@@ -7,9 +8,6 @@ import {
   getDoc,
   updateDoc,
   writeBatch,
-  setDoc,
-  addDoc,
-  collection,
   onSnapshot,
 } from "firebase/firestore";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -23,7 +21,8 @@ const restaurantSections = {
     zh: "基本資訊",
     fields: [
       "restaurantName", // 修正：使用新的 restaurantName 欄位
-      "cuisineType",
+      "category", // 🚨 修正：使用新的主菜系欄位
+      "subCategory", // 🚨 修正：使用新的子菜系欄位
       "restaurantType",
       "isManager",
       "isPermanentlyClosed",
@@ -81,7 +80,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
   const [showIncompleteWarning, setShowIncompleteWarning] = useState(false);
   const changesSectionRef = useRef(null);
 
-  // 輔助函數：處理多語言餐廳名稱顯示
+  // 輔助函數：處理多語言餐廳名稱顯示 (保持不變)
   const formatRestaurantName = (nameObject) => {
     if (nameObject && typeof nameObject === "object") {
       return nameObject["zh-TW"] || nameObject.en || "N/A";

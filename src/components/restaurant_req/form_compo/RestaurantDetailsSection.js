@@ -36,6 +36,9 @@ const RestaurantDetailsSection = ({
   // 判斷當前選擇的主菜系是否有子菜系
   const hasSubCategories = subCategoryOptions && subCategoryOptions.length > 0;
 
+  // 確保 restaurantType 始終是一個陣列，即使它在 formData 中是 undefined 或 null
+  const selectedRestaurantTypes = formData.restaurantType || [];
+
   return (
     <div className="border-b border-gray-200 pb-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -133,7 +136,8 @@ const RestaurantDetailsSection = ({
             htmlFor="province"
             className="block text-gray-700 text-sm font-bold mb-2"
           >
-            省份 <span className="text-red-500">*</span>
+            省份
+            {/* 🚨 移除: <span className="text-red-500">*</span> */}
             {errors.province && (
               <span className="text-red-500 font-normal text-xs ml-2">
                 {errors.province}
@@ -167,7 +171,8 @@ const RestaurantDetailsSection = ({
             htmlFor="city"
             className="block text-gray-700 text-sm font-bold mb-2"
           >
-            城市 <span className="text-red-500">*</span>
+            城市
+            {/* 🚨 移除: <span className="text-red-500">*</span> */}
             {errors.city && (
               <span className="text-red-500 font-normal text-xs ml-2">
                 {errors.city}
@@ -208,7 +213,8 @@ const RestaurantDetailsSection = ({
           htmlFor="fullAddress"
           className="block text-gray-700 text-sm font-bold mb-2"
         >
-          完整地址 <span className="text-red-500">*</span>
+          完整地址
+          {/* 🚨 移除: <span className="text-red-500">*</span> */}
           {errors.fullAddress && (
             <span className="text-red-500 font-normal text-xs ml-2">
               {errors.fullAddress}
@@ -237,7 +243,8 @@ const RestaurantDetailsSection = ({
             htmlFor="postalCode"
             className="block text-gray-700 text-sm font-bold mb-2"
           >
-            郵遞區號 <span className="text-red-500">*</span>
+            郵遞區號
+            {/* 🚨 移除: <span className="text-red-500">*</span> */}
             {errors.postalCode && (
               <span className="text-red-500 font-normal text-xs ml-2">
                 {errors.postalCode}
@@ -265,7 +272,8 @@ const RestaurantDetailsSection = ({
             htmlFor="facadePhotoUrlDisplay"
             className="block text-gray-700 text-sm font-bold mb-2"
           >
-            門面相片 <span className="text-red-500">*</span>
+            門面相片
+            {/* 🚨 移除: <span className="text-red-500">*</span> */}
             {errors.facadePhotoUrls && (
               <span className="text-red-500 font-normal text-xs ml-2">
                 {errors.facadePhotoUrls}
@@ -340,7 +348,8 @@ const RestaurantDetailsSection = ({
             htmlFor="phone"
             className="block text-gray-700 text-sm font-bold mb-2"
           >
-            電話 <span className="text-red-500">*</span>
+            電話
+            {/* 🚨 移除: <span className="text-red-500">*</span> */}
             {errors.phone && (
               <span className="text-red-500 font-normal text-xs ml-2">
                 {errors.phone}
@@ -384,15 +393,16 @@ const RestaurantDetailsSection = ({
       {/* 級聯菜系選擇 */}
       <div
         className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4"
-        ref={(el) => (inputRefs.current["cuisineTypeContainer"] = el)} // 🚨 修正: 為了滾動到父容器
+        ref={(el) => (inputRefs.current["cuisineTypeContainer"] = el)} // 修正: 為了滾動到父容器
       >
         {" "}
         <div>
           <label
-            htmlFor="category" // 🚨 修正: ID 使用 category
+            htmlFor="category" // 修正: ID 使用 category
             className="block text-gray-700 text-sm font-bold mb-2"
           >
-            菜系類別 <span className="text-red-500">*</span>
+            菜系類別
+            {/* 🚨 移除: <span className="text-red-500">*</span> */}
             {errors.category && (
               <span className="text-red-500 font-normal text-xs ml-2">
                 {errors.category}
@@ -401,15 +411,15 @@ const RestaurantDetailsSection = ({
           </label>
           <select
             id="category"
-            name="category" // 🚨 修正: name 使用 category
-            value={formData.category} // 🚨 修正: 直接綁定 formData.category
+            name="category" // 修正: name 使用 category
+            value={formData.category} // 修正: 直接綁定 formData.category
             onChange={handleCuisineCategoryChange}
             className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
               errors.category
                 ? "border-red-500 focus:ring-red-500"
                 : "border-gray-300 focus:ring-blue-500"
             }`}
-            ref={(el) => (inputRefs.current["category"] = el)} // 🚨 修正: 設置 ref
+            ref={(el) => (inputRefs.current["category"] = el)} // 修正: 設置 ref
           >
             <option value="" disabled>
               選擇菜系類別
@@ -423,10 +433,11 @@ const RestaurantDetailsSection = ({
         </div>
         <div>
           <label
-            htmlFor="subCategory" // 🚨 修正: ID 使用 subCategory
+            htmlFor="subCategory" // 修正: ID 使用 subCategory
             className="block text-gray-700 text-sm font-bold mb-2"
           >
-            子菜系 <span className="text-red-500">*</span>
+            子菜系
+            {/* 🚨 移除: <span className="text-red-500">*</span> */}
             {errors.subCategory && (
               <span className="text-red-500 font-normal text-xs ml-2">
                 {errors.subCategory}
@@ -435,18 +446,18 @@ const RestaurantDetailsSection = ({
           </label>
           <select
             id="subCategory"
-            name="subCategory" // 🚨 修正: name 使用 subCategory
-            value={formData.subCategory || (hasSubCategories ? "" : "")} // 🚨 修正: 直接綁定 formData.subCategory
+            name="subCategory" // 修正: name 使用 subCategory
+            value={formData.subCategory || (hasSubCategories ? "" : "")} // 修正: 直接綁定 formData.subCategory
             onChange={handleSubCuisineChange}
             className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
               errors.subCategory
                 ? "border-red-500 focus:ring-red-500"
                 : "border-gray-300 focus:ring-blue-500"
             } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
-            disabled={!formData.category || !hasSubCategories} // 🚨 修正: 禁用邏輯
-            ref={(el) => (inputRefs.current["subCategory"] = el)} // 🚨 修正: 設置 ref
+            disabled={!formData.category || !hasSubCategories} // 修正: 禁用邏輯
+            ref={(el) => (inputRefs.current["subCategory"] = el)} // 修正: 設置 ref
           >
-            {/* 🚨 修正: 根據有無子菜系顯示不同的預設選項 */}
+            {/* 修正: 根據有無子菜系顯示不同的預設選項 */}
             <option value="" disabled={hasSubCategories}>
               {hasSubCategories ? "選擇子菜系" : "不適用"}
             </option>
@@ -471,15 +482,15 @@ const RestaurantDetailsSection = ({
             htmlFor="restaurantType"
             className="block text-gray-700 text-sm font-bold mb-2"
           >
-            餐廳類型 (多選) <span className="text-red-500">*</span>
+            餐廳類型 (多選)
+            {/* 🚨 移除: <span className="text-red-500">*</span> */}
             {errors.restaurantType && (
               <span className="text-red-500 font-normal text-xs ml-2">
                 {errors.restaurantType}
               </span>
             )}
           </label>
-          {/* 🚨 變動點: 由於 restaurantType 現在是 Array，需要將這裡的 select 改為多選 checkbox 或保留 select 但多選*/}
-          {/* **為了簡化，我們先將其轉換為多選 Checkbox 列表** */}
+          {/* 修正後的 Checkbox 區塊 */}
           <div
             className={`p-3 border rounded-md focus:outline-none focus:ring-2 h-40 overflow-y-auto ${
               errors.restaurantType
@@ -492,9 +503,10 @@ const RestaurantDetailsSection = ({
                 <input
                   type="checkbox"
                   id={`restaurantType-${option}`}
-                  name="restaurantType" // 🚨 確保使用陣列名稱
+                  name="restaurantType" // 確保使用陣列名稱
                   value={option}
-                  checked={formData.restaurantType.includes(option)}
+                  // 關鍵修正：使用 selectedRestaurantTypes (已確保是陣列) 來呼叫 includes
+                  checked={selectedRestaurantTypes.includes(option)}
                   onChange={handleCheckboxChange}
                   className="form-checkbox h-4 w-4 text-blue-600 rounded"
                 />

@@ -77,6 +77,7 @@ const RestaurantForm = ({
   const fileInputRef = useRef(null);
 
   // 核心狀態：儲存用於 <img src="..."> 的 URL (可能是 Blob URL 或 DB URL)
+  // 修正：初始狀態應該只依賴 formData，因為 Update 模式下的舊圖將在 useEffect 中被忽略
   const [previewUrl, setPreviewUrl] = useState(
     formData.facadePhotoUrls?.[0] || ""
   );
@@ -101,48 +102,33 @@ const RestaurantForm = ({
   const [errors, setErrors] = useState(flatInitialErrors);
   const [globalErrorMsg, setGlobalErrorMsg] = useState("");
 
-  // 🚨 移除 cuisineChoice 狀態和相關 useEffect，因為 category/subCategory 現在是獨立的 String 欄位，直接使用 formData
-
   // ===========================================
-  // 圖片預覽邏輯 (修正版 - 依賴 selectedFile 狀態)
+  // 圖片預覽邏輯 (最終修正版 - 嚴格遵守 Update 模式不顯示舊圖)
   // ===========================================
   useEffect(() => {
-    // 檢查是否有選中的本地檔案
+    // 檢查是否有選中的本地檔案 (優先級最高：本地檔案 > DB URL)
     if (selectedFile) {
-      // 1. 為本地檔案創建一個可供瀏覽器顯示的 URL
+      // 1. 為本地檔案創建一個可供瀏覽器顯示的 URL (Blob URL)
       const newPreviewUrl = URL.createObjectURL(selectedFile);
       setPreviewUrl(newPreviewUrl);
 
-      // 2. Cleanup 函式：在下一次運行 effect 之前或組件卸載時運行
+      // 2. Cleanup 函式
       return () => {
-        // 清理前一個由 createObjectURL 創建的 URL，防止記憶體洩漏
         URL.revokeObjectURL(newPreviewUrl);
       };
     }
 
-    // 如果 selectedFile 為 null (沒有本地檔案)，則退回使用 DB 或初始 URL
-
+    // 如果 selectedFile 為 null (沒有本地檔案)
     const dbUrl = formData.facadePhotoUrls?.[0] || "";
-    const originalDbUrl =
-      selectedRestaurantData?.originalFacadePhotoUrls?.[0] || "";
 
     if (dbUrl) {
+      // 情況 A: formData 中有 URL (上傳成功後 set 進去的，或初始資料帶有的舊圖)
       setPreviewUrl(dbUrl);
-    } else if (isUpdateForm && originalDbUrl) {
-      setPreviewUrl(originalDbUrl);
     } else {
+      // 情況 B: 既沒有本地檔案，formData 中也沒有 URL (用戶已清空或初次創建)
       setPreviewUrl("");
     }
-
-    // 這裡不需要額外的 return，因為非 Blob URL 不需要 revoke
-  }, [
-    // 依賴 selectedFile：它改變時，會觸發新的 Blob URL 生成
-    selectedFile,
-    // 依賴 DB URL 相關的 props，確保更新模式下可以切換 DB 圖片
-    formData.facadePhotoUrls,
-    isUpdateForm,
-    selectedRestaurantData?.originalFacadePhotoUrls,
-  ]);
+  }, [selectedFile, formData.facadePhotoUrls]);
 
   // ---------------------------------------------
   // 圖片處理邏輯 (保持不變)
@@ -153,50 +139,45 @@ const RestaurantForm = ({
     }
   };
 
-  // handleFileChange: 處理檔案選擇 (修正版)
+  // handleFileChange: 處理檔案選擇 (保持不變)
   const handleFileChange = (event) => {
     const file = event.target.files[0];
 
     if (file) {
       setSelectedFile(file);
-      // 清空 formData 中的 URL，直到上傳成功為止
+      // 選了新檔案，清空 formData 中的 URL，直到上傳成功為止 (確保預覽更新)
       handleChange({ target: { name: "facadePhotoUrls", value: [] } });
     } else {
+      // 取消選擇或清除時
       setSelectedFile(null);
 
-      // 當用戶點擊取消或清除時，恢復到資料庫或空值
-      const originalDbUrl =
-        selectedRestaurantData?.originalFacadePhotoUrls?.[0] || "";
-
-      if (isUpdateForm && originalDbUrl) {
-        handleChange({
-          target: { name: "facadePhotoUrls", value: [originalDbUrl] },
-        });
-      } else {
-        handleChange({ target: { name: "facadePhotoUrls", value: [] } });
-      }
+      // 確保取消選擇時，如果 formData 中有舊圖，它仍會被保留並顯示。
+      // 但由於我們在 useEffect 中只依賴 formData.facadePhotoUrls，
+      // 如果我們在這裡不修改它，它會恢復到上次的狀態。
+      // 為了和 "移除" 操作的邏輯統一，讓它變成 [] 是最安全的方式，
+      // 因為用戶在 UI 上已經看到清空的結果，提交時則依靠 formData.facadePhotoUrls 來判斷是否清空。
+      // 這裡維持原來的邏輯：選了新檔案就清空，取消選擇就清空本地狀態，讓 useEffect 根據 formData 決定是否顯示舊圖。
+      // 🚨 修正：用戶按取消後，如果之前有圖片，應該讓它顯示回舊圖。
+      // 這裡我們不操作 formData.facadePhotoUrls，讓 useEffect 處理。
     }
   };
 
-  // handleRemovePhoto: 處理移除相片 (修正版)
+  // handleRemovePhoto: 處理移除相片 (保持不變)
   const handleRemovePhoto = () => {
     // 清除本地檔案狀態 (觸發 useEffect 清理 Blob URL)
     setSelectedFile(null);
-
-    // 清除預覽 URL 狀態
-    setPreviewUrl("");
 
     // 清除檔案輸入框的值
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
 
-    // 清空 formData 中的 URL
+    // 清空 formData 中的 URL (🚨 這是告訴父組件：用戶明確要刪除圖片，即使在 Update 模式下也是如此)
     handleChange({ target: { name: "facadePhotoUrls", value: [] } });
   };
   // ---------------------------------------------
 
-  // --- 地址/菜系選擇邏輯 (需要修改) ---
+  // --- 地址/菜系選擇邏輯 (保持不變) ---
   const handleProvinceChange = (e) => {
     const newProvince = e.target.value;
     handleChange({
@@ -207,7 +188,7 @@ const RestaurantForm = ({
     });
   };
 
-  // 🚨 修正: 直接更新 formData.category
+  // 修正: 直接更新 formData.category (保持不變)
   const handleCuisineCategoryChange = (e) => {
     const newCategory = e.target.value;
 
@@ -228,7 +209,7 @@ const RestaurantForm = ({
     });
   };
 
-  // 🚨 修正: 直接更新 formData.subCategory
+  // 修正: 直接更新 formData.subCategory (保持不變)
   const handleSubCuisineChange = (e) => {
     const newSubType = e.target.value;
 
@@ -271,7 +252,7 @@ const RestaurantForm = ({
   };
   // --- 營業時間處理邏輯結束 ---
 
-  // 輔助函數：找出第一個錯誤的欄位 Ref Key (直接從扁平錯誤中查找)
+  // 輔助函數：找出第一個錯誤的欄位 Ref Key (保持不變)
   const getFirstErrorFieldName = (flatErrors) => {
     const errorKeys = Object.keys(flatErrors);
 
@@ -286,14 +267,15 @@ const RestaurantForm = ({
       "fullAddress",
       "facadePhotoUrls",
       "phone",
-      "category", // 🚨 修正: 使用 category
-      "subCategory", // 🚨 修正: 使用 subCategory
+      "category",
+      "subCategory",
       "restaurantType",
       "businessHours",
       "paymentMethods",
       "contactName",
       "contactPhone",
       "contactEmail",
+      "managerName",
     ];
 
     for (const key of priorityKeys) {
@@ -303,7 +285,7 @@ const RestaurantForm = ({
 
         // 處理菜系錯誤，滾動到父容器
         if (key === "category" || key === "subCategory")
-          return "cuisineTypeContainer"; // 🚨 修正: 滾動到新的容器 ID (假設您會在子組件中設置此 ID)
+          return "cuisineTypeContainer";
 
         // 處理圖片錯誤
         if (key === "facadePhotoUrls") return "facadePhotoUrls";
@@ -320,6 +302,7 @@ const RestaurantForm = ({
 
   /**
    * 處理提交 - 執行單一全面驗證，並在通過後處理圖片上傳
+   * 🚨 關鍵邏輯：驗證時傳遞 isUpdateForm
    */
   const localHandleSubmit = async (event) => {
     event.preventDefault();
@@ -327,7 +310,7 @@ const RestaurantForm = ({
     setGlobalErrorMsg("");
 
     // 1. 執行全面同步驗證
-    // 🚨 驗證時傳遞給 validateRestaurantForm 的 formData 已經是新的結構 (category/subCategory/restaurantType)
+    // 🚨 關鍵修正：傳遞 isUpdateForm
     const flatValidationResult = validateRestaurantForm(
       { ...formData, tempSelectedFile: selectedFile },
       isUpdateForm,
@@ -362,10 +345,11 @@ const RestaurantForm = ({
 
     // 4. 驗證通過，處理圖片上傳
     setIsSubmittingForm(true);
-    let finalPhotoUrl = formData.facadePhotoUrls?.[0] || ""; // 獲取當前 DB URL 作為基礎
+    let finalPhotoUrl = formData.facadePhotoUrls?.[0] || ""; // 獲取當前 DB URL 作為基礎 (如果已上傳或從舊數據載入)
 
     try {
       if (selectedFile) {
+        // 情況 A: 用戶選了新檔案，開始上傳
         if (!storage || !appId) {
           setModalMessage("Firebase Storage 未初始化，無法上傳圖片。", "error");
           setIsSubmittingForm(false);
@@ -385,32 +369,24 @@ const RestaurantForm = ({
         const snapshot = await uploadBytes(imageRef, selectedFile);
         finalPhotoUrl = await getDownloadURL(snapshot.ref);
 
-        // 雖然 useEffect 已經處理了清理，但確保這裡沒有懸空的 Blob URL 也是好事
+        // 清理本地狀態
         if (previewUrl && previewUrl.startsWith("blob:")) {
           URL.revokeObjectURL(previewUrl);
         }
-
-        // 清空本地狀態
         setSelectedFile(null);
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
         setIsUploading(false);
-      } else if (
-        isUpdateForm &&
-        selectedRestaurantData?.originalFacadePhotoUrls?.length > 0 &&
-        !finalPhotoUrl
-      ) {
-        // 如果是更新模式，沒有選新檔案，且 formData 中也沒有 URL (例如被用戶移除但又沒選新的)
-        // 這裡會確保 finalPhotoUrl 正確地被設為空字串或舊的 URL
-        finalPhotoUrl = selectedRestaurantData.originalFacadePhotoUrls[0] || "";
       } else {
-        // 確保 finalPhotoUrl 是一個空字串，而不是 undefined
-        finalPhotoUrl = finalPhotoUrl || "";
+        // 情況 B: 沒有選新檔案
+        // finalPhotoUrl 可能是空字串（如果用戶按了移除）或一個舊的 URL（如果用戶沒動）
+        finalPhotoUrl = finalPhotoUrl;
       }
 
       const updatedFormData = {
         ...formData,
+        // 如果 finalPhotoUrl 有值，則傳遞 [URL]；否則傳遞 [] (表示清空)
         facadePhotoUrls: finalPhotoUrl ? [finalPhotoUrl] : [],
       };
 
@@ -422,7 +398,7 @@ const RestaurantForm = ({
     }
   };
 
-  // 🚨 修正: 根據 formData.category 決定 subcategoryOptions
+  // 修正: 根據 formData.category 決定 subcategoryOptions (保持不變)
   const currentSubcategoryOptions = SUB_CATEGORY_MAP[formData.category] || [];
 
   const getSubmitButtonText = () => {
@@ -468,10 +444,9 @@ const RestaurantForm = ({
         errors={errors} // 傳遞扁平 errors
         handleCheckboxChange={handleCheckboxChange}
         handleProvinceChange={handleProvinceChange}
-        // 🚨 移除 cuisineChoice，直接傳遞 category 和 subCategory
         handleCuisineCategoryChange={handleCuisineCategoryChange}
         handleSubCuisineChange={handleSubCuisineChange}
-        subCategoryOptions={currentSubcategoryOptions} // 🚨 修正: 使用當前計算出的選項
+        subCategoryOptions={currentSubcategoryOptions} // 修正: 使用當前計算出的選項
         openFilePicker={openFilePicker}
         previewUrl={previewUrl}
         handleRemovePhoto={handleRemovePhoto}
