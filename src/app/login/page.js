@@ -2,21 +2,23 @@
 "use client";
 
 import React, { useContext, useState, useCallback, useEffect } from "react";
-import { AuthContext } from "../../lib/auth-context";
+import { AuthContext } from "../../lib/auth-context"; // 確保路徑正確
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getAuth, signOut } from "firebase/auth";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGoogle, faFacebook } from "@fortawesome/free-brands-svg-icons"; // 導入 Google 和 Facebook 圖標
+import { faGoogle, faFacebook } from "@fortawesome/free-brands-svg-icons";
 
 export default function LoginPage() {
   const {
     login,
     signupWithGoogle,
     loginWithFacebook,
+    sendPasswordReset, // <--- 1. 引入 sendPasswordReset
+    setModalMessage, // <--- 2. 引入 setModalMessage (用於提示)
     loadingUser,
     currentUser,
-  } = useContext(AuthContext); // 引入 signupWithGoogle 和 loginWithFacebook
+  } = useContext(AuthContext);
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -152,6 +154,29 @@ export default function LoginPage() {
     }
   }, [loginWithFacebook]);
 
+  // <--- 3. 新增處理忘記密碼的函式
+  const handleForgotPassword = useCallback(async () => {
+    if (!email) {
+      setModalMessage("請先在電子郵件欄位輸入您的信箱。", "info");
+      return;
+    }
+
+    setLocalLoading(true);
+    setLoginResult(null);
+    try {
+      // sendPasswordReset 已經透過 AuthContext 暴露
+      await sendPasswordReset(email);
+      // sendPasswordReset 成功後會透過 AuthContext 內建的 modal 顯示成功訊息
+    } catch (error) {
+      // 錯誤處理邏輯通常放在 useAuthOperations 內，但這裡可以再次確保
+      console.error("密碼重設失敗:", error);
+      setModalMessage("發送密碼重設郵件失敗，請確保電子郵件正確。", "error");
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [email, sendPasswordReset, setModalMessage]);
+  // 3. 結束
+
   const handleBackToLogin = () => {
     setLoginResult(null);
     setEmail("");
@@ -260,12 +285,24 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700"
-            >
-              密碼
-            </label>
+            <div className="flex justify-between items-center">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700"
+              >
+                密碼
+              </label>
+              {/* <--- 4. 將 Link 改成 Button，並調用 handleForgotPassword 函式 */}
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-xs font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none"
+                disabled={loadingUser || localLoading}
+              >
+                忘記密碼？
+              </button>
+              {/* 4. 結束 */}
+            </div>
             <input
               type="password"
               id="password"
@@ -333,14 +370,14 @@ export default function LoginPage() {
           </button>
 
           {/* 新增的 Facebook 登入按鈕 */}
-          <button
+          {/* <button
             onClick={handleFacebookLogin}
             className="w-full mt-4 flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             disabled={loadingUser || localLoading}
           >
             <FontAwesomeIcon icon={faFacebook} className="mr-2 text-blue-600" />
             使用 Facebook 登入
-          </button>
+          </button> */}
         </div>
         {/* --- 分隔線和第三方登入按鈕結束 --- */}
 

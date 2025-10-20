@@ -12,6 +12,19 @@ export const categoryOptions = [
   "特色餐飲", // 簡化為只有主類別
 ];
 
+export const categoryImageMap = {
+  "港式": "/img/category/hk.webp", // 假設的路徑
+  "日本菜": "/img/category/jp.webp",
+  "中菜": "/img/category/cn.webp",
+  "泰國菜": "/img/category/th.webp",
+  "韓國菜": "/img/category/kr.webp",
+  "台灣菜": "/img/category/tw.webp",
+  "越南菜": "/img/category/vn.webp",
+  "歐美菜系": "/img/category/eu.webp",
+  "其他菜系": "/img/category/other.webp",
+  "特色餐飲": "/img/category/ve.webp"
+};
+
 // ⚠️ 新增：subcategoryOptions專門用於細分菜系 (從 categoryOptions 中提取)
 export const subcategoryOptions = [
   // 從 '中菜' 中提取

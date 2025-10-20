@@ -224,3 +224,63 @@ h2[id] {
   scroll-margin-top: 130px;
   /* 確保它適用於這個特定的 ID */
 }
+
+/* ---------------------------------------------------- */
+/* ⚠️ 針對 CategoryPage 的文字描邊 (Text Stroke) 修正 */
+/* ---------------------------------------------------- */
+
+.text-fill-white {
+  -webkit-text-fill-color: white;
+  /* 直接使用傳統顏色 */
+}
+
+.text-stroke-2 {
+  -webkit-text-stroke-width: 2px;
+}
+
+.text-stroke-red-500 {
+  /* 由於 v4 顏色系統可能導致 -webkit-text-stroke 失敗，
+       這裡使用你 Tailwind v4 主題中最接近 red-500 的十六進制或 RGB 值，
+       或直接使用一個標準顏色作為測試。 */
+  -webkit-text-stroke-color: #ef4444;
+  /* 標準 red-500 */
+}
+
+/* 確保你使用 text-transparent 來清除原本的填充色 */
+.text-transparent {
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+
+}
+
+.text-stroke-base {
+  /* 只設置描邊寬度 */
+  -webkit-text-stroke-width: 1px;
+  /* ⚠️ 移除了 -webkit-text-fill-color: transparent; */
+}
+
+/* 描邊顏色：黑色 */
+.text-stroke-black {
+  -webkit-text-stroke-color: #000000;
+}
+
+.text-outline-black {
+  /* 這裡使用 8 個陰影，向 8 個方向偏移 1px，模擬 1px 的外邊 */
+  text-shadow:
+    -1px -1px 0 rgb(66, 66, 66),
+    /* 左上 */
+    0 -1px 0 rgb(66, 66, 66),
+    /* 正上 */
+    1px -1px 0 rgb(66, 66, 66),
+    /* 右上 */
+    1px 0 0 rgb(66, 66, 66),
+    /* 正右 */
+    1px 1px 0 rgb(66, 66, 66),
+    /* 右下 */
+    0 1px 0 rgb(66, 66, 66),
+    /* 正下 */
+    -1px 1px 0 rgb(66, 66, 66),
+    /* 左下 */
+    -1px 0 0 rgb(66, 66, 66);
+  /* 正左 */
+}

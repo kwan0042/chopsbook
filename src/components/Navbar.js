@@ -323,13 +323,13 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
           href="/categories"
           className="hover:text-yellow-500 transition duration-200 text-sm"
         >
-          特價優惠
+          餐廳優惠
         </Link>
         <Link
           href="#"
           className="hover:text-yellow-500 transition duration-200 text-sm"
         >
-          最新上架
+          新開業餐廳
         </Link>
       </div>
     </nav>
