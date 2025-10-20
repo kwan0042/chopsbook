@@ -77,6 +77,10 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
 
   return (
     <nav className="bg-gray-900 text-white sticky top-0 z-50 shadow-md">
+      {/* 保持 flex-col 作為預設 (適用於 sm 以下，即所有手機)，
+        並在 lg 及以上使用 flex-row (水平排列)。
+        這能確保在 sm 時所有主要區塊 (Logo/登入, 搜尋, 連結) 垂直轉行。
+      */}
       <div className="flex flex-col lg:flex-row items-center w-full p-3 px-4 sm:px-4 lg:px-4 lg:justify-between">
         <div className="flex items-center justify-between w-full lg:w-[30%] mb-2 lg:mb-0 lg:justify-start">
           <button
@@ -155,19 +159,19 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
 
         <form
           onSubmit={handleSearchSubmit}
-          className="flex-grow w-full lg:w-[40%] flex items-center justify-center my-2 lg:my-0"
+          className="w-full lg:w-[40%] flex items-center justify-center my-2 lg:my-0 lg:flex-grow"
         >
-          <div className="max-w-xl w-full flex">
+          <div className="max-w-xl w-full flex flex-grow">
             <input
               type="text"
               placeholder="搜尋餐廳、菜系、地點..."
-              className="h-10 px-3 py-2 rounded-l-md w-full bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 border border-transparent"
+              className="h-10 px-3 py-2 rounded-l-md w-full bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 border border-transparent flex-grow"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
             />
             <button
               type="submit"
-              className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 h-10 p-2.5 rounded-r-md transition duration-200"
+              className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 h-10 p-2.5 rounded-r-md transition duration-200 flex-shrink-0"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -186,7 +190,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
               <button
                 type="button"
                 onClick={onShowFilterModal}
-                className="bg-gray-700 hover:bg-gray-600 text-white h-10 p-2.5 rounded-md ml-2 transition duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                className="bg-gray-700 hover:bg-gray-600 text-white h-10 p-2.5 rounded-md ml-2 transition duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500 flex-shrink-0"
                 aria-label="打開篩選器"
               >
                 <svg
