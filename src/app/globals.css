@@ -213,3 +213,14 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+h2[id] {
+  scroll-margin-top: 130px;
+  /* 替換成您導航欄的實際高度 */
+}
+
+/* 針對您的 specific ID */
+#delete-account {
+  scroll-margin-top: 130px;
+  /* 確保它適用於這個特定的 ID */
+}

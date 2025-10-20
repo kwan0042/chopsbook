@@ -1,5 +1,6 @@
 // src/app/help/terms/page.js
 
+import AccountLink from "@/components/help/AccountLink"
 export const metadata = {
   title: "ChopsBook Terms of Service / 使用條款",
   description: "ChopsBook 平台使用條款）",
@@ -556,6 +557,34 @@ export default function TermsPage() {
           After withdrawal, certain provisions (such as copyright, prohibited
           acts, liability limitation, dispute resolution) remain in effect.
         </p>
+
+        {/* 刪除帳號流程：使用 Client Component 來渲染動態連結 */}
+        <div className="bg-red-100 p-4 my-4 rounded">
+          <h3 id="delete-account" className="font-semibold mb-2">
+            刪除帳號流程 / Account Deletion Process
+          </h3>
+          <ol className="list-decimal list-inside space-y-2">
+            <li>
+              
+              {/* 嵌入 Client Component */}
+              <AccountLink />
+            </li>
+            <li>捲動至「危險區域（Danger Zone）」</li>
+            <li>點選「刪除帳戶」並依照指示完成操作</li>
+            <li>
+              如有問題，可聯絡客服：
+              <a
+                href="mailto:support@chopsbook.com"
+                className="text-blue-600 underline"
+              >
+                support@chopsbook.com
+              </a>
+            </li>
+          </ol>
+          <p className="mt-2 text-sm text-gray-700">
+            ※ 刪除帳號後，個人資料將會依平台規定流程處理。
+          </p>
+        </div>
       </section>
 
       <section className="py-2">
