@@ -77,7 +77,18 @@ export async function POST(request) {
   }
 }
 
+/**
+ * 【新增】PUT 函式，用於處理可能來自前端的 PUT 請求。
+ * 委派給 PATCH 處理邏輯。
+ */
 export async function PUT(request) {
+  return PATCH(request);
+}
+
+/**
+ * 處理文章更新邏輯。
+ */
+export async function PATCH(request) {
   const { isAdmin, uid, error } = await verifyAdmin(request);
   if (!isAdmin) {
     return NextResponse.json({ success: false, error }, { status: 403 });

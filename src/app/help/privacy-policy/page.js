@@ -2,7 +2,8 @@
 import { index } from "react";
 export const metadata = {
   title: "ChopsBook 隱私政策 / Privacy Policy",
-  description: "ChopsBook 平台隱私政策（中／英文對照、極度詳盡版本）",
+  description: "ChopsBook 平台隱私政策",
+  metadataBase: new URL("https://chopsbook.com"),
   openGraph: {
     title: "ChopsBook Privacy Policy",
     description: "ChopsBook 隱私政策 / Privacy Policy",

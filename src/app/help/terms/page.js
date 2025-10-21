@@ -3,6 +3,7 @@
 import AccountLink from "@/components/help/AccountLink"
 export const metadata = {
   title: "ChopsBook Terms of Service / 使用條款",
+  metadataBase: new URL("https://chopsbook.com"),
   description: "ChopsBook 平台使用條款）",
   openGraph: {
     title: "ChopsBook Terms of Service",

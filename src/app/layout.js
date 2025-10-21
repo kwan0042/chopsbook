@@ -9,6 +9,7 @@ export const metadata = {
     icon: "/chopsbook_icon.ico",
     shortcut: "/chopsbook_icon.ico",
   },
+  metadataBase: new URL("https://chopsbook.com"),
 };
 
 export default function RootLayout({ children }) {
@@ -16,18 +17,15 @@ export default function RootLayout({ children }) {
     <html lang="zh-Hant">
       <head>
         {/* ✅ GA4 追蹤代碼（全站生效） */}
-        <script
+        <Script
           async
           src="https://www.googletagmanager.com/gtag/js?id=G-8MS5RD1TCD"
-        ></script>
+        ></Script>
         <Script id="ga4" strategy="afterInteractive">
-          {`
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-8MS5RD1TCD');
-   `}
+          {`window.dataLayer = window.dataLayer || [];function 
+          gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-8MS5RD1TCD');`}
         </Script>
       </head>
       <body>

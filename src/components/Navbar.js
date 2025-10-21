@@ -77,10 +77,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
 
   return (
     <nav className="bg-gray-900 text-white sticky top-0 z-50 shadow-md">
-      {/* 保持 flex-col 作為預設 (適用於 sm 以下，即所有手機)，
-        並在 lg 及以上使用 flex-row (水平排列)。
-        這能確保在 sm 時所有主要區塊 (Logo/登入, 搜尋, 連結) 垂直轉行。
-      */}
+      {/* 保持 flex-col 作為預設 (適用於 sm 以下)，並在 lg 及以上使用 flex-row */}
       <div className="flex flex-col lg:flex-row items-center w-full p-3 px-4 sm:px-4 lg:px-4 lg:justify-between">
         <div className="flex items-center justify-between w-full lg:w-[30%] mb-2 lg:mb-0 lg:justify-start">
           <button
@@ -109,12 +106,12 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handleGoToPersonalPage}
-                  className="text-white hover:text-yellow-500 transition duration-200 p-1 rounded-full"
+                  className="text-white hover:text-yellow-500 transition duration-200  rounded-full"
                   aria-label="個人主頁"
                 >
                   <FontAwesomeIcon icon={faUser} className="h-5 w-5" />
                 </button>
-                <span className="text-gray-200 text-sm hidden sm:block">
+                <span className="text-gray-200 font-bold text-xs sm:text-sm hidden xl:hidden 2xl:inline whitespace-nowrap flex-shrink-0">
                   {currentUser.username}
                 </span>
 
@@ -139,7 +136,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="text-red-400 hover:text-red-500 transition duration-200 text-sm px-2"
+                  className="text-red-400 hover:text-red-500 font-bold text-xs sm:text-sm whitespace-nowrap flex-shrink-0"
                 >
                   登出
                 </button>
@@ -157,11 +154,12 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
           </div>
         </div>
 
-        <form
-          onSubmit={handleSearchSubmit}
-          className="w-full lg:w-[40%] flex items-center justify-center my-2 lg:my-0 lg:flex-grow"
-        >
-          <div className="max-w-xl w-full flex flex-grow">
+        {/* 🎯 修改 1: 將搜尋欄和菜單按鈕放在同一行，並確保它們在 lg 以前可以換行 */}
+        <div className="w-full lg:w-auto flex items-center justify-center my-2 lg:my-0 lg:flex-grow">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="w-full max-w-xl flex flex-grow"
+          >
             <input
               type="text"
               placeholder="搜尋餐廳、菜系、地點..."
@@ -186,11 +184,15 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
                 />
               </svg>
             </button>
+          </form>
+
+          {/* 🎯 修改 2: 將 Filter 和 Menu 按鈕放在一起 */}
+          <div className="flex items-center space-x-2 ml-2">
             {!isRestaurantsPage && (
               <button
                 type="button"
                 onClick={onShowFilterModal}
-                className="bg-gray-700 hover:bg-gray-600 text-white h-10 p-2.5 rounded-md ml-2 transition duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500 flex-shrink-0"
+                className="bg-gray-700 hover:bg-gray-600 text-white h-10 p-2.5 rounded-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500 flex-shrink-0"
                 aria-label="打開篩選器"
               >
                 <svg
@@ -209,10 +211,33 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
                 </svg>
               </button>
             )}
-          </div>
-        </form>
 
-        <div className="flex items-center w-full lg:w-[30%] justify-end space-x-2 mt-2 lg:mt-0">
+            {/* 🎯 修改 3: 菜單按鈕只在 md 尺寸以下顯示 */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 flex-shrink-0 h-10 w-10 flex items-center justify-center"
+              aria-label="打開菜單"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* 🎯 修改 4: 右側連結區塊 - md 尺寸以上顯示，md 以下隱藏 */}
+        <div className=" items-center w-full lg:w-[30%] justify-end space-x-2 mt-2 lg:mt-0 hidden lg:flex">
           <Link
             href={`/review`}
             className="hover:text-yellow-500 transition duration-200 bg-transparent border-none text-white cursor-pointer pl-3 m-0 text-sm"
@@ -237,55 +262,43 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
               管理員頁面
             </button>
           )}
-
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="ml-2 lg:hidden p-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-            aria-label="打開菜單"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
         </div>
       </div>
 
+      {/* 🎯 修改 5: 行動菜單 (只在 md 螢幕以下顯示) */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden w-full bg-gray-800 border-t border-gray-700 py-2 px-4 flex flex-col items-center space-y-2">
-          {currentUser && (
+        <div className="md:hidden w-full bg-gray-800 border-t border-gray-700 py-2 px-4 flex flex-col items-center space-y-2">
+          {/* 登入/個人主頁 */}
+          {currentUser ? (
             <button
               onClick={handleGoToPersonalPage}
               className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
             >
               個人主頁
             </button>
+          ) : (
+            <button
+              onClick={handleGoToLoginPage}
+              className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
+            >
+              登入
+            </button>
           )}
+
+          {/* 從頂部右側移入的連結 */}
+          <Link
+            href={`/review`}
+            className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
+          >
+            寫食評
+          </Link>
           <button
             onClick={() => {
               router.push("/merchant");
             }}
             className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
           >
-            餐廳專區
-          </button>
-          <button
-            onClick={() => {
-              router.push("/personal/reviews");
-            }}
-            className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
-          >
-            寫食評
+            餐廳管理專區
           </button>
           {isAdmin && (
             <button
@@ -297,10 +310,46 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
               管理員頁面
             </button>
           )}
+
+          {/* 新增分隔線 */}
+          <div className="w-1/2 h-px bg-gray-700 my-1"></div>
+
+          {/* 從底部導航列移入的連結 */}
+          <button
+            onClick={handleGoToRestaurants}
+            className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
+          >
+            所有餐廳
+          </button>
+          <Link
+            href="/categories"
+            className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 text-white cursor-pointer"
+          >
+            所有類別
+          </Link>
+          <Link
+            href="/blogs"
+            className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 text-white cursor-pointer"
+          >
+            所有文章
+          </Link>
+          <Link
+            href="/categories"
+            className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 text-white cursor-pointer"
+          >
+            餐廳優惠
+          </Link>
+          <Link
+            href="#"
+            className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 text-white cursor-pointer"
+          >
+            新開業餐廳
+          </Link>
         </div>
       )}
 
-      <div className="bg-gray-800 text-white text-sm py-2 px-6 w-full flex flex-wrap justify-center gap-4 sm:gap-6 border-t border-gray-700">
+      {/* 🎯 修改 6: 底部導航列 - md 尺寸以上顯示，md 以下隱藏 (保持不移除) */}
+      <div className="bg-gray-800 text-white text-sm py-2 px-6 w-full hidden lg:flex flex-wrap justify-center gap-4 sm:gap-6 border-t border-gray-700">
         <button
           onClick={handleGoToRestaurants}
           className="hover:text-yellow-500 transition duration-200 text-sm bg-transparent border-none"

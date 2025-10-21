@@ -8,7 +8,7 @@ const ITEMS_PER_PAGE = 9; // 每頁 9 篇文章
 export const metadata = {
   // 頁面標題：最關鍵的 SEO 元素
   title: "所有文章 | ChopsBook",
-
+  metadataBase: new URL("https://chopsbook.com"),
   // 頁面描述
   description:
     "瀏覽最全面的多倫多餐廳食評與美食交流文章。發掘多倫多最佳餐廳推介、必食菜單及餐飲趨勢。使用智慧搜尋和菜系標籤，快速找到您下一餐的美食靈感！",

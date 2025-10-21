@@ -30,7 +30,7 @@ export const RankDisplay = ({ rank }) => {
   const isLevel0 = rank === 0;
 
   return (
-    <div className="flex items-center space-x-1 sm:space-x-2 pl-3">
+    <div className="flex items-center space-x-1 sm:space-x-2 pl-2">
       <div
         className={`relative w-6 h-6 sm:w-6 sm:h-6 flex items-center justify-center rounded-full overflow-hidden flex-shrink-0 
           rank-before
@@ -51,7 +51,7 @@ export const RankDisplay = ({ rank }) => {
       </div>
       <span
         // 預設隱藏 (hidden)，sm 保持隱藏 (sm:hidden)，xl 顯示 (xl:inline)
-        className={`font-bold text-xs sm:text-sm hidden sm:hidden xl:inline whitespace-nowrap flex-shrink-0 ${
+        className={`font-bold text-xs sm:text-sm hidden xl:hidden 2xl:inline whitespace-nowrap flex-shrink-0 ${
           isLevel0 ? "text-white" : rankInfo.color
         }`}
       >

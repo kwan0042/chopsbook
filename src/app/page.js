@@ -37,6 +37,7 @@ export const metadata = {
       url: "https://www.chopsbook.com",
     },
   ],
+  metadataBase: new URL("https://chopsbook.com"),
   openGraph: {
     title: "ChopsBook - 多倫多餐廳食評交流平台",
     description:
@@ -94,21 +95,32 @@ export default async function HomePageServer() {
         <HeroSection />
 
         <div className="mx-auto py-10 px-2 sm:px-2 lg:px-12">
-          <div className="grid grid-cols-6 md:grid-cols-6 gap-4">
-            {/* 1. 左側欄位 (col-span-1)：Client Component (個人化推薦 / 排名) */}
-            <div className="col-span-1 grid grid-cols-1 gap-4 h-fit">
+          {/* 【新增行動版區塊 A】：熱門分類 (移至頂部，只在手機顯示) */}
+          <div className="md:hidden pb-4">
+            <TrendingCateSection />
+          </div>
+
+          {/* 【新增行動版區塊 B】：原左側欄 Client 互動區 (只在手機顯示) */}
+          <div className="md:hidden grid grid-cols-1 gap-4 mb-4">
+            <ClientSideHomeWrapper side="left" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            {/* 1. 左側欄位 (只在網頁版顯示) */}
+            <div className="hidden md:grid col-span-1  grid-cols-1 gap-4 h-fit">
               {/* 💡 傳遞 side="left" 渲染左側欄的 Client 區塊 */}
               <ClientSideHomeWrapper side="left" />
             </div>
 
             {/* 2. 中央內容區 (col-span-4)：Server Component (推廣 / 熱門話題) */}
-            <div className="col-span-4 grid grid-cols-1 gap-4">
+            {/* 💡 手機佔 1 欄 (col-span-1)，網頁版佔 4 欄 (md:col-span-4) */}
+            <div className="col-span-1 md:col-span-4 grid grid-cols-1 gap-4 my-4 md:my-0">
               <PromotionsSection />
               <TrendingTopicsSection />
             </div>
 
-            {/* 3. 右側欄位 (col-span-1)：Server & Client Component 混合 */}
-            <div className="col-span-1 grid grid-cols-1 gap-4 h-fit">
+            {/* 3. 右側欄位 (只在網頁版顯示) */}
+            <div className="hidden md:grid col-span-1  grid-cols-1 gap-4 h-fit">
               {/* 最新評論 (Server Component - 靜態 SEO 內容) */}
               <LatestReviewsSection />
 
@@ -117,7 +129,17 @@ export default async function HomePageServer() {
             </div>
           </div>
 
-          <TrendingCateSection />
+          {/* 【新增行動版區塊 C】：原右側欄 Server/Client 內容 (移至中央內容流下方，只在手機顯示) */}
+          <div className="md:hidden col-span-1 grid grid-cols-1 gap-4 h-fit ">
+         
+            <LatestReviewsSection />
+            <ClientSideHomeWrapper side="right" />
+          </div>
+
+          {/* 【網頁版區塊】：熱門分類 (保持在底部，只在網頁版顯示) */}
+          <div className="hidden md:block">
+            <TrendingCateSection />
+          </div>
         </div>
       </main>
     </div>
