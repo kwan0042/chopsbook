@@ -13,16 +13,16 @@ export const categoryOptions = [
 ];
 
 export const categoryImageMap = {
-  "港式": "/img/category/hk.webp", // 假設的路徑
-  "日本菜": "/img/category/jp.webp",
-  "中菜": "/img/category/cn.webp",
-  "泰國菜": "/img/category/th.webp",
-  "韓國菜": "/img/category/kr.webp",
-  "台灣菜": "/img/category/tw.webp",
-  "越南菜": "/img/category/vn.webp",
-  "歐美菜系": "/img/category/eu.webp",
-  "其他菜系": "/img/category/other.webp",
-  "特色餐飲": "/img/category/ve.webp"
+  港式: "/img/category/hk.webp", // 假設的路徑
+  日本菜: "/img/category/jp.webp",
+  中菜: "/img/category/cn.webp",
+  泰國菜: "/img/category/th.webp",
+  韓國菜: "/img/category/kr.webp",
+  台灣菜: "/img/category/tw.webp",
+  越南菜: "/img/category/vn.webp",
+  歐美菜系: "/img/category/eu.webp",
+  其他菜系: "/img/category/other.webp",
+  特色餐飲: "/img/category/ve.webp",
 };
 
 // ⚠️ 新增：subcategoryOptions專門用於細分菜系 (從 categoryOptions 中提取)
@@ -73,9 +73,10 @@ export const restaurantTypeOptions = [
   // I. 港式/中式特色場所
   "茶餐廳",
   "冰室",
-  "大牌檔 (熟食中心/街市)",
+  "大牌檔式",
   "酒樓/海鮮酒家",
-  "茶樓/點心專門店",
+  "茶樓/早茶",
+  "凍肉點心專門店",
   "火鍋店/打邊爐專門店",
   "粥店/粥品專門店",
   "粉麵店/車仔麵專門店",
@@ -86,7 +87,7 @@ export const restaurantTypeOptions = [
   // II. 日式特色場所 (Japanese Specific)
   "壽司/刺身專門店",
   "居酒屋 (Izakaya)",
-  "拉麵店",
+  "拉麵/沾麵店",
   "燒肉店/日式烤肉",
   "串燒店/燒鳥 (Yakitori)",
   "鐵板燒/爐端燒",
@@ -163,7 +164,9 @@ export const facilitiesServiceOptions = [
   "Wi-Fi服務",
   "切餅費",
   "可自帶酒水",
-  "外賣速遞",
+  "外賣自取",
+  "外賣速遞(自家)",
+  "外賣速遞(第三方)",
   "停車場",
   "無障礙設施",
   "兒童友善",

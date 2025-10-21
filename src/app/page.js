@@ -117,6 +117,9 @@ export default async function HomePageServer() {
             <div className="col-span-1 md:col-span-4 grid grid-cols-1 gap-4 my-4 md:my-0">
               <PromotionsSection />
               <TrendingTopicsSection />
+              <div className="hidden md:block">
+              <TrendingCateSection />
+            </div>
             </div>
 
             {/* 3. 右側欄位 (只在網頁版顯示) */}
@@ -131,15 +134,11 @@ export default async function HomePageServer() {
 
           {/* 【新增行動版區塊 C】：原右側欄 Server/Client 內容 (移至中央內容流下方，只在手機顯示) */}
           <div className="md:hidden col-span-1 grid grid-cols-1 gap-4 h-fit ">
-         
             <LatestReviewsSection />
             <ClientSideHomeWrapper side="right" />
           </div>
 
-          {/* 【網頁版區塊】：熱門分類 (保持在底部，只在網頁版顯示) */}
-          <div className="hidden md:block">
-            <TrendingCateSection />
-          </div>
+          
         </div>
       </main>
     </div>

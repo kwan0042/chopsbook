@@ -6,6 +6,7 @@ import React, { useState, useEffect, useRef, useContext } from "react";
 import { doc, getDoc } from "firebase/firestore"; 
 import { useParams } from "next/navigation";
 import { AuthContext } from "../../../lib/auth-context";
+import { Image }  from "next/image";
 
 // Utility function to format timestamp
 const formatDateTime = (timestamp) => {
@@ -149,14 +150,14 @@ const BlogPage = () => {
               className="flex flex-col md:flex-row items-start gap-4 my-4"
             >
               <div className="w-full md:w-1/2">
-                <img
+                <Image
                   src={block.url}
                   alt="文章內文圖片"
                   className="w-full h-auto rounded-lg shadow-md"
                 />
               </div>
               <div className="w-full md:w-1/2">
-                <img
+                <Image
                   src={nextBlock.url}
                   alt="文章內文圖片"
                   className="w-full h-auto rounded-lg shadow-md"
@@ -167,7 +168,7 @@ const BlogPage = () => {
         } else {
           renderedElements.push(
             <div key={i} className="my-4">
-              <img
+              <Image
                 src={block.url}
                 alt="文章內文圖片"
                 className="w-full h-auto rounded-lg shadow-md"
@@ -205,7 +206,7 @@ const BlogPage = () => {
     <>
       <div className="flex justify-center bg-cbbg min-h-screen p-6 font-sans">
         <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl overflow-hidden border border-gray-200 p-6">
-          <img src={blog?.coverImage} />
+          <Image src={blog?.coverImage} alt={blog?.title}/>
           <h1 className="text-2xl font-extrabold text-gray-900 mb-2">
             {blog?.title || "沒有標題"}
           </h1>
