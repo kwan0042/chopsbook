@@ -28,10 +28,6 @@ const BlogsClientPage = ({
 
   // 處理 Next.js 路由事件，提供更好的載入體驗
   useEffect(() => {
-    // 由於 App Router 移除了 router.events，這裡我們使用一個簡單的計時器
-    // 來模擬載入狀態，或依賴 Next.js 內建的 loading.js 檔案。
-    // 這裡我們只在點擊事件中手動設置 setIsLoading(true)。
-    // 為了符合原有設計，我們保留了這個狀態。
     return () => {};
   }, []);
 

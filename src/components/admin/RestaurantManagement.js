@@ -1,4 +1,3 @@
-// src/components/admin/RestaurantManagement.js
 "use client";
 
 import React, {
@@ -7,10 +6,13 @@ import React, {
   useCallback,
   useMemo,
   useRef,
+  useContext,
 } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
-// 🚨 僅修改此處：引入新增餐廳模態窗，使用正確的文件名稱 NewRestaurantModal
 import NewRestaurantModal from "@/components/admin/restaurantManagement/NewRestaurantModal.js";
+// 🚨 新增：引入編輯餐廳模態窗，這是您指定的組件
+import EditRestaurantModal from "@/components/admin/restaurantManagement/EditRestaurantModal.js";
+import { AuthContext } from "@/lib/auth-context";
 
 // --- 介面和常數 ---
 const RESTAURANTS_PER_PAGE = 10;
@@ -60,55 +62,53 @@ const RESTAURANT_FIELDS = [
 
   // 內部欄位
   { key: "submittedBy", label: "提交者 ID" },
+  { key: "updatedAt", label: "最後更新日期" },
+];
+
+// 🎯 核心修改 1: 表格只顯示的欄位 (精簡版)
+const DISPLAY_FIELDS = [
+  // 🚨 新增：合併後的餐廳名稱欄位
+  { key: "combinedRestaurantName", label: "餐廳名稱" },
+  // 移除 { key: "restaurantName.zh-TW", label: "名稱 (中)" }
+  // 移除 { key: "restaurantName.en", label: "名稱 (英)" }
+  { key: "updatedAt", label: "最後更新日期" }, // 假設有 updatedAt 欄位
+  { key: "createdAt", label: "建立日期" }, // 假設有 createdAt 欄位
+  { key: "submittedBy", label: "提交者" },
 ];
 // -------------------
 
-/**
- * 遞歸地從物件中獲取值 (支援 'a.b.c' 格式)
- */
 const getNestedValue = (obj, path) => {
   return path.split(".").reduce((acc, part) => acc && acc[part], obj);
 };
 
-/**
- * 遞歸地設置物件中的值 (支援 'a.b.c' 格式)
- */
-const setNestedValue = (obj, path, value) => {
-  const parts = path.split(".");
-  let current = obj;
-  for (let i = 0; i < parts.length - 1; i++) {
-    const part = parts[i];
-    if (
-      !current[part] ||
-      typeof current[part] !== "object" ||
-      Array.isArray(current[part])
-    ) {
-      current[part] = {}; // 確保路徑上的父級是物件
-    }
-    current = current[part];
-  }
-  current[parts[parts.length - 1]] = value;
-};
-
 const RestaurantManagement = () => {
+  const { formatDateTime } = useContext(AuthContext);
+
+  const safeFormatDateTime = (timestamp) => {
+    // 處理 Admin SDK 返回的數字 (Unix Timestamp)
+    return formatDateTime
+      ? formatDateTime({ seconds: timestamp }).split(" ")[0]
+      : new Date(timestamp * 1000).toLocaleDateString();
+  };
   const [restaurants, setRestaurants] = useState([]);
-  const [editedRestaurants, setEditedRestaurants] = useState({});
+  // 🎯 移除 editedRestaurants，因為表格內不再編輯
+  // const [editedRestaurants, setEditedRestaurants] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // 🚨 核心修改 1/4: 新增模態窗狀態
+  // 🚨 核心修改 1: 新增餐廳模態窗狀態
   const [showAddModal, setShowAddModal] = useState(false);
-  // 🚨 核心修改 (移除): 模態窗提交狀態已移至 NewRestaurantModal 內部
-  // const [isModalSubmitting, setIsModalSubmitting] = useState(false);
 
-  // 🚨 核心修改 2/4: 新增圖片相關狀態 (NewRestaurantModal 需要這些)
+  // 🎯 核心新增 1: 正在編輯的餐廳 ID (用於開啟 EditRestaurantModal)
+  const [editTargetId, setEditTargetId] = useState(null);
+
+  // 🚨 圖片相關狀態 (僅供 NewRestaurantModal 使用)
+  // 🚨 核心修改 1: 此狀態也將傳遞給 EditRestaurantModal
   const [selectedFile, setSelectedFile] = useState(null);
-  // 🚨 核心修改 (移除): 上傳狀態已移至 NewRestaurantModal 內部
-  // const [isUploading, setIsUploading] = useState(false); // 模擬上傳狀態
 
-  // 🚨 新增：使用者在輸入框中輸入的值 (不會觸發查詢)
+  // 🚨 新增：使用者在輸入框中輸入的值
   const [searchQuery, setSearchQuery] = useState("");
 
-  // 🚨 核心修改 3/4：實際用於觸發查詢的值 (只在按下按鈕時更新)
+  // 🚨 實際用於觸發查詢的值
   const [submittedSearchQuery, setSubmittedSearchQuery] = useState("");
 
   const [anchorId, setAnchorId] = useState(null); // 儲存下一頁的錨點 ID
@@ -116,43 +116,25 @@ const RestaurantManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
 
-  // 🚨 關鍵修正 (1/5): 使用 Ref 來追蹤 anchorId 的最新值，避免其進入 useEffect 依賴列表
   const anchorIdRef = useRef(null);
   anchorIdRef.current = anchorId;
 
-  // --- 輔助函數：將複雜類型數據轉換為字串以便在 input 中顯示 ---
-  const dataToDisplayValue = (data, fieldKey, fieldType) => {
-    const value = getNestedValue(data, fieldKey);
-    if (value === null || value === undefined) return "";
-
-    if (fieldType === "json") {
-      try {
-        // 陣列或物件轉換為 JSON 字串，並美化格式以方便編輯
-        return JSON.stringify(value, null, 2);
-      } catch (e) {
-        console.error(`Error stringifying ${fieldKey}:`, value);
-        return String(value);
-      }
-    }
-    return value;
-  };
-
-  // --- 圖片處理函數 (新增，以便傳遞給 NewRestaurantModal) ---
+  // --- 圖片處理函數 (僅供 NewRestaurantModal 使用) ---
 
   // 模擬圖片上傳和處理 (此處僅處理狀態，實際應調用上傳 API)
+  // 🚨 核心修改 2: 此函數也將傳遞給 EditRestaurantModal
   const handleFileChange = useCallback((file) => {
     if (file) {
       setSelectedFile(file);
     }
   }, []);
 
+  // 🚨 核心修改 3: 此函數也將傳遞給 EditRestaurantModal
   const handleRemovePhoto = useCallback(() => {
     setSelectedFile(null);
-    // 這裡可以加入 API 刪除圖片的邏輯
   }, []);
 
   // --- 資料獲取邏輯 (Fetch Data) ---
-  // 🚨 核心修改 2：fetchRestaurants 依賴 submittedSearchQuery
   const fetchRestaurants = useCallback(
     async (
       anchorIdToUse // 使用從 useEffect 傳入的錨點
@@ -182,7 +164,7 @@ const RestaurantManagement = () => {
         const data = await res.json();
 
         setRestaurants(data.restaurants);
-        setEditedRestaurants({}); // 重設編輯狀態
+        // 🎯 移除重設編輯狀態 setEditedRestaurants({});
         // 搜尋模式下，hasMore 應為 false
         setHasMore(data.hasMore && !submittedSearchQuery.trim());
 
@@ -201,29 +183,21 @@ const RestaurantManagement = () => {
         setLoading(false);
       }
     },
-    // 🚨 核心修改 3：依賴項變更為 submittedSearchQuery
     [submittedSearchQuery]
   );
 
-  // 🚨 核心修改 4：調整 useEffect 邏輯和依賴項 (移除對 isAddingNew 的檢查)
   useEffect(() => {
-    // 避免在載入中重複觸發
     if (loading) return;
 
     let anchorIdToUse = null;
     const isSearching = submittedSearchQuery.trim();
 
-    // 1. 初始載入 / 搜尋 (currentPage = 1)
     if (currentPage === 1) {
-      // 如果是搜尋或回到了第一頁，清除歷史紀錄
       if (isSearching || pageHistory.length > 0) {
         setPageHistory([]);
       }
       anchorIdToUse = null;
-    }
-    // 2. 載入 Page N (N > 1) 且非搜尋模式
-    else if (!isSearching) {
-      // 對於 Page N，我們需要 Page N-1 的錨點。
+    } else if (!isSearching) {
       anchorIdToUse = pageHistory[currentPage - 2];
 
       if (!anchorIdToUse) {
@@ -235,149 +209,10 @@ const RestaurantManagement = () => {
       }
     }
 
-    // 🚨 注意：搜尋模式下 (isSearching為true)，currentPage>1 不會觸發查詢，因為 anchorIdToUse 會是 null
-
-    // 執行查詢
     fetchRestaurants(anchorIdToUse);
-
-    // 🚨 核心修改 5：只依賴於 submittedSearchQuery 和 currentPage
-  }, [fetchRestaurants, submittedSearchQuery, currentPage]); // isAddingNew 已移除
+  }, [fetchRestaurants, submittedSearchQuery, currentPage]);
 
   // --- 表格操作邏輯 (Table Operations) ---
-
-  const handleInputChange = (restaurantId, fieldKey, value, fieldType) => {
-    const originalRestaurant = restaurants.find((r) => r.id === restaurantId);
-    if (!originalRestaurant) return; // 只有非新增模式才需要處理這個
-
-    const currentEdit = editedRestaurants[restaurantId] || {
-      data: originalRestaurant,
-      isModified: false,
-      display: {},
-    };
-
-    const newDisplay = { ...currentEdit.display, [fieldKey]: value };
-    // 確保編輯時數據是從原始數據開始的 (深拷貝)
-    const newEditedData = JSON.parse(JSON.stringify(originalRestaurant));
-
-    let processedValue = value;
-    let isValid = true;
-
-    if (fieldType === "number") {
-      processedValue = value === "" ? 0 : parseInt(value, 10);
-      if (isNaN(processedValue)) processedValue = 0;
-    } else if (fieldType === "boolean") {
-      processedValue = value === "true" || value === true; // 允許布林值本身
-    } else if (fieldType === "json") {
-      try {
-        processedValue = JSON.parse(value);
-      } catch (e) {
-        // 如果 JSON 無效，不更新 processedValue，但保留 display value
-        isValid = false;
-      }
-    }
-
-    if (fieldType !== "json" || isValid) {
-      setNestedValue(newEditedData, fieldKey, processedValue);
-    }
-
-    // 檢查修改狀態
-    const isModified =
-      JSON.stringify(newEditedData) !== JSON.stringify(originalRestaurant);
-
-    setEditedRestaurants((prev) => ({
-      ...prev,
-      [restaurantId]: {
-        data: newEditedData,
-        isModified: isModified,
-        display: newDisplay,
-      },
-    }));
-  };
-
-  // 處理現有餐廳的儲存邏輯 (原 handleSave 簡化，只處理 PUT)
-  const handleSave = async (restaurantId) => {
-    const editEntry = editedRestaurants[restaurantId];
-    if (!editEntry || !editEntry.isModified) {
-      alert("沒有變更，無需儲存。");
-      return;
-    }
-
-    if (restaurantId === "new") {
-      // 🚨 移除新增邏輯，應該由 handleModalSubmit 處理
-      console.error("嘗試在表格中儲存新增的項目，這應該不會發生。");
-      return;
-    }
-
-    const { data } = editEntry;
-
-    // 檢查 JSON 格式 (與原邏輯相同)
-    const invalidJsonFields = RESTAURANT_FIELDS.filter(
-      (f) => f.type === "json"
-    ).some((f) => {
-      const displayValue =
-        editEntry.display[f.key] || dataToDisplayValue(data, f.key, f.type);
-      if (!displayValue.trim()) return false;
-      try {
-        JSON.parse(displayValue);
-        return false;
-      } catch (e) {
-        return true;
-      }
-    });
-
-    if (invalidJsonFields) {
-      alert("JSON 格式錯誤，請修正後再儲存。");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/admin/restaurants", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id: restaurantId, data }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(`API 儲存失敗: ${errorData.message || res.statusText}`);
-      }
-
-      const result = await res.json();
-      const savedRestaurant = result.restaurant || {
-        ...data,
-        id: restaurantId,
-      };
-
-      setRestaurants((prev) =>
-        prev.map((r) => (r.id === restaurantId ? savedRestaurant : r))
-      );
-      setEditedRestaurants((prev) => {
-        const newState = { ...prev };
-        delete newState[restaurantId];
-        return newState;
-      });
-      console.log(`餐廳 ${restaurantId} 儲存成功！`);
-    } catch (error) {
-      console.error("Error saving restaurant:", error);
-      alert("儲存失敗: " + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReset = (restaurantId) => {
-    // 🚨 移除新增模式的重設邏輯
-    setEditedRestaurants((prev) => {
-      const newState = { ...prev };
-      delete newState[restaurantId];
-      return newState;
-    });
-    console.log("已重設此餐廳的修改。");
-  };
 
   /**
    * 🎯 新增的邏輯：處理刪除餐廳
@@ -400,7 +235,6 @@ const RestaurantManagement = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        // 根據您的 API 文件，這裡可能需要更改為 /api/admin/restaurants/${restaurantId} 或是其他格式
         body: JSON.stringify({ restaurantId }),
       });
 
@@ -411,15 +245,9 @@ const RestaurantManagement = () => {
 
       // 刪除成功後，從列表中移除該餐廳
       setRestaurants((prev) => prev.filter((r) => r.id !== restaurantId));
-      setEditedRestaurants((prev) => {
-        const newState = { ...prev };
-        delete newState[restaurantId]; // 移除編輯中的狀態
-        return newState;
-      });
-
+      
       alert(`餐廳 ${restaurantName} 刪除成功！`);
       // 由於列表數量可能減少，可以考慮重新載入當前頁或讓使用者自己決定
-      // 如果刪除的是當前頁的最後一個，可能需要向前一頁移動
       if (restaurants.length - 1 === 0 && currentPage > 1) {
         setCurrentPage((prev) => prev - 1);
       } else {
@@ -434,12 +262,37 @@ const RestaurantManagement = () => {
   };
 
   /**
-   * 🚨 核心修改 5/4: 處理 Modal 表單提交 (當 NewRestaurantModal 成功寫入 Firestore 後調用)
+   * 🎯 核心新增 2：處理 Edit 按鈕 (開啟編輯 Modal)
+   */
+  const handleEditRestaurant = (restaurantId) => {
+    // 🚨 DEBUG 1: 檢查按鈕點擊是否觸發
+    console.log(`[RM Debug 1] Edit button clicked for ID: ${restaurantId}`); 
+    setEditTargetId(restaurantId);
+    setSelectedFile(null); // 確保在開啟新編輯時，清除上次的 selectedFile
+  };
+
+  /**
+   * 🎯 核心新增 3：處理 Edit Modal 關閉 (不論是否儲存，都關閉 Modal)
+   * @param {boolean} wasSaved - 標示 Modal 關閉是否伴隨成功儲存
+   */
+  const handleEditModalClose = (wasSaved = false) => {
+    // 🚨 DEBUG 2: 檢查 Modal 關閉是否觸發
+    console.log(`[RM Debug 2] Edit Modal closing. Was saved: ${wasSaved}`);
+    setEditTargetId(null); // 關閉 Modal
+    setSelectedFile(null); // 清除 EditModal 可能留下的檔案
+    if (wasSaved) {
+      // 如果成功儲存，重新載入當前頁面以更新表格數據
+      const anchorIdToUse =
+        currentPage > 1 ? pageHistory[currentPage - 2] : null;
+      // 🚨 直接調用 fetchRestaurants，保持在當前頁，而不是跳回第一頁
+      fetchRestaurants(anchorIdToUse);
+    }
+  };
+
+  /**
+   * 處理 Modal 表單提交 (當 NewRestaurantModal 成功寫入 Firestore 後調用)
    */
   const handleModalSubmit = async (newRestaurantData) => {
-    // 🎯 簡化邏輯: 由於 NewRestaurantModal.js 已經處理了圖片上傳和 Firestore 寫入，
-    // 這個函數只需執行成功後的清理和重新載入。
-
     alert("新增餐廳成功！");
     setShowAddModal(false); // 關閉模態窗
     setSelectedFile(null); // 清除檔案狀態
@@ -453,19 +306,13 @@ const RestaurantManagement = () => {
 
   /**
    * 處理分頁：下一頁
-   * 點擊時，將當前的 anchorId (下一頁的起點) 存入歷史紀錄，並增加頁碼
    */
   const handleNextPage = () => {
-    // 🚨 確保不在搜尋模式下
     if (hasMore && !loading && !submittedSearchQuery.trim()) {
-      // 使用最新的 anchorId (即當前頁的最後一個文件 ID)
       const currentAnchor = anchorIdRef.current;
 
       if (currentAnchor) {
-        // 1. 將當前錨點加入歷史紀錄 (這是 Page N+1 查詢時要使用的錨點)
         setPageHistory((prev) => [...prev, currentAnchor]);
-
-        // 2. 增加頁碼，觸發 useEffect
         setCurrentPage((prev) => prev + 1);
       }
     }
@@ -473,18 +320,12 @@ const RestaurantManagement = () => {
 
   /**
    * 處理分頁：上一頁
-   * 點擊時，減少頁碼並縮短 pageHistory
    */
   const handlePrevPage = () => {
-    // 🚨 確保不在搜尋模式下
     if (currentPage > 1 && !loading && !submittedSearchQuery.trim()) {
-      // 1. 減少頁碼
       const newPage = currentPage - 1;
 
-      // 2. 縮短歷史紀錄，只保留到新頁碼的前一頁
       setPageHistory((prev) => prev.slice(0, newPage - 1));
-
-      // 3. 更新頁碼，觸發 useEffect
       setCurrentPage(newPage);
     }
   };
@@ -496,9 +337,6 @@ const RestaurantManagement = () => {
     e.preventDefault();
     if (loading) return;
 
-    // 清空編輯狀態
-    setEditedRestaurants({});
-
     // 🚨 核心修改 6：更新 submittedSearchQuery，這將觸發 useEffect 進行查詢
     setSubmittedSearchQuery(searchQuery.trim());
 
@@ -509,7 +347,7 @@ const RestaurantManagement = () => {
   };
 
   /**
-   * 🚨 核心修改 7/4: 處理新增按鈕 (開啟 Modal)
+   * 處理新增按鈕 (開啟 Modal)
    */
   const handleAddNewRestaurant = () => {
     // 🚨 開啟 Modal
@@ -522,28 +360,45 @@ const RestaurantManagement = () => {
     setSearchQuery("");
     setSubmittedSearchQuery("");
 
-    // 清空編輯狀態
-    setEditedRestaurants({});
-
     // 確保頁面回到基礎狀態
     setCurrentPage(1);
     setPageHistory([]);
   };
 
-  // 組合餐廳數據：原始數據 + 編輯中的數據 (移除新增模式的判斷)
+  // 組合餐廳數據：原始數據 (editedRestaurants 已移除)
   const combinedRestaurants = useMemo(() => {
-    // 🚨 由於新增邏輯已移至 Modal，這裡只處理現有數據和編輯狀態
-    return restaurants.map((r) => {
-      const editedEntry = editedRestaurants[r.id];
-      const data = editedEntry ? editedEntry.data : r;
-      const isModified = editedEntry ? editedEntry.isModified : false;
-      return {
-        id: r.id,
-        isModified,
-        data,
-      };
-    });
-  }, [restaurants, editedRestaurants]);
+    // 🎯 由於編輯邏輯已移至 Modal，這裡只返回原始數據
+    return restaurants.map((r) => ({
+      id: r.id,
+      data: r,
+      // 為了通用性，保留 isModified 欄位，但目前永遠為 false
+      isModified: false,
+    }));
+  }, [restaurants]);
+
+  // 找出正在編輯的餐廳完整數據
+  const editingRestaurantData = useMemo(() => {
+    const data = restaurants.find((r) => r.id === editTargetId) || null;
+    // 🚨 DEBUG 3: 檢查是否找到餐廳數據
+    if (editTargetId) {
+      console.log(`[RM Debug 3] Current editTargetId: ${editTargetId}`);
+      console.log(`[RM Debug 3] editingRestaurantData found: ${!!data}`);
+      if (!data) {
+        console.error(`[RM Debug 3] Data not found for ID: ${editTargetId}. The item might not be in the current 'restaurants' list.`);
+      }
+    }
+    return data;
+  }, [restaurants, editTargetId]);
+
+  // 🚨 DEBUG 4: 檢查渲染條件的最終結果
+  const shouldRenderEditModal = !!editTargetId && !!editingRestaurantData;
+  console.log(`[RM Debug 4] Modal Render Condition: ${shouldRenderEditModal}`);
+  if (shouldRenderEditModal) {
+    console.log(`[RM Debug 4] Modal will render for ID: ${editTargetId}`);
+    // 🚨 DEBUG 4b: 檢查傳遞給 Modal 的數據結構
+    console.log(`[RM Debug 4b] Initial Data (data property) keys:`, Object.keys(editingRestaurantData.data || {}));
+  }
+
 
   // --- 渲染 (Render) ---
 
@@ -558,15 +413,14 @@ const RestaurantManagement = () => {
         <input
           type="text"
           value={searchQuery}
-          // 🚨 這裡只更新 searchQuery，不會觸發 useEffect
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="搜尋餐廳名稱 (中/英)"
           className="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-          disabled={loading || showAddModal}
+          disabled={loading || showAddModal || !!editTargetId} // 編輯/新增時禁用
         />
         <button
           type="submit"
-          disabled={loading || showAddModal}
+          disabled={loading || showAddModal || !!editTargetId}
           className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out disabled:opacity-50"
         >
           搜尋
@@ -575,8 +429,7 @@ const RestaurantManagement = () => {
         <button
           type="button"
           onClick={handleAddNewRestaurant}
-          // 🚨 這裡的 disabled 修正：當 loading 或 Modal 開啟時禁用
-          disabled={loading || showAddModal}
+          disabled={loading || showAddModal || !!editTargetId}
           className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out disabled:opacity-50"
         >
           新增餐廳
@@ -595,31 +448,42 @@ const RestaurantManagement = () => {
       )}
 
       {/* 載入中 Spinner */}
-      {/* 🚨 核心修改 (狀態): 由於 isModalSubmitting 和 isUploading 已移至 Modal 內部，
-          這裡只需檢查全局的 loading 狀態 */}
       {loading && (
         <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-10 rounded-lg">
           <LoadingSpinner />
         </div>
       )}
 
-      {/* 餐廳表格 */}
+      {/* 餐廳表格 (精簡化) */}
       <div className="overflow-x-auto relative shadow-md sm:rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
+        {/* 🚨 移除 overflow-x-auto，改為固定寬度表格，強制不橫向滾動 */}
+        <table className="w-full table-fixed divide-y divide-gray-200">
           <thead className="bg-gray-50 sticky top-0 z-[5]">
             <tr>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+              {/* ID 寬度 10% */}
+              <th className="w-[15%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
                 ID
               </th>
-              {RESTAURANT_FIELDS.map((field) => (
+              {/* 🎯 核心修改 2: 處理標題欄位寬度 */}
+              {DISPLAY_FIELDS.map((field) => (
                 <th
                   key={field.key}
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]"
+                  // 🚨 根據欄位名稱設定寬度
+                  className={`${
+                    field.key === "combinedRestaurantName"
+                      ? "w-[20%]"
+                      : field.key === "submittedBy"
+                      ? "w-[20%]" // 🎯 核心修改 1: 設置 submittedBy 為 w-[20%]
+                      : "w-[8%]" // 剩下的欄位 (createdAt, updatedAt) 平分剩餘空間 (100-10-30-15 = 45; 45/3=15; 重新計算: 10(ID)+30(名稱)+15(操作)=55; 45/3=15)
+                    // 重新分配：10(ID) + 30(名稱) + 20(SubmittedBy) + 15(updatedAt) + 15(createdAt) = 90. 10% 給操作 (15%太寬)
+                    // 為了避免複雜計算，統一給定一個基於總寬度的百分比，並確保總和不超過 100%
+                  } px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate`}
                 >
                   {field.label}
                 </th>
               ))}
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-40">
+              {/* 操作寬度 15% */}
+              <th className="w-[15%] px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 操作
               </th>
             </tr>
@@ -628,7 +492,7 @@ const RestaurantManagement = () => {
             {combinedRestaurants.length === 0 && !loading ? (
               <tr>
                 <td
-                  colSpan={RESTAURANT_FIELDS.length + 2}
+                  colSpan={DISPLAY_FIELDS.length + 2}
                   className="px-6 py-4 text-center text-sm text-gray-500"
                 >
                   {submittedSearchQuery.trim()
@@ -638,151 +502,121 @@ const RestaurantManagement = () => {
               </tr>
             ) : (
               combinedRestaurants.map((item) => {
-                const isJsonInvalid = RESTAURANT_FIELDS.filter(
-                  (f) => f.type === "json"
-                ).some((f) => {
-                  const displayValue =
-                    editedRestaurants[item.id]?.display?.[f.key] ||
-                    dataToDisplayValue(item.data, f.key, f.type);
-                  if (!displayValue.trim()) return false;
-                  try {
-                    JSON.parse(displayValue);
-                    return false;
-                  } catch (e) {
-                    return true;
-                  }
-                });
-
-                // 🚨 移除 isNewRow 判斷，因為新增邏輯已移至 Modal
-                const isNewRow = false;
-
-                // 取得餐廳名稱，用於確認刪除
                 const restaurantName =
                   getNestedValue(item.data, "restaurantName.en") || item.id;
+
+                // 檢查是否正在被編輯 (EditModal 開啟中)
+                const isBeingEdited = item.id === editTargetId;
 
                 return (
                   <tr
                     key={item.id}
+                    // 🚨 僅顯示 isBeingEdited 狀態，isModified 永遠為 false
                     className={
-                      item.isModified
-                        ? "bg-yellow-50 hover:bg-yellow-100 transition-colors"
+                      isBeingEdited
+                        ? "bg-blue-50 hover:bg-blue-100 transition-colors"
                         : "hover:bg-gray-50 transition-colors"
                     }
                   >
-                    <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-500 w-16 truncate max-w-xs">
+                    {/* ID */}
+                    <td className="px-3 py-4 text-xs text-gray-500 truncate">
                       {item.id}
-                      {item.createdAt}
                     </td>
-                    {RESTAURANT_FIELDS.map((field) => {
-                      const fieldType = field.type || "text";
+                    {/* 🎯 核心修改 3: 顯示欄位數據 */}
+                    {DISPLAY_FIELDS.map((field) => {
+                      // 🚨 特殊處理合併後的餐廳名稱
+                      if (field.key === "combinedRestaurantName") {
+                        const zhName =
+                          getNestedValue(item.data, "restaurantName.zh-TW") ||
+                          "-";
+                        const enName =
+                          getNestedValue(item.data, "restaurantName.en") ||
+                          "No English Name";
 
-                      const valueToDisplay =
-                        editedRestaurants[item.id]?.display?.[field.key] ??
-                        dataToDisplayValue(item.data, field.key, fieldType);
+                        // 組合顯示內容
+                        const combinedTitle = `${zhName} / ${enName}`;
 
-                      const isFieldJsonInvalid =
-                        fieldType === "json" &&
-                        editedRestaurants[item.id]?.display?.[field.key] &&
-                        valueToDisplay.trim()
-                          ? (() => {
-                              try {
-                                JSON.parse(valueToDisplay);
-                                return false;
-                              } catch (e) {
-                                return true;
-                              }
-                            })()
-                          : false;
+                        return (
+                          <td
+                            key={field.key}
+                            className="px-4 py-2 text-sm text-gray-900"
+                            title={combinedTitle} // hover 顯示完整內容
+                          >
+                            <div className="font-semibold">{zhName}</div>
+                            <div className="text-xs text-gray-500 mt-1 truncate">
+                              {enName}
+                            </div>
+                          </td>
+                        );
+                      }
+
+                      // 處理其他欄位 (與您提供的原始邏輯相同)
+                      const rawValue = getNestedValue(item.data, field.key);
+                      let displayValue = rawValue;
+
+                      // 特殊處理日期
+                      if (
+                        field.key === "createdAt" ||
+                        field.key === "updatedAt"
+                      ) {
+                        let dateToFormat = rawValue;
+
+                        // 🎯 關鍵修正：檢查是否為序列化後的 Firestore Timestamp 物件
+                        if (
+                          typeof rawValue === "object" &&
+                          rawValue !== null &&
+                          (rawValue._seconds || rawValue.seconds) // 檢查帶底線或不帶底線的 seconds
+                        ) {
+                          // 從序列化物件中提取秒和納秒 (使用您 console.log 發現的帶底線屬性)
+                          const seconds =
+                            rawValue._seconds || rawValue.seconds || 0;
+                          const nanoseconds =
+                            rawValue._nanoseconds || rawValue.nanoseconds || 0;
+
+                          // 轉換為毫秒並創建標準的 JS Date 物件
+                          const milliseconds =
+                            seconds * 1000 + nanoseconds / 1000000;
+                          dateToFormat = new Date(milliseconds);
+                        }
+                        const formattedDateTime = formatDateTime(dateToFormat);
+                        // 傳遞一個標準的 JS Date 物件（或未被序列化的原生 Timestamp 實例）給 formatDateTime
+                        displayValue = formattedDateTime.split(" ")[0];
+                      }
+
+                      if (displayValue === null || displayValue === undefined) {
+                        displayValue = "-";
+                      }
 
                       return (
                         <td
                           key={field.key}
-                          className="px-4 py-2 text-sm text-gray-900 min-w-[150px]"
+                          className="px-4 py-2 text-sm text-gray-900 truncate"
+                          title={displayValue} // hover 顯示完整內容
                         >
-                          {fieldType === "boolean" ? (
-                            <select
-                              // 🚨 這裡改為直接從 item.data 獲取，因為 handleInputChange 處理了布林值的修改
-                              value={(
-                                getNestedValue(item.data, field.key) ?? false
-                              ).toString()}
-                              onChange={(e) =>
-                                handleInputChange(
-                                  item.id,
-                                  field.key,
-                                  e.target.value,
-                                  fieldType
-                                )
-                              }
-                              className="p-1 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 w-full min-w-[70px]"
-                            >
-                              <option value="true">是</option>
-                              <option value="false">否</option>
-                            </select>
-                          ) : fieldType === "json" ? (
-                            <textarea
-                              value={valueToDisplay}
-                              onChange={(e) =>
-                                handleInputChange(
-                                  item.id,
-                                  field.key,
-                                  e.target.value,
-                                  fieldType
-                                )
-                              }
-                              className={`p-1 border rounded w-full h-32 text-xs font-mono resize-y ${
-                                isFieldJsonInvalid
-                                  ? "border-red-500 focus:ring-red-500"
-                                  : "border-gray-300 focus:ring-blue-500"
-                              }`}
-                              placeholder={`請輸入有效的 JSON 陣列或物件...`}
-                            />
-                          ) : (
-                            <input
-                              type={fieldType === "number" ? "number" : "text"}
-                              value={valueToDisplay}
-                              onChange={(e) =>
-                                handleInputChange(
-                                  item.id,
-                                  field.key,
-                                  e.target.value,
-                                  fieldType
-                                )
-                              }
-                              className="p-1 border border-gray-300 rounded w-full focus:ring-blue-500 focus:border-blue-500"
-                              min={fieldType === "number" ? 0 : undefined}
-                            />
-                          )}
-                          {isFieldJsonInvalid && (
-                            <p className="text-red-500 text-xs mt-1">
-                              JSON 格式錯誤！
-                            </p>
-                          )}
+                          {displayValue}
                         </td>
                       );
                     })}
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium w-40">
+                    {/* 操作按鈕 */}
+                    <td className="px-6 py-4 text-center text-sm font-medium">
+                      {/* 🎯 編輯按鈕 (開啟 Modal) */}
                       <button
-                        onClick={() => handleSave(item.id)}
-                        disabled={!item.isModified || loading || isJsonInvalid}
-                        className={`ml-2 py-1 px-3 rounded text-white font-semibold transition duration-150 ${
-                          !item.isModified || isJsonInvalid
-                            ? "bg-gray-400 cursor-not-allowed"
-                            : "bg-green-600 hover:bg-green-700"
+                        onClick={() => handleEditRestaurant(item.id)} // 🚨 這裡會觸發 DEBUG 1
+                        disabled={
+                          loading || showAddModal || !!editTargetId // 這裡使用 !!editTargetId 禁用所有編輯按鈕
+                        }
+                        className={`py-1 px-3 rounded text-white font-semibold transition duration-150 ${
+                          isBeingEdited
+                            ? "bg-blue-400 cursor-not-allowed"
+                            : "bg-blue-600 hover:bg-blue-700"
                         } disabled:opacity-50`}
                       >
-                        儲存
+                        編輯
                       </button>
-                      <button
-                        onClick={() => handleReset(item.id)}
-                        disabled={!item.isModified || loading}
-                        className="ml-2 py-1 px-3 rounded bg-blue-500 hover:bg-yellow-600 text-white font-semibold transition duration-150 disabled:opacity-50"
-                      >
-                        重設
-                      </button>
-                      {/* 🎯 新增的邏輯：刪除按鈕 */}
+                      {/* 🎯 刪除按鈕 */}
                       <button
                         onClick={() => handleDelete(item.id, restaurantName)}
-                        disabled={loading || item.isModified}
+                        disabled={loading || showAddModal || !!editTargetId}
                         className="ml-2 py-1 px-3 rounded bg-red-600 hover:bg-red-700 text-white font-semibold transition duration-150 disabled:opacity-50"
                       >
                         刪除
@@ -798,7 +632,7 @@ const RestaurantManagement = () => {
 
       {/* 分頁控制 */}
       {/* 只有在非搜尋、非模態窗開啟模式下才顯示分頁 */}
-      {!submittedSearchQuery.trim() && !showAddModal && (
+      {!submittedSearchQuery.trim() && !showAddModal && !editTargetId && (
         <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
           <p className="text-sm text-gray-600">
             目前頁碼: <span className="font-semibold">{currentPage}</span>
@@ -822,17 +656,31 @@ const RestaurantManagement = () => {
         </div>
       )}
 
-      {/* 🚨 渲染 NewRestaurantModal，使用新的名稱和圖片狀態 */}
+      {/* 🚨 渲染 NewRestaurantModal */}
       {showAddModal && (
         <NewRestaurantModal
           RESTAURANT_FIELDS={RESTAURANT_FIELDS}
-          isOpen={showAddModal} // 必須傳遞 isOpen
+          isOpen={showAddModal}
           onClose={() => {
             setShowAddModal(false);
-            setSelectedFile(null); // 關閉時清空檔案
+            setSelectedFile(null);
           }}
           onSubmit={handleModalSubmit}
-          
+          selectedFile={selectedFile}
+          onFileChange={handleFileChange}
+          onRemovePhoto={handleRemovePhoto}
+        />
+      )}
+
+      {/* 🎯 渲染 EditRestaurantModal */}
+      {shouldRenderEditModal && ( // 🚨 使用 shouldRenderEditModal 進行渲染，這是 DEBUG 4 的結果
+        <EditRestaurantModal
+          RESTAURANT_FIELDS={RESTAURANT_FIELDS} // 傳遞所有欄位定義
+          isOpen={!!editTargetId} // 判斷是否開啟
+          onClose={handleEditModalClose} // 處理關閉
+          restaurantId={editTargetId} // 正在編輯的 ID
+          initialData={editingRestaurantData} // 初始數據 (傳遞完整的餐廳數據)
+          // 🚨 核心修改 4: 傳遞圖片相關的 props 給 EditRestaurantModal
           selectedFile={selectedFile}
           onFileChange={handleFileChange}
           onRemovePhoto={handleRemovePhoto}
