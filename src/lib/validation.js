@@ -29,6 +29,10 @@ export const validateRestaurantForm = (
   const hasPhotoUrlInFormData =
     data.facadePhotoUrls && data.facadePhotoUrls.length > 0;
 
+    const hasValidPhotoInfo = isUpdateForm
+    ? hasOriginalPhoto || hasSelectedFile || hasPhotoUrlInFormData
+    : hasSelectedFile || hasPhotoUrlInFormData;
+
   // 1. 餐廳名稱 (所有模式下必填)
   if (!data.restaurantName?.en?.trim()) {
     errors.restaurantName = { en: "英文名稱為必填項目。" };
@@ -172,10 +176,11 @@ export const validateRestaurantForm = (
   }
 
   // 4. 聯絡人 Email (非必填，但若填寫需驗證格式)
-  if (data.contactEmail && data.contactEmail.trim()) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(data.contactEmail.trim())) {
-      errors.contactEmail = "電子郵件格式不正確。";
+  if (data.isManager) {
+    if (!data.contactEmail) {
+      errors.contactEmail = "請輸入公司電郵";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
+      errors.contactEmail = "電郵格式不正確";
     }
   }
 

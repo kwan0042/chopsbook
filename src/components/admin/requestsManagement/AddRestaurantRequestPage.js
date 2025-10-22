@@ -2,7 +2,14 @@
 
 import React, { useState, useEffect, useContext, useRef } from "react";
 import { AuthContext } from "@/lib/auth-context";
-import { doc, writeBatch, collection, onSnapshot } from "firebase/firestore";
+import {
+  doc,
+  writeBatch,
+  collection,
+  onSnapshot,
+  serverTimestamp,
+} from "firebase/firestore";
+// 🚨 假定 serverTimestamp() 已從 firebase/firestore 導入，用於寫入時間戳
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useRouter, useParams } from "next/navigation";
 import Modal from "@/components/Modal";
@@ -29,7 +36,7 @@ const restaurantSections = {
   photos: {
     // 🚨 第二個區塊
     zh: "門面照片",
-    fields: ["facadePhotoUrls", "facadePhotoUrl"],
+    fields: ["facadePhotoUrls"],
   },
   basicInfo: {
     // 🚨 第三個區塊
@@ -82,8 +89,7 @@ const formatRestaurantName = (nameObject) => {
  */
 const PhotoDisplay = ({ field, value }) => {
   // 檢查是否為照片欄位
-  const isPhotoField =
-    field === "facadePhotoUrls" || field === "facadePhotoUrl";
+  const isPhotoField = field === "facadePhotoUrls";
 
   if (!isPhotoField) {
     // 如果不是照片欄位，回傳格式化的文字
@@ -200,16 +206,46 @@ const AddRestaurantRequestPage = ({ requestId }) => {
       setIsSubmitting(true);
       const batch = writeBatch(db);
 
-      // 解構賦值，排除 `id` 屬性
-      const { id,type, ...newRestaurantData } = requestData;
+      // 🚨 解構賦值，排除不需要寫入主表的屬性: id, type, submittedAt
+      const {
+        id,
+        type,
+        submittedAt,
+        contactName, // 需要條件性處理
+        contactPhone, // 需要條件性處理
+        contactEmail, // 需要條件性處理
+        isManager, // 需要條件性處理
+        ...newRestaurantData
+      } = requestData;
+
+      // 🚨 根據 isManager 條件性地重建聯絡資訊物件
+      let finalRestaurantData = {
+        ...newRestaurantData,
+        isManager: isManager || false,
+      }; // 確保 isManager 存在
+
+      if (isManager) {
+        // 如果是經理，則保留聯絡資訊
+        finalRestaurantData = {
+          ...finalRestaurantData,
+          contactName: contactName || null,
+          contactPhone: contactPhone || null,
+          contactEmail: contactEmail || null,
+        };
+      }
+      // 否則， contactName, contactPhone, contactEmail 不會被寫入 finalRestaurantData (因為已在解構時被排除)
 
       // 將餐廳資料寫入主表，使用新生成的ID
       const restaurantDocRef = doc(
         collection(db, `artifacts/${appId}/public/data/restaurants`)
       );
 
-      // 使用不帶 id 的 newRestaurantData
-      batch.set(restaurantDocRef, { ...newRestaurantData, status: "approved" });
+      // 🚨 使用 finalRestaurantData，並添加 createdAt 和 status
+      batch.set(restaurantDocRef, {
+        ...finalRestaurantData,
+        status: "approved",
+        createdAt: serverTimestamp(), // 🚨 新增的欄位
+      });
 
       // 更新請求狀態
       const requestDocRef = doc(

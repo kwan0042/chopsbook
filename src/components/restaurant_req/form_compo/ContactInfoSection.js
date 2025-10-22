@@ -113,12 +113,13 @@ const ContactInfoSection = ({ formData, handleChange, errors, inputRefs }) => {
       </div>
 
       {/* 電郵 - 保持非必填 */}
+      {/* 📧 電郵 - 根據 isManager 動態變化 */}
       <div className="mt-4">
         <label
           htmlFor="contactEmail"
           className="block text-gray-700 text-sm font-bold mb-2"
         >
-          電郵
+          電郵 {formData.isManager && <span className="text-red-500">*</span>}
           {errors.contactEmail && (
             <span className="text-red-500 font-normal text-xs ml-2">
               {errors.contactEmail}
@@ -126,18 +127,19 @@ const ContactInfoSection = ({ formData, handleChange, errors, inputRefs }) => {
           )}
         </label>
         <input
-          type="email"
+          type="text"
           id="contactEmail"
           name="contactEmail"
           value={formData.contactEmail || ""}
           onChange={handleChange}
           ref={(el) => (inputRefs.current["contactEmail"] = el)}
+           // ✅ 動態變必填
           className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
             errors.contactEmail
               ? "border-red-500 focus:ring-red-500"
               : "border-gray-300 focus:ring-blue-500"
           }`}
-          placeholder="您的電郵地址"
+          placeholder={formData.isManager ? "公司電郵" : "您的電郵地址"} // ✅ 動態 placeholder
         />
       </div>
     </div>

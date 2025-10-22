@@ -205,7 +205,12 @@ const HoursAndPaymentSection = ({
                 name="reservationModes"
                 value={option}
                 checked={formData.reservationModes?.includes(option) || false}
-                onChange={handleCheckboxChange}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    isHolidayOpen: e.target.checked, // 直接 inline 更新
+                  })
+                }
                 className="form-checkbox h-5 w-5 text-blue-600 rounded"
               />
               <span className="ml-2 text-sm">{option}</span>

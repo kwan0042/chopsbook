@@ -58,7 +58,7 @@ const restaurantSections = {
   },
   photos: {
     zh: "照片",
-    fields: ["facadePhotoUrls", "facadePhotoUrl"],
+    fields: ["facadePhotoUrls"],
   },
 };
 

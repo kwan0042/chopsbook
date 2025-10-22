@@ -1,9 +1,10 @@
 // src/components/TrendingCateSection.js
 "use client";
 
-import React, { useRef } from "react"; // 引入 useRef
+import React, { useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react"; // 引入圖標 (假設您有安裝 lucide-react)
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import Image from "next/image"; // 【修改點 1】：引入 Image 組件
 
 /**
  * TrendingCateSection: 顯示熱門餐廳類別和菜系的區塊。
@@ -16,24 +17,107 @@ const TrendingCateSection = () => {
 
   // 【修改點 1】：新增 imageUrl 屬性
   const restaurantTypes = [
-    { display:"茶餐廳",name: "茶餐廳", filterKey: "restaurantType", imageUrl: "img/restType/hkCafe.webp" },
-    { display:"Café",name: "咖啡廳", filterKey: "restaurantType", imageUrl: "/img/restType/cafe.webp" },
-    { display:"壽司/刺身",name: "壽司/刺身專門店", filterKey: "restaurantType", imageUrl: "/img/restType/sushi.webp" },
-    { display:"韓式炸雞",name: "韓式炸雞 (Korean Fried Chicken)", filterKey: "restaurantType", imageUrl: "/img/restType/kChicken.webp" },
-    { display:"糖水舖/中式甜品店",name: "糖水舖/中式甜品店", filterKey: "restaurantType", imageUrl: "/img/restType/cDessert.webp" },
-    { display:"拉麵/沾麵",name: "拉麵/沾麵店", filterKey: "restaurantType", imageUrl: "/img/restType/ramen.webp" },
+    {
+      display: "茶餐廳",
+      name: "茶餐廳",
+      filterKey: "restaurantType",
+      imageUrl: "/img/restType/hkCafe.webp",
+    },
+    {
+      display: "Café",
+      name: "咖啡廳",
+      filterKey: "restaurantType",
+      imageUrl: "/img/restType/cafe.webp",
+    },
+    {
+      display: "壽司/刺身",
+      name: "壽司/刺身專門店",
+      filterKey: "restaurantType",
+      imageUrl: "/img/restType/sushi.webp",
+    },
+    {
+      display: "韓式炸雞",
+      name: "韓式炸雞 (Korean Fried Chicken)",
+      filterKey: "restaurantType",
+      imageUrl: "/img/restType/kChicken.webp",
+    },
+    {
+      display: "糖水舖/中式甜品店",
+      name: "糖水舖/中式甜品店",
+      filterKey: "restaurantType",
+      imageUrl: "/img/restType/cDessert.webp",
+    },
+    {
+      display: "茶樓/早茶",
+      name: "茶樓/早茶",
+      filterKey: "restaurantType",
+      imageUrl: "/img/restType/tea.webp",
+    },
+    {
+      display: "燒味/燒臘",
+      name: "燒味店/燒臘專門店",
+      filterKey: "restaurantType",
+      imageUrl: "/img/restType/hkbbq.webp",
+    },
+    {
+      display: "居酒屋",
+      name: "居酒屋 (Izakaya)",
+      filterKey: "restaurantType",
+      imageUrl: "/img/restType/izakaya.webp",
+    },
+    {
+      display: "拉麵/沾麵",
+      name: "拉麵/沾麵店",
+      filterKey: "restaurantType",
+      imageUrl: "/img/restType/ramen.webp",
+    },
+    {
+      display: "麵包/烘焙",
+      name: "麵包店/烘焙店",
+      filterKey: "restaurantType",
+      imageUrl: "/img/restType/bakery.webp",
+    },
   ];
 
   // 【修改點 1】：新增 imageUrl 屬性
   const categorys = [
-    { display:"港式",name: "港式", filterKey: "category", imageUrl: "/img/category/hk.webp" },
-    { display:"中菜",name: "中菜", filterKey: "category", imageUrl: "/img/category/cn.webp" },
-    { display:"日本菜",name: "日本菜", filterKey: "category", imageUrl: "/img/category/jp.webp" },
-    { display:"台灣菜",name: "台灣菜", filterKey: "category", imageUrl: "/img/category/tw.webp" },
-    { display:"韓國菜",name: "韓國菜", filterKey: "category", imageUrl: "/img/category/kr.webp" },
-    { display:"泰國菜",name: "泰國菜", filterKey: "category", imageUrl: "/img/category/th.webp" },
+    {
+      display: "港式",
+      name: "港式",
+      filterKey: "category",
+      imageUrl: "/img/category/hk.webp",
+    },
+    {
+      display: "中菜",
+      name: "中菜",
+      filterKey: "category",
+      imageUrl: "/img/category/cn.webp",
+    },
+    {
+      display: "日本菜",
+      name: "日本菜",
+      filterKey: "category",
+      imageUrl: "/img/category/jp.webp",
+    },
+    {
+      display: "台灣菜",
+      name: "台灣菜",
+      filterKey: "category",
+      imageUrl: "/img/category/tw.webp",
+    },
+    {
+      display: "韓國菜",
+      name: "韓國菜",
+      filterKey: "category",
+      imageUrl: "/img/category/kr.webp",
+    },
+    {
+      display: "泰國菜",
+      name: "泰國菜",
+      filterKey: "category",
+      imageUrl: "/img/category/th.webp",
+    },
   ];
-  
 
   // 將兩種列表合併
   const categories = [...restaurantTypes, ...categorys];
@@ -100,16 +184,7 @@ const TrendingCateSection = () => {
             <div
               key={type.name}
               onClick={() => handleCategoryClick(type.name, type.filterKey)}
-              // 【修改點 2】：新增 style 屬性來設定背景圖片
-              style={
-                type.imageUrl
-                  ? {
-                      backgroundImage: `url(${type.imageUrl})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }
-                  : {}
-              }
+              // 【修改點 2】：移除 style 屬性，改用 Next/Image
               className={`
                 /* 共同樣式 */
                 text-center transition-transform hover:scale-105 cursor-pointer relative 
@@ -120,7 +195,11 @@ const TrendingCateSection = () => {
                 py-2 px-4 
                 text-sm font-medium whitespace-nowrap 
                 shadow-sm
-                ${type.imageUrl ? 'my-1 rounded-xl text-white' : 'bg-gray-100 text-gray-700 border border-gray-200 rounded-full'} 
+                ${
+                  type.imageUrl
+                    ? "my-1 rounded-xl text-white"
+                    : "bg-gray-100 text-gray-700 border border-gray-200 rounded-full"
+                } 
                 
                 /* 網頁版樣式：正方形、緊貼、一行八個 */
                 md:flex-shrink md:w-full
@@ -128,23 +207,41 @@ const TrendingCateSection = () => {
                 md:p-0 md:m-0 
                 md:flex md:flex-col md:items-center md:justify-center
                 md:text-base md:shadow-md 
-                ${type.imageUrl ? 'md:rounded-xl md:border-none' : 'md:bg-white md:rounded-xl md:border md:border-gray-100'} 
+                ${
+                  type.imageUrl
+                    ? "md:rounded-xl md:border-none"
+                    : "md:bg-white md:rounded-xl md:border md:border-gray-100"
+                } 
               `}
             >
-              {/* 【修改點 3】：新增半透明疊加層 (僅在有圖片時顯示) */}
+              {/* 【新增/修改】：使用 Next.js Image 組件作為背景 */}
               {type.imageUrl && (
-                <div className="absolute inset-0 bg-black/40 rounded-xl md:rounded-xl z-0"></div>
+                <Image
+                  src={type.imageUrl}
+                  alt={type.display}
+                  fill // 讓圖片填滿父層 div
+                  sizes="(max-width: 768px) 15vw, 10vw" // 提示 Next.js 在不同螢幕尺寸下使用的圖片大小
+                  className="rounded-xl object-cover" // 確保圖片覆蓋且不會變形
+                  priority={true} // 由於這是首屏內容，設為 priority 優先載入
+                />
               )}
-              
+
+              {/* 【修改點 3】：調整半透明疊加層的 z-index (僅在有圖片時顯示) */}
+              {type.imageUrl && (
+                <div className="absolute inset-0 bg-black/40 rounded-xl md:rounded-xl z-10"></div> // z-10 確保在圖片上方
+              )}
+
               {/* 摩登簡約設計：將文字作為卡片主體 */}
-              <p className=" 
+              <p
+                className=" 
                   text-sm md:text-base font-bold 
                   whitespace-nowrap 
                   md:whitespace-normal
-                  z-10 relative // 確保文字在疊加層上方
+                  z-20 relative // z-20 確保文字在圖片和疊加層上方
                   
                   ${type.imageUrl ? 'text-white' : 'text-gray-700'}
-                ">
+                "
+              >
                 {type.display}
               </p>
             </div>

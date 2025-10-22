@@ -396,8 +396,8 @@ export default function RestaurantDetailLayout({ children }) {
                       />
                       {/* 使用 cuisineDisplay 確保是字串 */}
                       {cuisineDisplay}
-                      {restaurant.tags?.length > 0 &&
-                        ` | ${restaurant.tags.join(", ")}`}
+                      {restaurant.rTags?.length > 0 &&
+                        ` | ${restaurant.rTags.join(", ")}`}
                     </p>
                   </div>
                   <div className="md:text-right">
@@ -424,9 +424,9 @@ export default function RestaurantDetailLayout({ children }) {
                 </div>
 
                 {/* 標籤 (Tags) */}
-                {restaurant.tags && restaurant.tags.length > 0 && (
+                {restaurant.rTags && restaurant.rTags.length > 0 && (
                   <div className="p-6 pt-2 flex flex-wrap gap-2">
-                    {restaurant.tags.map((tag, index) => (
+                    {restaurant.rTags.map((tag, index) => (
                       <span
                         key={index}
                         className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full flex items-center"

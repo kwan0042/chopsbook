@@ -8,6 +8,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  
   // 新增 images 設定
   images: {
     remotePatterns: [

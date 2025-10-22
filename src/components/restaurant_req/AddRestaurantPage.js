@@ -62,11 +62,9 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     fullAddress: "",
     phone: "",
     website: "",
-    // 🚨 變動點 1: 更改為新的單一欄位 category 和 subCategory
-    category: "", // String 頂層菜系
-    subCategory: "", // String 細分菜系/特色
-    // 🚨 變動點 2: restaurantType 現在是 Array
-    restaurantType: [], // Array 場所類型
+    category: "", 
+    subCategory: "", 
+    restaurantType: [], 
     avgSpending: "",
     facadePhotoUrls: [],
     seatingCapacity: "",
@@ -79,9 +77,9 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     closedDates: "",
     isHolidayOpen: false,
     holidayHours: "",
-    reservationModes: [], // 統一使用 reservationModes (Array)
+    reservationModes: [], 
     paymentMethods: [],
-    facilitiesServices: [], // 統一使用 facilitiesServices (Array)
+    facilitiesServices: [], 
     otherInfo: "",
     isManager: false,
     contactName: "",
@@ -89,6 +87,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     contactEmail: "",
     awards: "",
     priority: 0,
+    managerName: "",
   };
 
   const [formData, setFormData] = useState(initialFormData);
