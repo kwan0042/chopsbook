@@ -14,7 +14,8 @@ const PromotionsSection = () => {
   const promotions = [
     {
       id: 1,
-      title: "夏日特惠：飲品買一送一！",
+      title: "Midori 每日限定優惠 ",
+      subtitle: "Midori Ramen人氣日式拉麵",
       imageUrl: "https://placehold.co/300x180/FFD700/000000?text=夏日特惠",
     },
     {
@@ -99,12 +100,13 @@ const PromotionsSection = () => {
         className="w-full h-28 sm:h-36 md:h-40 object-cover rounded-t-lg"
       />
       <div className="p-3">
-        {" "}
-        {/* 內邊距適度縮小 */}
-        {/* 文字變細 (text-base) 確保易讀 */}
-        <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-1 whitespace-normal">
+        
+        <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-1 wwhitespace-nowrap overflow-hidden text-ellipsis">
           {promo.title}
         </h3>
+        <p className="text-sm md:text-base font-semibold text-gray-800 mb-1 whitespace-normal">
+          {promo.subtitle}
+        </p>
         {/* 連結文字縮小 (text-xs) */}
         <p className="text-blue-700 text-xs md:text-sm font-medium hover:underline cursor-pointer">
           查看詳情 &rarr;
@@ -141,9 +143,9 @@ const PromotionsSection = () => {
         {/* 2. 【網頁版容器】：只在 >=md 顯示 (hidden md:block)。使用分頁邏輯。 */}
         <div
           className="
-            hidden md:block
+            hidden 
             md:grid md:grid-cols-4 
-            gap-6 
+            gap-2
             md:px-0 
           "
         >

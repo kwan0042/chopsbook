@@ -1,7 +1,8 @@
 // src/app/api/admin/restaurants/route.js
 
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase-admin";
+// 🎯 修正點 1: 不再需要 admin。只導入 db 和 bucket。
+import { db, bucket } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 
 // --- 小工具：監控 Firestore Read/Write ---
@@ -27,6 +28,16 @@ function getRestaurantsCollectionRef() {
   const appId = process.env.FIREBASE_ADMIN_APP_ID || "YOUR_APP_ID_FALLBACK"; // 確保您設置了環境變量
   const path = COLLECTION_PATH.replace("YOUR_APP_ID", appId);
   return db.collection(path);
+}
+
+/**
+ * 助手函數：獲取餐廳文件的引用
+ */
+function getRestaurantDocRef(restaurantId) {
+  const appId = process.env.FIREBASE_ADMIN_APP_ID || "YOUR_APP_ID_FALLBACK";
+  const docPath =
+    COLLECTION_PATH.replace("YOUR_APP_ID", appId) + `/${restaurantId}`;
+  return db.doc(docPath);
 }
 
 /**
@@ -75,7 +86,10 @@ export async function GET(request) {
 
     // 🚨 變更點: 非搜尋時，預設按 submittedAt 降序排列，再按文件 ID
     if (!isSearching) {
-      q = q.orderBy("updatedAt", "desc").orderBy("createdAt", "desc").orderBy("__name__");
+      q = q
+        .orderBy("updatedAt", "desc")
+        .orderBy("createdAt", "desc")
+        .orderBy("__name__");
     }
 
     // 2. 處理分頁錨點 (必須在 orderBy 之後)
@@ -155,11 +169,14 @@ export async function POST(request) {
     // 創建新文件所需的數據
     const newRestaurantData = {
       ...data,
-      
+
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(), // 首次提交時 updatedAt 等於 submittedAt
       // 🚨 注意: 如果您的資料庫要求 name_lowercase_en，您應該在此處計算並添加
-      name_lowercase_en: data.restaurantName.en.toLowerCase(),
+      // 這裡假設 restaurantName.en 存在
+      name_lowercase_en: data.restaurantName?.en
+        ? data.restaurantName.en.toLowerCase()
+        : "",
     };
 
     // 讓 Firestore 自動生成文件 ID (使用 .add())
@@ -224,6 +241,89 @@ export async function PUT(request) {
     console.error("API Admin Restaurants PUT Error:", error);
     return NextResponse.json(
       { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// -------------------------------------------------------------------------
+// 🎯 新增的邏輯：處理刪除餐廳的請求 (DELETE)
+// -------------------------------------------------------------------------
+/**
+ * API Route: 管理員刪除餐廳資料 (DELETE)
+ * 需刪除 Firestore 文件和 Storage 相關資料夾。
+ */
+export async function DELETE(request) {
+  // 從 request body 獲取 restaurantId
+  const { restaurantId } = await request.json();
+
+  if (!restaurantId) {
+    return NextResponse.json(
+      { success: false, message: "Missing restaurantId in request body." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // 1. 刪除 Firestore 文件
+    const restaurantDocRef = getRestaurantDocRef(restaurantId);
+    await restaurantDocRef.delete();
+    logFirestoreAction(
+      "WRITE",
+      `/api/admin/restaurants DELETE (ID: ${restaurantId})`,
+      1
+    );
+
+    // 2. 刪除 Storage 中的相關資料夾 (public/restaurants/${restaurantId})
+    // 🎯 修正點 2: 直接使用從 firebase-admin 匯出的 bucket 實例
+    const prefix = `public/restaurants/${restaurantId}/`; // 指定要刪除的資料夾路徑 (前綴)
+
+    // 獲取該前綴下的所有檔案
+    const [files] = await bucket.getFiles({ prefix: prefix });
+
+    if (files.length > 0) {
+      // 批量刪除所有檔案
+      await Promise.all(
+        files.map(async (file) => {
+          await file.delete();
+        })
+      );
+      console.log(
+        `[Storage DELETE] Successfully deleted ${files.length} files in folder: ${prefix}`
+      );
+    } else {
+      console.log(
+        `[Storage DELETE] No files found to delete in folder: ${prefix}`
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Restaurant ${restaurantId} and associated storage data deleted successfully.`,
+    });
+  } catch (error) {
+    console.error(
+      `API Admin Restaurants DELETE Error for ${restaurantId}:`,
+      error
+    );
+
+    // 如果錯誤訊息包含 "not found" 或錯誤碼指示文件不存在，則視為成功
+    if (error.code === 5 || error.message.includes("NOT_FOUND")) {
+      return NextResponse.json(
+        {
+          success: true,
+          message: `Restaurant ${restaurantId} was already deleted or not found.`,
+        },
+        { status: 200 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+        message: `Failed to delete restaurant ${restaurantId}.`,
+      },
       { status: 500 }
     );
   }

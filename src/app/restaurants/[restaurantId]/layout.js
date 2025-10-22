@@ -33,6 +33,7 @@ import Link from "next/link";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import ShareModal from "@/components/ShareModal";
 import { useRouter } from "next/navigation";
+import {Image} from "next/image"
 
 // 導入新的 Hook
 import useRestaurantStatus from "@/hooks/useRestaurantStatus";
@@ -318,7 +319,7 @@ export default function RestaurantDetailLayout({ children }) {
             <div className="flex flex-col md:flex-row border-b border-gray-200 pr-3 ">
               {/* 門面照片區塊 (左側 25% / w-1/4) */}
               <div className="md:w-1/5 w-full p-4 flex-shrink-0">
-                <img
+                <Image
                   src={facadePhotoUrl}
                   alt={`${getRestaurantName(restaurant)} 門面照片`}
                   className="w-full h-45 object-cover rounded-lg shadow-md"

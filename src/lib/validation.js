@@ -179,7 +179,7 @@ export const validateRestaurantForm = (
   if (data.isManager) {
     if (!data.contactEmail) {
       errors.contactEmail = "請輸入公司電郵";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.contactEmail)) {
       errors.contactEmail = "電郵格式不正確";
     }
   }

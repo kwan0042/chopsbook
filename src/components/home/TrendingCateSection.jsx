@@ -237,7 +237,7 @@ const TrendingCateSection = () => {
                   text-sm md:text-base font-bold 
                   whitespace-nowrap 
                   md:whitespace-normal
-                  z-20 relative // z-20 確保文字在圖片和疊加層上方
+                  z-20 relative 
                   
                   ${type.imageUrl ? 'text-white' : 'text-gray-700'}
                 "

@@ -6,6 +6,11 @@ import React, { useState, useEffect, useCallback, useContext } from "react";
 import RestaurantFormAdmin from "./RestaurantFormAdmin.js";
 import { AuthContext } from "@/lib/auth-context"; // <-- 確保路徑正確
 
+// 🎯 修正點 1: 導入 Firebase 相關功能
+
+import { doc, collection, setDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
 // -------------------------------------------------------------
 // 初始狀態定義 (保持與父組件 RestaurantManagement.js 預期的一致)
 // -------------------------------------------------------------
@@ -57,7 +62,7 @@ const initialFormData = {
   awards: "",
   otherInfo: "",
   submittedBy: "",
-  createdAt:"", 
+  createdAt: "",
 };
 
 // -------------------------------------------------------------
@@ -66,18 +71,22 @@ const initialFormData = {
 const NewRestaurantModal = ({
   isOpen,
   onClose,
-  onSubmit: parentOnSubmit,
-  isSubmitting,
+  onSubmit: parentOnSubmit, // 這個 prop 可能是用來發送成功通知或更新列表，而不是實際的寫入邏輯
+  isSubmitting: isSubmittingProp, // 接收父組件的狀態
   selectedFile,
   onFileChange,
   onRemovePhoto,
-  isUploading,
+  isUploading: isUploadingProp, // 接收父組件的狀態
 }) => {
+  
   const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({});
+  // 🎯 修正點 2: 使用內部狀態來管理提交和上傳狀態 (因為我們在這裡處理 Firebase 邏輯)
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // 🎯 修正點 1: 使用 AuthContext 獲取當前用戶
-  const { currentUser } = useContext(AuthContext);
+  // 🎯 修正點 3: 使用 AuthContext 獲取當前用戶
+  const { appId, storage, db, currentUser } = useContext(AuthContext);
 
   // ---------------------------------------------
   // 通用表單變更處理 (保留這些函數，因為它們操作 formData)
@@ -144,25 +153,73 @@ const NewRestaurantModal = ({
   );
 
   // 最終提交處理：當 RestaurantFormAdmin 驗證成功後調用
-  const handleFormSubmit = (finalFormData) => {
-    // 🚨 這是從 RestaurantFormAdmin 傳入的最終表單數據
+  const handleFormSubmit = async (finalFormData) => {
+    
+    setIsSubmitting(true);
+    let finalPhotoUrl = finalFormData.facadePhotoUrls?.[0] || "";
 
-    // 🎯 修正點 2: 檢查 currentUser 並添加 submittedBy 欄位
-    let dataWithSubmitter = finalFormData;
+    try {
+      // ----------------------------------------------------
+      // Step 1: 預先生成 Firestore Document Reference 以取得 restaurantId
+      // ----------------------------------------------------
+      const restaurantsColRef = collection(db, `artifacts/${appId}/public/data/restaurants`);
+      // 使用 doc() 且不帶參數，Firestore 會在本地產生一個唯一的 ID
+      const newRestaurantDocRef = doc(restaurantsColRef);
+      const restaurantId = newRestaurantDocRef.id; // 這是我們需要的唯一 ID!
 
-    if (currentUser && currentUser.uid) {
-      dataWithSubmitter = {
+      if (selectedFile) {
+        // ----------------------------------------------------
+        // Step 2: 上傳圖片到 Firebase Storage
+        // ----------------------------------------------------
+        setIsUploading(true);
+
+        // 🚨 使用生成的 restaurantId 構建 Storage 路徑
+        const imageRef = ref(
+          storage,
+          `public/restaurants/${restaurantId}/facade/${Date.now()}_${
+            selectedFile.name
+          }` // 添加檔名尾碼以確保唯一性
+        );
+
+        const snapshot = await uploadBytes(imageRef, selectedFile);
+        finalPhotoUrl = await getDownloadURL(snapshot.ref);
+
+        // 清理本地狀態 (此處略過 UI 清理，因為 Modal 關閉時會清理)
+        setIsUploading(false);
+      } else {
+        finalPhotoUrl = finalPhotoUrl; // 保持現有的 URL 或空字串
+      }
+
+      // ----------------------------------------------------
+      // Step 3: 構建最終資料並寫入 Firestore
+      // ----------------------------------------------------
+      const submittedByUid = currentUser?.uid || "admin_manual_entry";
+
+      const finalDataForFirestore = {
         ...finalFormData,
-        submittedBy: currentUser.uid, // 使用當前用戶的 ID
+        id: restaurantId, // 將 ID 寫入 document 內 (通常不需要，但有助於查詢)
+        facadePhotoUrls: finalPhotoUrl ? [finalPhotoUrl] : [],
+        submittedBy: submittedByUid,
+        createdAt: serverTimestamp(), // 使用 serverTimestamp 確保時間準確
+        updatedAt: serverTimestamp(),
+        // 預設 Admin 新增的餐廳狀態為 'approved'
+        status: "approved",
       };
-    } else {
-      // 警告：如果沒有用戶，應該記錄錯誤或阻止提交
-      console.warn(
-        "提交表單時 currentUser.uid 不可用，使用預設值 'Admin' 或阻止提交。"
-      );
-    }
 
-    parentOnSubmit(dataWithSubmitter); // 提交包含 userId 的數據
+      // 使用 setDoc 並指定 newRestaurantDocRef，確保使用預先生成的 ID
+      await setDoc(newRestaurantDocRef, finalDataForFirestore);
+
+      // 成功後，調用父組件傳入的 onSubmit 進行後續處理 (例如: 重新整理列表)
+      parentOnSubmit(finalDataForFirestore);
+
+      onClose(); // 成功後關閉 Modal
+    } catch (error) {
+      console.error("提交餐廳表單時發生錯誤:", error);
+      // 可以在這裡處理錯誤顯示給用戶
+    } finally {
+      setIsSubmitting(false);
+      setIsUploading(false); // 確保在 finally 中重設
+    }
   };
 
   // 當 Modal 關閉時，重設表單狀態
@@ -173,6 +230,8 @@ const NewRestaurantModal = ({
       if (onRemovePhoto) {
         onRemovePhoto();
       }
+      setIsSubmitting(false);
+      setIsUploading(false);
     }
   }, [isOpen, onRemovePhoto]);
 
@@ -192,24 +251,22 @@ const NewRestaurantModal = ({
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition z-20 text-3xl font-light leading-none"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isUploading}
             aria-label="Close modal"
           >
             &times;
           </button>
 
-          {/* 🚨 關鍵變更 3: 使用 RestaurantFormAdmin 組件 */}
+          {/* 🚨 關鍵變更 4: 使用 RestaurantFormAdmin 組件 */}
           <RestaurantFormAdmin
             formData={formData}
             handleChange={handleChange}
             handleCheckboxChange={handleCheckboxChange}
             handleSubmit={handleFormSubmit}
-            errors={errors}
-            setErrors={setErrors}
+            // setErrors={setErrors} // 這裡不需要傳遞 setErrors，因為父組件已經接管了提交
             isUpdateForm={false}
-            // Admin 模式的狀態
-            isSubmitting={isSubmitting}
-            isUploading={isUploading}
+            isSubmitting={isSubmitting} // 🎯 使用內部狀態
+            isUploading={isUploading} // 🎯 使用內部狀態
             selectedFile={selectedFile}
             onFileChange={onFileChange}
             onRemovePhoto={onRemovePhoto}

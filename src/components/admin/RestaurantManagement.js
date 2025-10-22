@@ -60,7 +60,6 @@ const RESTAURANT_FIELDS = [
 
   // 內部欄位
   { key: "submittedBy", label: "提交者 ID" },
-  
 ];
 // -------------------
 
@@ -98,11 +97,13 @@ const RestaurantManagement = () => {
 
   // 🚨 核心修改 1/4: 新增模態窗狀態
   const [showAddModal, setShowAddModal] = useState(false);
-  const [isModalSubmitting, setIsModalSubmitting] = useState(false); // 模態窗提交狀態
+  // 🚨 核心修改 (移除): 模態窗提交狀態已移至 NewRestaurantModal 內部
+  // const [isModalSubmitting, setIsModalSubmitting] = useState(false);
 
   // 🚨 核心修改 2/4: 新增圖片相關狀態 (NewRestaurantModal 需要這些)
   const [selectedFile, setSelectedFile] = useState(null);
-  const [isUploading, setIsUploading] = useState(false); // 模擬上傳狀態
+  // 🚨 核心修改 (移除): 上傳狀態已移至 NewRestaurantModal 內部
+  // const [isUploading, setIsUploading] = useState(false); // 模擬上傳狀態
 
   // 🚨 新增：使用者在輸入框中輸入的值 (不會觸發查詢)
   const [searchQuery, setSearchQuery] = useState("");
@@ -379,56 +380,75 @@ const RestaurantManagement = () => {
   };
 
   /**
-   * 🚨 核心修改 5/4: 處理 Modal 表單提交
+   * 🎯 新增的邏輯：處理刪除餐廳
    */
-  const handleModalSubmit = async (newRestaurantData) => {
-    setIsModalSubmitting(true);
-    // 🚨 模態窗提交時，確保將 facadePhotoUrls 圖片數據放入
-    // 實際的圖片上傳邏輯應該在這裡執行，然後將實際 URL 放入 newRestaurantData
-    // 為了簡化，我們假設圖片已經被處理/上傳 (您在 NewRestaurantModal.js 中處理了檔案，但這裡沒有上傳 API)
-
-    // 這裡我們假設圖片上傳成功，並將一個模擬 URL 加入數據
-    let finalData = { ...newRestaurantData };
-
-    if (selectedFile && !newRestaurantData.facadePhotoUrls.length) {
-      // 模擬上傳邏輯
-      setIsUploading(true);
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // 模擬上傳延遲
-      finalData.facadePhotoUrls = [
-        `http://example.com/uploaded/${Date.now()}-${selectedFile.name}`,
-      ];
-      setIsUploading(false);
+  const handleDelete = async (restaurantId, restaurantName) => {
+    if (
+      !window.confirm(
+        `確定要永久刪除餐廳 "${restaurantName}" (ID: ${restaurantId}) 嗎？此操作不可逆！`
+      )
+    ) {
+      return;
     }
 
+    setLoading(true);
+
     try {
+      // 假設您的 API 刪除端點為 /api/admin/restaurants，使用 DELETE 方法，並在 body 中傳遞 restaurantId
       const res = await fetch("/api/admin/restaurants", {
-        method: "POST",
+        method: "DELETE",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(finalData),
+        // 根據您的 API 文件，這裡可能需要更改為 /api/admin/restaurants/${restaurantId} 或是其他格式
+        body: JSON.stringify({ restaurantId }),
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(`API 新增失敗: ${errorData.message || res.statusText}`);
+        throw new Error(`API 刪除失敗: ${errorData.message || res.statusText}`);
       }
 
-      alert("新增餐廳成功！");
-      setShowAddModal(false); // 關閉模態窗
-      setSelectedFile(null); // 清除檔案狀態
+      // 刪除成功後，從列表中移除該餐廳
+      setRestaurants((prev) => prev.filter((r) => r.id !== restaurantId));
+      setEditedRestaurants((prev) => {
+        const newState = { ...prev };
+        delete newState[restaurantId]; // 移除編輯中的狀態
+        return newState;
+      });
 
-      // 重新載入以顯示新餐廳 (回到第一頁)
-      setSubmittedSearchQuery("");
-      setCurrentPage(1);
-      setPageHistory([]);
-      // fetchRestaurants 會被 useEffect 觸發
+      alert(`餐廳 ${restaurantName} 刪除成功！`);
+      // 由於列表數量可能減少，可以考慮重新載入當前頁或讓使用者自己決定
+      // 如果刪除的是當前頁的最後一個，可能需要向前一頁移動
+      if (restaurants.length - 1 === 0 && currentPage > 1) {
+        setCurrentPage((prev) => prev - 1);
+      } else {
+        // 簡單起見，直接在客戶端更新列表
+      }
     } catch (error) {
-      console.error("Error adding new restaurant:", error);
-      alert("新增失敗: " + error.message);
+      console.error("Error deleting restaurant:", error);
+      alert("刪除失敗: " + error.message);
     } finally {
-      setIsModalSubmitting(false);
+      setLoading(false);
     }
+  };
+
+  /**
+   * 🚨 核心修改 5/4: 處理 Modal 表單提交 (當 NewRestaurantModal 成功寫入 Firestore 後調用)
+   */
+  const handleModalSubmit = async (newRestaurantData) => {
+    // 🎯 簡化邏輯: 由於 NewRestaurantModal.js 已經處理了圖片上傳和 Firestore 寫入，
+    // 這個函數只需執行成功後的清理和重新載入。
+
+    alert("新增餐廳成功！");
+    setShowAddModal(false); // 關閉模態窗
+    setSelectedFile(null); // 清除檔案狀態
+
+    // 重新載入以顯示新餐廳 (回到第一頁)
+    setSubmittedSearchQuery("");
+    setCurrentPage(1);
+    setPageHistory([]);
+    // fetchRestaurants 會被 useEffect 觸發
   };
 
   /**
@@ -530,7 +550,7 @@ const RestaurantManagement = () => {
   return (
     <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200 min-w-full">
       <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b pb-3">
-        餐廳管理 (Admin - 完整編輯)
+        餐廳管理
       </h2>
 
       {/* 搜尋欄位 + 新增按鈕 */}
@@ -575,7 +595,9 @@ const RestaurantManagement = () => {
       )}
 
       {/* 載入中 Spinner */}
-      {(loading || isModalSubmitting || isUploading) && (
+      {/* 🚨 核心修改 (狀態): 由於 isModalSubmitting 和 isUploading 已移至 Modal 內部，
+          這裡只需檢查全局的 loading 狀態 */}
+      {loading && (
         <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-10 rounded-lg">
           <LoadingSpinner />
         </div>
@@ -633,6 +655,10 @@ const RestaurantManagement = () => {
 
                 // 🚨 移除 isNewRow 判斷，因為新增邏輯已移至 Modal
                 const isNewRow = false;
+
+                // 取得餐廳名稱，用於確認刪除
+                const restaurantName =
+                  getNestedValue(item.data, "restaurantName.en") || item.id;
 
                 return (
                   <tr
@@ -749,9 +775,17 @@ const RestaurantManagement = () => {
                       <button
                         onClick={() => handleReset(item.id)}
                         disabled={!item.isModified || loading}
-                        className="ml-2 py-1 px-3 rounded bg-red-500 hover:bg-red-600 text-white font-semibold transition duration-150 disabled:opacity-50"
+                        className="ml-2 py-1 px-3 rounded bg-blue-500 hover:bg-yellow-600 text-white font-semibold transition duration-150 disabled:opacity-50"
                       >
                         重設
+                      </button>
+                      {/* 🎯 新增的邏輯：刪除按鈕 */}
+                      <button
+                        onClick={() => handleDelete(item.id, restaurantName)}
+                        disabled={loading || item.isModified}
+                        className="ml-2 py-1 px-3 rounded bg-red-600 hover:bg-red-700 text-white font-semibold transition duration-150 disabled:opacity-50"
+                      >
+                        刪除
                       </button>
                     </td>
                   </tr>
@@ -798,12 +832,10 @@ const RestaurantManagement = () => {
             setSelectedFile(null); // 關閉時清空檔案
           }}
           onSubmit={handleModalSubmit}
-          isSubmitting={isModalSubmitting}
-          // 圖片相關 props
+          
           selectedFile={selectedFile}
           onFileChange={handleFileChange}
           onRemovePhoto={handleRemovePhoto}
-          isUploading={isUploading}
         />
       )}
     </div>

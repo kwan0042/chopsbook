@@ -161,7 +161,7 @@ const HoursAndPaymentSection = ({
               type="checkbox"
               name="isHolidayOpen"
               checked={formData.isHolidayOpen || false}
-              onChange={handleCheckboxChange} // ⚠️ 使用 handleCheckboxChange
+              onChange={handleChange} 
               className="form-checkbox h-5 w-5 text-blue-600 rounded"
             />
             <label
@@ -205,12 +205,7 @@ const HoursAndPaymentSection = ({
                 name="reservationModes"
                 value={option}
                 checked={formData.reservationModes?.includes(option) || false}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    isHolidayOpen: e.target.checked, // 直接 inline 更新
-                  })
-                }
+                onChange={handleCheckboxChange}
                 className="form-checkbox h-5 w-5 text-blue-600 rounded"
               />
               <span className="ml-2 text-sm">{option}</span>
