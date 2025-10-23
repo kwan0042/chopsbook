@@ -26,6 +26,7 @@ import {
   IconPaperBag,
 } from "@tabler/icons-react";
 import { reviewFields } from "@/lib/translation-data";
+import Image from "next/image";
 
 export default function RestaurantOverviewPage() {
   const router = useRouter();
@@ -124,10 +125,7 @@ export default function RestaurantOverviewPage() {
   // 從 RestaurantContext 獲取餐廳資料
   const restaurantName = getRestaurantName(restaurant);
   const displayImageUrl =
-    (restaurant?.facadePhotoUrls && restaurant.facadePhotoUrls[0]) ||
-    `https://placehold.co/800x400/CCCCCC/333333?text=${encodeURIComponent(
-      restaurantName
-    )}`;
+    restaurant?.facadePhotoUrls && restaurant.facadePhotoUrls[0];
 
   return (
     <div className="space-y-8">
@@ -163,13 +161,14 @@ export default function RestaurantOverviewPage() {
         <h2 className="text-base font-bold text-gray-800 mb-4">餐廳內部</h2>
         {restaurant?.facadePhotoUrls &&
         restaurant.facadePhotoUrls.length > 0 ? (
-          <img
+          <Image
             src={displayImageUrl}
             alt={restaurantName}
             className="w-full h-80 object-cover rounded-lg shadow-md"
+            fill={true}
             onError={(e) => {
               e.target.onerror = null;
-              e.target.src = `https://placehold.co/800x400/CCCCCC/333333?text=圖片載入失敗`;
+              e.target.src = ``;
             }}
           />
         ) : (

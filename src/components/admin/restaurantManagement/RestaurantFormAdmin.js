@@ -1,8 +1,8 @@
 // src/components/admin/restaurantManagement/RestaurantFormAdmin.js
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-// 🚨 移除 Firebase 和 AuthContext 相關導入
+import React, { useState, useRef, useEffect, useCallback } from "react"; // ✅ 導入 useCallback
+// 🚨 移除整合後的單一驗證函數 validateRestaurantForm 導入
 
 // 引入所有選項數據
 import {
@@ -20,11 +20,7 @@ import {
 // 引入三個子組件
 import RestaurantDetailsSection from "@/components/restaurant_req/form_compo/RestaurantDetailsSection";
 import HoursAndPaymentSection from "@/components/restaurant_req/form_compo/HoursAndPaymentSection";
-import ContactInfoSection from "@/components/restaurant_req/form_compo/ContactInfoSection";
-
-// 引入整合後的單一驗證函數
-import { validateRestaurantForm } from "../../../lib/validation";
-// 假設 validation.js 的路徑相對正確
+import ContactInfoSectionAdmin from "@/components/admin/restaurantManagement/form_compo_admin/ContactInfoSectionAdmin.jsx";
 
 const DAYS_OF_WEEK = [
   "星期日",
@@ -66,8 +62,6 @@ const RestaurantFormAdmin = ({
   isUploading,
   isSubmitting, // Modal 的提交狀態
 }) => {
-  // 🚨 移除 AuthContext 的 useContext
-
   // --- 圖片處理狀態 ---
   const fileInputRef = useRef(null);
 
@@ -75,23 +69,10 @@ const RestaurantFormAdmin = ({
     formData.facadePhotoUrls?.[0] || ""
   );
 
-  // 🚨 移除本地的 isUploading 和 isSubmittingForm 狀態
-
-  // 1. 核心：用於儲存所有輸入欄位的 Ref
   const inputRefs = useRef({});
 
-  // 錯誤狀態現在是本地的
-  const flatInitialErrors =
-    initialErrors.step1 || initialErrors.step2 || initialErrors.step3
-      ? {
-          ...initialErrors.step1,
-          ...initialErrors.step2,
-          ...initialErrors.step3,
-        }
-      : initialErrors;
-
-  const [errors, setErrors] = useState(flatInitialErrors);
-  const [globalErrorMsg, setGlobalErrorMsg] = useState("");
+  const [errors, setErrors] = useState({}); // 🚨 錯誤狀態保留，但初始化為空
+  const [globalErrorMsg, setGlobalErrorMsg] = useState(""); // 🚨 錯誤訊息保留，但初始化為空
 
   // ===========================================
   // 圖片預覽邏輯 (依賴傳入的 selectedFile)
@@ -167,109 +148,54 @@ const RestaurantFormAdmin = ({
     handleChange({ target: { name: "subCategory", value: newSubType } });
   };
 
-  const handleBusinessHoursChange = (index, field, value) => {
-    const currentBusinessHours = Array.isArray(formData.businessHours)
-      ? [...formData.businessHours]
-      : [];
+  // ✅ 關鍵修改：使用 useCallback 包裹 handleBusinessHoursChange
+  const handleBusinessHoursChange = useCallback(
+    (index, field, value) => {
+      // 確保我們從當前的 formData 獲取 businessHours 的值
+      const currentBusinessHours = Array.isArray(formData.businessHours)
+        ? [...formData.businessHours]
+        : [];
 
-    while (currentBusinessHours.length <= index) {
-      currentBusinessHours.push({
-        day: DAYS_OF_WEEK[currentBusinessHours.length],
-        isOpen: false,
-        startTime: "",
-        endTime: "",
+      // 確保陣列有足夠的長度
+      while (currentBusinessHours.length <= index) {
+        currentBusinessHours.push({
+          day: DAYS_OF_WEEK[currentBusinessHours.length],
+          isOpen: false,
+          startTime: "",
+          endTime: "",
+        });
+      }
+
+      // 創建一個新的 businessHours 陣列，並更新指定的 index
+      const newBusinessHours = currentBusinessHours.map((item, i) => {
+        if (i === index) {
+          // 使用展開運算符確保淺拷貝，避免直接修改舊對象
+          return { ...item, [field]: value };
+        }
+        return item;
       });
-    }
 
-    const newBusinessHours = [...currentBusinessHours];
-    newBusinessHours[index] = { ...newBusinessHours[index], [field]: value };
-
-    handleChange({
-      target: { name: "businessHours", value: newBusinessHours },
-    });
-  };
+      // 僅調用一次 handleChange，傳入新的陣列
+      // 雖然 handleChange 來自外部，但我們假設它會用新的陣列引用來觸發重新渲染
+      handleChange({
+        target: { name: "businessHours", value: newBusinessHours },
+      });
+    },
+    [formData.businessHours, handleChange]
+  ); // 依賴於 formData.businessHours 和 handleChange
   // --- 處理邏輯結束 ---
 
-  // 輔助函數：找出第一個錯誤的欄位 Ref Key (保持與原版一致)
-  const getFirstErrorFieldName = (flatErrors) => {
-    // ... (保持與原版 RestaurantForm.js 一致)
-    const errorKeys = Object.keys(flatErrors);
-
-    if (errorKeys.length === 0) return null;
-
-    const priorityKeys = [
-      "restaurantName",
-      "province",
-      "city",
-      "postalCode",
-      "fullAddress",
-      "facadePhotoUrls",
-      "phone",
-      "category",
-      "subCategory",
-      "restaurantType",
-      "businessHours",
-      "paymentMethods",
-      "contactEmail",
-      "managerName",
-    ];
-
-    for (const key of priorityKeys) {
-      if (
-        flatErrors[key] ||
-        flatErrors[`${key}.zh-TW`] ||
-        flatErrors[`${key}.en`]
-      ) {
-        if (key === "restaurantName") return "restaurantName.en";
-        if (key === "category" || key === "subCategory")
-          return "cuisineTypeContainer";
-        if (key === "facadePhotoUrls") return "facadePhotoUrls";
-        if (key === "businessHours") return "businessHoursContainer";
-        return key;
-      }
-    }
-    return null;
-  };
-
   /**
-   * 處理提交 - 執行單一全面驗證
-   * 🚨 關鍵變更 2: 驗證成功後，直接調用父組件的 handleSubmit，不執行 Firebase 上傳
+   * 處理提交 - 🚨 移除驗證邏輯，直接調用父組件的 handleSubmit
    */
   const localHandleSubmit = async (event) => {
     event.preventDefault();
     setErrors({});
     setGlobalErrorMsg("");
 
-    // 1. 執行全面同步驗證
-    const flatValidationResult = validateRestaurantForm(
-      { ...formData, tempSelectedFile: selectedFile },
-      isUpdateForm,
-      selectedRestaurantData?.originalFacadePhotoUrls
-    );
+    // 🚨 移除所有同步驗證邏輯
 
-    // 2. 檢查是否有錯誤
-    const hasError = Object.keys(flatValidationResult).length > 0;
-
-    if (hasError) {
-      setErrors(flatValidationResult);
-      setGlobalErrorMsg("表單驗證失敗。請檢查紅色標記的欄位並更正錯誤。");
-
-      // 3. 滾動到第一個錯誤欄位
-      const firstErrorName = getFirstErrorFieldName(flatValidationResult);
-      if (firstErrorName && inputRefs.current[firstErrorName]) {
-        window.requestAnimationFrame(() => {
-          const element = inputRefs.current[firstErrorName];
-          if (element) {
-            element.scrollIntoView({ behavior: "smooth", block: "center" });
-            element.focus?.();
-          }
-        });
-      }
-
-      return; // 阻止提交
-    }
-
-    // 4. 驗證通過，直接調用父組件的提交函數
+    // 🚨 驗證通過，直接調用父組件的提交函數
     // 父組件 (NewRestaurantModal) 將負責圖片上傳和 API 提交。
     await handleSubmit(formData);
   };
@@ -299,7 +225,7 @@ const RestaurantFormAdmin = ({
         </p>
       )}
 
-      {/* 全局錯誤訊息 */}
+      {/* 全局錯誤訊息 (🚨 雖然 Admin 不產生錯誤，但保留此區塊，以防父組件設置) */}
       {globalErrorMsg && (
         <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center font-medium">
           {globalErrorMsg}
@@ -316,7 +242,7 @@ const RestaurantFormAdmin = ({
         inputRefs={inputRefs}
         formData={formData}
         handleChange={handleChange}
-        errors={errors}
+        errors={errors} // 🚨 傳入空 Errors
         handleCheckboxChange={handleCheckboxChange}
         handleProvinceChange={handleProvinceChange}
         handleCuisineCategoryChange={handleCuisineCategoryChange}
@@ -344,9 +270,9 @@ const RestaurantFormAdmin = ({
         inputRefs={inputRefs}
         formData={formData}
         handleChange={handleChange}
-        errors={errors}
+        errors={errors} // 🚨 傳入空 Errors
         handleCheckboxChange={handleCheckboxChange}
-        handleBusinessHoursChange={handleBusinessHoursChange}
+        handleBusinessHoursChange={handleBusinessHoursChange} // ✅ 現在是穩定的 useCallback 函數
         DAYS_OF_WEEK={DAYS_OF_WEEK}
         TIME_OPTIONS={TIME_OPTIONS}
         reservationModeOptions={reservationModeOptions}
@@ -360,11 +286,11 @@ const RestaurantFormAdmin = ({
       <h2 className="text-2xl font-bold text-gray-900 border-b pb-2 pt-8">
         3. 聯絡人資訊
       </h2>
-      <ContactInfoSection
+      <ContactInfoSectionAdmin
         inputRefs={inputRefs}
         formData={formData}
         handleChange={handleChange}
-        errors={errors}
+        errors={errors} // 🚨 傳入空 Errors
       />
 
       {/* 提交按鈕 */}

@@ -33,7 +33,7 @@ import Link from "next/link";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import ShareModal from "@/components/ShareModal";
 import { useRouter } from "next/navigation";
-import {Image} from "next/image"
+import Image from "next/image";
 
 // 導入新的 Hook
 import useRestaurantStatus from "@/hooks/useRestaurantStatus";
@@ -304,11 +304,7 @@ export default function RestaurantDetailLayout({ children }) {
   );
 
   // 獲取門面照片 URL
-  const facadePhotoUrl =
-    restaurant.facadePhotoUrls?.[0] ||
-    `https://placehold.co/800x400/CCCCCC/333333?text=${encodeURIComponent(
-      getRestaurantName(restaurant)
-    )}`;
+  const facadePhotoUrl = restaurant.facadePhotoUrls?.[0];
 
   return (
     <RestaurantContext.Provider value={{ restaurant }}>
@@ -322,10 +318,11 @@ export default function RestaurantDetailLayout({ children }) {
                 <Image
                   src={facadePhotoUrl}
                   alt={`${getRestaurantName(restaurant)} 門面照片`}
-                  className="w-full h-45 object-cover rounded-lg shadow-md"
+                  fill={true}
+                  className=" h-45 object-cover rounded-lg shadow-md"
                   onError={(e) => {
                     e.target.onerror = null;
-                    e.target.src = `https://placehold.co/800x400/CCCCCC/333333?text=圖片載入失敗`;
+                    e.target.src = ``;
                   }}
                 />
               </div>

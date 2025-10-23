@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, useContext } from "react";
 import { doc, getDoc } from "firebase/firestore"; 
 import { useParams } from "next/navigation";
 import { AuthContext } from "../../../lib/auth-context";
-import { Image }  from "next/image";
+import Image  from "next/image";
 
 // Utility function to format timestamp
 const formatDateTime = (timestamp) => {

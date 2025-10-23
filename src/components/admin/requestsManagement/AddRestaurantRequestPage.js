@@ -14,7 +14,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { useRouter, useParams } from "next/navigation";
 import Modal from "@/components/Modal";
 import { restaurantFields, formatDataForDisplay } from "@/lib/translation-data";
-import { Image } from "next/image";
+import Image from "next/image";
 
 // 輔助欄位名稱，用於覆蓋 restaurantFields 中可能不準確的名稱
 const fieldDisplayNames = {
@@ -122,7 +122,8 @@ const PhotoDisplay = ({ field, value }) => {
             <Image
               src={url}
               alt={`${field} ${index + 1}`}
-              className="w-full h-auto object-cover max-h-40"
+              fill={true}
+              className="object-cover max-h-40"
               loading="lazy"
             />
           ) : (
