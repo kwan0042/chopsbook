@@ -1,6 +1,8 @@
+// app/blogs/page.js
+
 import { db } from "@/lib/firebase-admin"; // 引入您提供的 Admin SDK db
 import BlogsClientPage from "@/components/blogs/BlogsClientPage"; // 引入 Client Component
-import LoadingSpinner from "@/components/LoadingSpinner"; // 雖然在 SSR 數據層不常顯示，但仍保留
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const ITEMS_PER_PAGE = 9; // 每頁 9 篇文章
 
@@ -16,12 +18,13 @@ export const metadata = {
   // Open Graph 標籤 (用於社群媒體)
   openGraph: {
     title: "所有文章 | ChopsBook",
-    description: "瀏覽最全面的多倫多餐廳食評與美食交流文章。發掘多倫多最佳餐廳推介、必食菜單及餐飲趨勢。使用智慧搜尋和菜系標籤，快速找到您下一餐的美食靈感！",
-    url: "https://chopsbook.com/blogs", // 💡 請替換為您的實際域名
-    siteName: "ChopsBook", // 💡 請替換為您的網站名稱
+    description:
+      "瀏覽最全面的多倫多餐廳食評與美食交流文章。發掘多倫多最佳餐廳推介、必食菜單及餐飲趨勢。使用智慧搜尋和菜系標籤，快速找到您下一餐的美食靈感！",
+    url: "https://chopsbook.com/blogs",
+    siteName: "ChopsBook",
     images: [
       {
-        url: "https://chopsbook/Chopsbook_logo_white_v2.png", // 💡 設置一個默認圖片
+        url: "https://chopsbook/Chopsbook_logo_white_v2.png",
         width: 800,
         height: 600,
       },
@@ -47,32 +50,38 @@ const BlogsPage = async ({ searchParams }) => {
     );
   }
 
-  // 從 URL 獲取參數
-  const currentPage = parseInt(searchParams.page) || 1;
-  const searchKeyword = searchParams.keyword || "";
-  const selectedTag = searchParams.tag || "";
+  // >>>>> 修復：必須先 await searchParams 以避免 Next.js 錯誤 <<<<<
+  const resolvedSearchParams = await searchParams;
+
+  // 從 URL 獲取參數 (使用 resolvedSearchParams)
+  // 注意：這裡只會接收 URL 中的值，不會有 %0A
+  const currentPage = parseInt(resolvedSearchParams.page) || 1;
+  const searchKeyword = resolvedSearchParams.keyword || "";
+  const selectedTag = resolvedSearchParams.tag || "";
   // lastCursor 格式：submittedAt_id
-  const lastCursor = searchParams.lastCursor || "";
+  const lastCursor = resolvedSearchParams.lastCursor || "";
+  // >>>>> 修復完成 <<<<<
 
   let initialBlogs = [];
   let totalBlogsCount = 0;
   let availableTags = [];
   let nextCursor = ""; // 儲存下一頁的起始遊標
-  const blogsColRef = db.collection(`artifacts/${process.env.FIREBASE_ADMIN_APP_ID}/public/data/blogs`);
-  // 🚨 請將 'appId_placeholder' 替換為您的實際 appId 變數或值
-  
+  const blogsColRef = db.collection(
+    `artifacts/${process.env.FIREBASE_ADMIN_APP_ID}/public/data/blogs`
+  );
+
   try {
-    // 1. 獲取總文章數 (用於計算總頁數，較節省讀取量)
+    // 1. 獲取總文章數
     const countSnapshot = await blogsColRef
       .where("status", "==", "published")
       .count()
       .get();
     totalBlogsCount = countSnapshot.data().count;
 
-    // 2. 獲取所有標籤 (通常在生產環境應快取此列表)
+    // 2. 獲取所有標籤
     const tagsSnapshot = await blogsColRef
       .where("status", "==", "published")
-      .select("tags") // 只讀取 tags 字段
+      .select("tags")
       .get();
 
     availableTags = tagsSnapshot.docs
@@ -92,12 +101,12 @@ const BlogsPage = async ({ searchParams }) => {
     // 3. 建立基礎查詢
     let finalQuery = blogsColRef
       .where("status", "==", "published")
-      // 必須按照 submittedAt 排序，才能使用 startAfter
       .orderBy("submittedAt", "desc")
       .limit(ITEMS_PER_PAGE);
 
     // 4. 應用標籤篩選
     if (selectedTag) {
+      // 注意：這裡使用的 selectedTag 已經是從 URL 參數中解析出來的值
       finalQuery = finalQuery.where("tags", "array-contains", selectedTag);
     }
 
@@ -108,7 +117,6 @@ const BlogsPage = async ({ searchParams }) => {
       const docId = parts[1];
 
       // 使用 submittedAt 和 docId 作為 startAfter 的兩個排序鍵
-      // 這是確保分頁準確的標準做法
       finalQuery = finalQuery.startAfter(submittedAt, docId);
     }
 
@@ -157,8 +165,6 @@ const BlogsPage = async ({ searchParams }) => {
       initialKeyword={searchKeyword}
       initialTag={selectedTag}
       nextCursor={nextCursor}
-      // 為了處理 "上一頁" 的複雜性，我們只在下一頁傳輸遊標。
-      // "上一頁"會清空遊標並重新從頭開始計算。
     />
   );
 };

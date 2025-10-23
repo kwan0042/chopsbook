@@ -13,6 +13,7 @@ const RestaurantDetailsSection = ({
   inputRefs,
   formData,
   handleChange,
+  handleNameEnChange,
   errors,
   handleCheckboxChange,
   handleProvinceChange,
@@ -118,7 +119,7 @@ const RestaurantDetailsSection = ({
             id="restaurantNameEn"
             name="restaurantName.en"
             value={formData.restaurantName?.en || ""}
-            onChange={handleChange}
+            onChange={handleNameEnChange}
             className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
               errors.restaurantName?.en
                 ? "border-red-500 focus:ring-red-500"
@@ -475,7 +476,7 @@ const RestaurantDetailsSection = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mt-4">
         <div ref={(el) => (inputRefs.current["restaurantType"] = el)}>
           {" "}
           <label
@@ -483,23 +484,37 @@ const RestaurantDetailsSection = ({
             className="block text-gray-700 text-sm font-bold mb-2"
           >
             餐廳類型 (多選)
-            {/* 🚨 移除: <span className="text-red-500">*</span> */}
             {errors.restaurantType && (
               <span className="text-red-500 font-normal text-xs ml-2">
                 {errors.restaurantType}
               </span>
             )}
           </label>
-          {/* 修正後的 Checkbox 區塊 */}
+          {/* 修正後的 Checkbox 區塊 - 核心修改在這裡 */}
           <div
-            className={`p-3 border rounded-md focus:outline-none focus:ring-2 h-40 overflow-y-auto ${
-              errors.restaurantType
-                ? "border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:ring-blue-500"
-            }`}
+            className={`
+                p-3 border rounded-md focus:outline-none focus:ring-2 
+                /* 保持手機版樣式: 垂直捲動，固定高度 */
+                h-40 overflow-y-auto 
+                
+                /* --- Web 版 (md: 以上) 樣式 --- */
+                /* 添加 Grid 4 欄佈局 */
+                md:grid md:grid-cols-4 md:gap-x-4
+                
+                ${
+                  errors.restaurantType
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                }
+            `}
           >
             {restaurantTypeOptions.map((option) => (
-              <div key={option} className="flex items-center">
+              <div
+                key={option}
+                /* 在手機版 (預設) 添加垂直間距 mb-1 */
+                /* 在 Web 版 (md: 以上) 移除垂直間距 md:mb-0，讓 Grid 的 gap 處理間距 */
+                className="flex items-center mb-1 md:mb-0"
+              >
                 <input
                   type="checkbox"
                   id={`restaurantType-${option}`}
@@ -519,25 +534,6 @@ const RestaurantDetailsSection = ({
               </div>
             ))}
           </div>
-        </div>
-        <div ref={(el) => (inputRefs.current["avgSpending"] = el)}>
-          {" "}
-          <label
-            htmlFor="avgSpending"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            人均消費 ($)
-          </label>
-          <input
-            type="number"
-            id="avgSpending"
-            name="avgSpending"
-            value={formData.avgSpending || ""}
-            onChange={handleChange}
-            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="例如：30 (僅數字)"
-            min="0"
-          />
         </div>
       </div>
 
@@ -566,6 +562,25 @@ const RestaurantDetailsSection = ({
               </option>
             ))}
           </select>
+        </div>
+        <div ref={(el) => (inputRefs.current["avgSpending"] = el)}>
+          {" "}
+          <label
+            htmlFor="avgSpending"
+            className="block text-gray-700 text-sm font-bold mb-2"
+          >
+            人均消費 ($)
+          </label>
+          <input
+            type="number"
+            id="avgSpending"
+            name="avgSpending"
+            value={formData.avgSpending || ""}
+            onChange={handleChange}
+            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="例如：30 (僅數字)"
+            min="0"
+          />
         </div>
       </div>
     </div>

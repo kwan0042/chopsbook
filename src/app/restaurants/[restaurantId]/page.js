@@ -186,14 +186,16 @@ export default function RestaurantOverviewPage() {
               key={menuItem.id}
               className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col items-center p-3"
             >
-              <img
-                src={
-                  menuItem.imageUrl ||
-                  `https://placehold.co/100x100/CCCCCC/333333?text=菜品`
-                }
-                alt={menuItem.name}
-                className="w-24 h-24 object-cover rounded-full mb-3 border-2 border-gray-200"
-              />
+              <div className="relative w-24 h-24 overflow-hidden rounded-full mb-3">
+                <Image
+                  src={menuItem.imageUrl || "/img/error/imgError_tw.webp"}
+                  alt={menuItem.name}
+                  fill
+                  className="object-cover object-[right_top] transition-transform duration-300 hover:scale-110"
+                  unoptimized
+                />
+              </div>
+
               <h3 className="text-base font-semibold text-gray-800 text-center">
                 {menuItem.name}
               </h3>
@@ -223,16 +225,14 @@ export default function RestaurantOverviewPage() {
         <h2 className="text-base font-bold text-gray-800 mb-4">精選照片</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {topPhotos.map((photo, index) => (
-            <img
+            <Image
               key={photo.id}
-              src={
-                photo.url ||
-                `https://placehold.co/200x150/CCCCCC/333333?text=照片${
-                  index + 1
-                }`
-              }
+              src={photo.url || "/img/error/imgError_tw.webp"}
               alt={`餐廳照片 ${index + 1}`}
               className="w-full h-24 sm:h-32 object-cover rounded-lg shadow-sm hover:scale-105 transition duration-200"
+              width={500} // 必需：Next Image 要求 width/height
+              height={200}
+              unoptimized // 🔸避免自動優化（否則外層會包住一個div，className會唔完全一樣）
             />
           ))}
         </div>

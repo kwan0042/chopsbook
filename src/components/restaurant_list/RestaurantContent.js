@@ -313,7 +313,7 @@ const RestaurantContent = () => {
               loading={loading}
               isFavoritesFilterActive={isFavoritesFilterActive}
               hasMore={hasMore}
-              // 不再傳遞 fetchMoreRestaurants 進行無限滾動
+              
             />
 
             {/* --- 新增分頁按鈕區塊 --- */}

@@ -3,10 +3,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useContext } from "react";
-import { doc, getDoc } from "firebase/firestore"; 
+import { doc, getDoc } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { AuthContext } from "../../../lib/auth-context";
-import Image  from "next/image";
+import Image from "next/image";
 
 // Utility function to format timestamp
 const formatDateTime = (timestamp) => {
@@ -167,11 +167,15 @@ const BlogPage = () => {
           );
         } else {
           renderedElements.push(
-            <div key={i} className="my-4">
+            <div key={i} className="my-4 relative h-[400px]">
+              {" "}
+              {/* 👈 1. 增加 relative 和一個固定的高度 */}
               <Image
                 src={block.url}
                 alt="文章內文圖片"
-                className="w-full h-auto rounded-lg shadow-md"
+                fill={true} // 👈 2. 使用 fill 屬性取代 width/height
+                style={{ objectFit: "contain" }} // 讓圖片完整顯示在容器內
+                sizes="(max-width: 768px) 100vw, 800px" // 建議增加 sizes 以最佳化效能
               />
             </div>
           );
@@ -205,30 +209,40 @@ const BlogPage = () => {
   return (
     <>
       <div className="flex justify-center bg-cbbg min-h-screen p-6 font-sans">
-        <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl overflow-hidden border border-gray-200 p-6">
-          <Image src={blog?.coverImage} alt={blog?.title}/>
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-2">
+        <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl overflow-hidden whitespace-nowrapborder border-gray-200 p-6">
+          <div className="relative w-full h-0 pb-[56.25%]">
+            {" "}
+            {/* 56.25% 是 16:9 的比例 */}
+            <Image
+              src={blog?.coverImage}
+              alt={blog?.title}
+              fill={true}
+              style={{ objectFit: "cover" }}
+            />
+          </div>
+          <h1 className="text-2xl font-extrabold text-gray-900 my-4">
             {blog?.title || "沒有標題"}
           </h1>
           <div className="text-sm text-gray-500 mb-6 border-b pb-4">
             作者: Admin •{" "}
             {blog?.submittedAt ? formatDateTime(blog.submittedAt) : "無"}
+            {Array.isArray(blog?.tags) && blog.tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {blog.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="px-3 py-1 bg-yellow-200 text-gray-800 rounded-full text-sm font-medium"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
+
           <div className="prose max-w-none text-gray-700 leading-relaxed">
             {parseAndRenderContent()}
           </div>
-          {Array.isArray(blog?.tags) && blog.tags.length > 0 && (
-            <div className="mt-8 flex flex-wrap gap-2">
-              {blog.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-3 py-1 bg-gray-200 text-gray-800 rounded-full text-sm font-medium"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </>

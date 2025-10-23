@@ -46,11 +46,7 @@ const RestaurantCard = ({
 
   const displayImageUrl = hasAnyImage
     ? facadePhotoUrls[0]
-    : `https://placehold.co/${placeholderSize}/CCCCCC/333333?text=${encodeURIComponent(
-        restaurant.restaurantName?.["zh-TW"] ||
-          restaurant.restaurantName?.en ||
-          "餐廳圖片"
-      )}`;
+    : "/img/error/imgError_tw.webp";
 
   const CategorysText = (() => {
     // 🚨 修正: category 和 subCategory 現在是字串 (String)

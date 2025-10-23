@@ -314,17 +314,20 @@ export default function RestaurantDetailLayout({ children }) {
             {/* 🚨 關鍵結構變更：將頂部資訊、基本資訊和標籤放在一個父容器中，並與圖片並排 */}
             <div className="flex flex-col md:flex-row border-b border-gray-200 pr-3 ">
               {/* 門面照片區塊 (左側 25% / w-1/4) */}
-              <div className="md:w-1/5 w-full p-4 flex-shrink-0">
-                <Image
-                  src={facadePhotoUrl}
-                  alt={`${getRestaurantName(restaurant)} 門面照片`}
-                  fill={true}
-                  className=" h-45 object-cover rounded-lg shadow-md"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = ``;
-                  }}
-                />
+              <div className="md:w-1/5 w-full p-4 flex-shrink-0  ">
+                <div className="relative w-full h-40">
+                  {" "}
+                  {/* 👈 設定高度 + relative */}
+                  <Image
+                    src={
+                      facadePhotoUrl || "/img/error/imgError_tw.webp"
+                    }
+                    alt={`${getRestaurantName(restaurant)} 門面照片`}
+                    fill
+                    className="object-cover rounded-lg shadow-md"
+                    unoptimized
+                  />
+                </div>
               </div>
 
               {/* 資訊區塊 (右側 75% / w-3/4) - 包含名稱、評分、菜系、標籤 */}
@@ -334,7 +337,7 @@ export default function RestaurantDetailLayout({ children }) {
                   <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">
                     {getRestaurantName(restaurant)}
                   </h1>
-                  <div className="flex justify-center items-center gap-2">
+                  <div className="flex justify-center items-center gap-2 overflow-ellipsis whitespace-nowrap">
                     <button
                       onClick={handleCheckInClick}
                       className="bg-cbbg text-rose-500 hover:bg-blue-600 hover:text-cbbg text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
