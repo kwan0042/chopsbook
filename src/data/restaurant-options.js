@@ -98,7 +98,7 @@ export const restaurantTypeOptions = [
   "中式串燒",
   "湯水/燉品",
   "煲仔飯",
-  
+  "街頭小食",
   "一般餐廳",
 
  
@@ -139,7 +139,7 @@ export const restaurantTypeOptions = [
   "自助餐",
   "速食",
   "美食廣場/ 熟食市場",
-  "街頭小吃攤位",
+  "街頭小食攤位",
   "外賣速遞專營店",
   "美食餐車",
   "海鮮料理",

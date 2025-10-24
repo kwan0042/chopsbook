@@ -1,4 +1,3 @@
-// EditRestaurantModal.js (完整文件)
 "use client";
 
 import React, {
@@ -8,6 +7,8 @@ import React, {
   useContext,
   useMemo,
 } from "react";
+// 🚨 關鍵修改：導入 Resizer 庫用於圖片處理
+import Resizer from "react-image-file-resizer";
 // 🚨 僅修改此處：導入 Admin 專用表單組件
 import RestaurantFormAdmin from "./RestaurantFormAdmin.js";
 import { AuthContext } from "@/lib/auth-context"; // <-- 確保路徑正確
@@ -140,21 +141,60 @@ const EditRestaurantModal = ({
         restaurantId
       );
 
+      let fileToUpload = selectedFile; // 預設使用原始檔案
+
       if (selectedFile) {
         // ----------------------------------------------------
-        // Step 2: 上傳新圖片到 Firebase Storage
+        // Step 2a: 處理圖片：格式轉換、尺寸調整和壓縮
         // ----------------------------------------------------
         setIsUploading(true);
 
-        // 🚨 使用現有的 restaurantId 構建 Storage 路徑
+        try {
+          const resizedWebpBlob = await new Promise((resolve, reject) => {
+            // 使用 Resizer 進行轉換：
+            // 最大尺寸 1000px，品質 70，輸出 WEBP 格式
+            Resizer.imageFileResizer(
+              selectedFile, // 原始檔案 (File 或 Blob)
+              1000, // 最大寬度
+              1000, // 最大高度
+              "WEBP", // 輸出格式
+              70, // 🚨 品質 (70 是較好的平衡點，可根據需求調整)
+              0, // 旋轉
+              (uri) => {
+                resolve(uri); // 返回 Blob
+              },
+              "blob"
+            );
+          });
+
+          if (resizedWebpBlob) {
+            fileToUpload = resizedWebpBlob; // 更新為壓縮後的 WebP Blob
+          } else {
+            console.warn("WebP 轉換失敗，將嘗試上傳原始檔案。");
+          }
+        } catch (resizeError) {
+          console.error("圖片尺寸調整和 WebP 轉換失敗:", resizeError);
+          alert("圖片處理失敗，請檢查檔案格式！");
+          setIsSubmitting(false);
+          setIsUploading(false);
+          return;
+        }
+
+        // ----------------------------------------------------
+        // Step 2b: 上傳 WebP 檔案到 Firebase Storage
+        // ----------------------------------------------------
+
+        // 🚨 關鍵修改 A：確保路徑結尾是 .webp
         const imageRef = ref(
           storage,
-          `public/restaurants/${restaurantId}/facade/${Date.now()}_${
-            selectedFile.name
-          }` // 確保唯一性
+          `public/restaurants/${restaurantId}/facade/${Date.now()}.webp`
         );
 
-        const snapshot = await uploadBytes(imageRef, selectedFile);
+        // 🚨 關鍵修改 B：使用轉換後的 Blob，並明確指定 Content-Type
+        const snapshot = await uploadBytes(imageRef, fileToUpload, {
+          contentType: "image/webp", // 強制設定 Content-Type 為 WebP
+        });
+
         const newPhotoUrl = await getDownloadURL(snapshot.ref);
 
         // 🎯 由於是編輯，我們通常替換門面照片 (假設只允許一張)
@@ -166,9 +206,7 @@ const EditRestaurantModal = ({
       } else if (
         finalPhotoUrls.length > 0 &&
         onRemovePhoto &&
-        // 🚨 檢查：如果新的 photoUrls 中沒有任何一個來自 initialData，可能代表用戶清除了所有圖片
-        // 這裡的邏輯有點複雜，我們假設只要 finalPhotoUrls 是空陣列，即代表用戶清除了。
-        // 但為了不修改原邏輯，我們保留原來的複雜檢查。
+        // 這裡的邏輯保持不變
         !initialData.facadePhotoUrls.includes(finalPhotoUrls[0])
       ) {
         // 這裡處理用戶在表單中手動移除了所有圖片但沒有上傳新圖片的情況

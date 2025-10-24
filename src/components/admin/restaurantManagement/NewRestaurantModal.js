@@ -2,6 +2,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useContext } from "react";
+// 🚨 關鍵修改 1：導入 Resizer 庫用於圖片處理
+import Resizer from "react-image-file-resizer";
 // 🚨 僅修改此處：導入新的 Admin 專用表單組件
 import RestaurantFormAdmin from "./RestaurantFormAdmin.js";
 import { AuthContext } from "@/lib/auth-context"; // <-- 確保路徑正確
@@ -78,7 +80,6 @@ const NewRestaurantModal = ({
   onRemovePhoto,
   isUploading: isUploadingProp, // 接收父組件的狀態
 }) => {
-  
   const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({});
   // 🎯 修正點 2: 使用內部狀態來管理提交和上傳狀態 (因為我們在這裡處理 Firebase 邏輯)
@@ -154,7 +155,6 @@ const NewRestaurantModal = ({
 
   // 最終提交處理：當 RestaurantFormAdmin 驗證成功後調用
   const handleFormSubmit = async (finalFormData) => {
-    
     setIsSubmitting(true);
     let finalPhotoUrl = finalFormData.facadePhotoUrls?.[0] || "";
 
@@ -162,26 +162,68 @@ const NewRestaurantModal = ({
       // ----------------------------------------------------
       // Step 1: 預先生成 Firestore Document Reference 以取得 restaurantId
       // ----------------------------------------------------
-      const restaurantsColRef = collection(db, `artifacts/${appId}/public/data/restaurants`);
+      const restaurantsColRef = collection(
+        db,
+        `artifacts/${appId}/public/data/restaurants`
+      );
       // 使用 doc() 且不帶參數，Firestore 會在本地產生一個唯一的 ID
       const newRestaurantDocRef = doc(restaurantsColRef);
       const restaurantId = newRestaurantDocRef.id; // 這是我們需要的唯一 ID!
 
+      let fileToUpload = selectedFile; // 預設使用原始檔案
+
       if (selectedFile) {
         // ----------------------------------------------------
-        // Step 2: 上傳圖片到 Firebase Storage
+        // Step 2a: 處理圖片：格式轉換、尺寸調整和壓縮
         // ----------------------------------------------------
         setIsUploading(true);
 
-        // 🚨 使用生成的 restaurantId 構建 Storage 路徑
+        try {
+          const resizedWebpBlob = await new Promise((resolve, reject) => {
+            // 使用 Resizer 進行轉換：
+            // 最大尺寸 1000px，品質 70，輸出 WEBP 格式
+            Resizer.imageFileResizer(
+              selectedFile, // 原始檔案 (File 或 Blob)
+              1000, // 最大寬度
+              1000, // 最大高度
+              "WEBP", // 輸出格式
+              70, // 品質 (70 是較好的平衡點，可根據需求調整)
+              0, // 旋轉
+              (uri) => {
+                resolve(uri); // 返回 Blob
+              },
+              "blob"
+            );
+          });
+
+          if (resizedWebpBlob) {
+            fileToUpload = resizedWebpBlob; // 更新為壓縮後的 WebP Blob
+          } else {
+            console.warn("WebP 轉換失敗，將嘗試上傳原始檔案。");
+          }
+        } catch (resizeError) {
+          console.error("圖片尺寸調整和 WebP 轉換失敗:", resizeError);
+          alert("圖片處理失敗，請檢查檔案格式！");
+          setIsSubmitting(false);
+          setIsUploading(false);
+          return;
+        }
+
+        // ----------------------------------------------------
+        // Step 2b: 上傳 WebP 檔案到 Firebase Storage
+        // ----------------------------------------------------
+
+        // 🚨 關鍵修改 2：使用生成的 restaurantId 構建 Storage 路徑，並確保副檔名是 .webp
         const imageRef = ref(
           storage,
-          `public/restaurants/${restaurantId}/facade/${Date.now()}_${
-            selectedFile.name
-          }` // 添加檔名尾碼以確保唯一性
+          `public/restaurants/${restaurantId}/facade/${Date.now()}.webp`
         );
 
-        const snapshot = await uploadBytes(imageRef, selectedFile);
+        // 🚨 關鍵修改 3：使用轉換後的 Blob，並明確指定 Content-Type
+        const snapshot = await uploadBytes(imageRef, fileToUpload, {
+          contentType: "image/webp", // 強制設定 Content-Type 為 WebP
+        });
+
         finalPhotoUrl = await getDownloadURL(snapshot.ref);
 
         // 清理本地狀態 (此處略過 UI 清理，因為 Modal 關閉時會清理)

@@ -32,7 +32,7 @@ const UserProfileHeader = ({
   );
 
   const displayPhoto = isGoogleUser
-    ? currentUser.photoURL
+    ? currentUser.pIconUrl
     : profilePhoto || "/default-avatar.png";
 
   return (

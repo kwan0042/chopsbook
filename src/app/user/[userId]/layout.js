@@ -42,7 +42,7 @@ export default function UserProfileLayout({ children, params }) {
 
   const [isEditingIntro, setIsEditingIntro] = useState(false);
   const [introText, setIntroText] = useState(currentUser?.intro || "");
-  const [profilePhoto, setProfilePhoto] = useState(currentUser?.photoURL || "");
+  const [profilePhoto, setProfilePhoto] = useState(currentUser?.pIconUrl || "");
 
   const [photoFileToCrop, setPhotoFileToCrop] = useState(null);
 
@@ -60,7 +60,7 @@ export default function UserProfileLayout({ children, params }) {
           const userData = { id: userDoc.id, ...userDoc.data() };
           setProfileUser(userData);
           setIntroText(userData.intro || "");
-          setProfilePhoto(userData.photoURL || "");
+          setProfilePhoto(userData.pIconUrl || "");
         } else {
           setModalMessage("找不到此用戶的個人主頁。");
           setProfileUser(null);
@@ -103,13 +103,13 @@ export default function UserProfileLayout({ children, params }) {
       try {
         const storageRef = ref(
           storage,
-          `public/users/${currentUser.uid}/icon/profile_icon_${Date.now()}.webp`
+          `public/users/${currentUser.uid}/icon/pIcon.webp`
         );
         const snapshot = await uploadBytes(storageRef, croppedBlob);
-        const newPhotoUrl = await getDownloadURL(snapshot.ref);
+        const newPIconUrl = await getDownloadURL(snapshot.ref);
 
-        await updateUserProfile(userId, { photoURL: newPhotoUrl });
-        setProfilePhoto(newPhotoUrl);
+        await updateUserProfile(userId, { pIconUrl: newPIconUrl });
+        setProfilePhoto(newPIconUrl);
         setModalMessage("頭像已更新。");
       } catch (error) {
         setModalMessage(`頭像上傳失敗: ${error.message}`);

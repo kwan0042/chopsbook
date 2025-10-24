@@ -3,7 +3,7 @@
 import React from "react";
 
 // Icons are now rendered inline to avoid import issues
-const ChevronUpIcon = () => (
+const ChevronUpIconUrl = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 448 512"
@@ -37,7 +37,7 @@ const FilterGroup = ({ title, isCollapsed, onToggle, children }) => {
         onClick={onToggle}
       >
         <h4 className="text-base font-semibold text-gray-800">{title}</h4>
-        {isCollapsed ? <ChevronDownIcon /> : <ChevronUpIcon />}
+        {isCollapsed ? <ChevronDownIcon /> : <ChevronUpIconUrl />}
       </div>
       {!isCollapsed && <div className="mt-3">{children}</div>}
     </div>

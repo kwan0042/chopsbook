@@ -26,7 +26,7 @@ export const getCroppedImg = (imageSrc, croppedAreaPixels) => {
 
       canvas.toBlob((blob) => {
         resolve(blob);
-      }, "image/jpeg");
+      }, "image/webp");
     };
   });
 };

@@ -130,8 +130,8 @@ const UserDetailPage = ({ userId }) => {
       if (formData.rank !== userData.rank) {
         updates.rank = formData.rank;
       }
-      if (formData.photoURL !== userData.photoURL)
-        updates.photoURL = formData.photoURL;
+      if (formData.pIconUrl !== userData.pIconUrl)
+        updates.pIconUrl = formData.pIconUrl;
 
       if (Object.keys(updates).length > 0) {
         const token = await auth.currentUser.getIdToken();
@@ -415,24 +415,24 @@ const UserDetailPage = ({ userId }) => {
 
             <div>
               <label
-                htmlFor="photoURL"
+                htmlFor="pIconUrl"
                 className="block text-gray-700 text-sm font-bold mb-2"
               >
                 個人相片 (URL)
               </label>
               <input
                 type="url"
-                id="photoURL"
-                name="photoURL"
-                value={formData.photoURL || ""}
+                id="pIconUrl"
+                name="pIconUrl"
+                value={formData.pIconUrl || ""}
                 onChange={handleChange}
                 disabled={!editing}
                 className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500 h-[48px]"
                 placeholder="輸入圖片URL"
               />
-              {formData.photoURL && (
+              {formData.pIconUrl && (
                 <img
-                  src={formData.photoURL}
+                  src={formData.pIconUrl}
                   alt="用戶頭像"
                   className="w-24 h-24 rounded-full object-cover mt-2 mx-auto"
                   onError={(e) => {

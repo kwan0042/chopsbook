@@ -138,7 +138,7 @@ const RestaurantFormAdmin = ({
 
     handleChange({
       target: { name: "restaurantName.en", value: newNameEn },
-    }); // 2. 更新 name_lowercase_en //    如果 newNameEn 存在，則轉為小寫；否則設為空字串
+    }); // 2. 更新 name_lowercase_en //  如果 newNameEn 存在，則轉為小寫；否則設為空字串
 
     const newNameLowercaseEn = newNameEn ? newNameEn.toLowerCase() : "";
     handleChange({
@@ -175,7 +175,7 @@ const RestaurantFormAdmin = ({
       });
     },
     [formData.businessHours, handleChange]
-  );  // 依賴於 formData.businessHours 和 handleChange // --- 處理邏輯結束 ---
+  ); // 依賴於 formData.businessHours 和 handleChange // --- 處理邏輯結束 ---
   /**
    * 處理提交 - 🚨 移除驗證邏輯，直接調用父組件的 handleSubmit
    */
@@ -195,39 +195,33 @@ const RestaurantFormAdmin = ({
 
   return (
     <form onSubmit={localHandleSubmit} className="space-y-8 p-6 bg-white ">
-           {" "}
+      {" "}
       <input
         type="file"
         ref={fileInputRef}
         onChange={localHandleFileChange}
         className="hidden"
         accept="image/*"
-      />
-           {" "}
+      />{" "}
       {isUpdateForm && selectedRestaurantData && (
         <p className="text-lg font-semibold text-gray-800 mb-6 border-b pb-4">
-                    您正在為以下餐廳提交更新申請：           <br />          **
-          {selectedRestaurantData?.restaurantName?.["zh-TW"]}** (          {" "}
-          {selectedRestaurantData?.restaurantName?.en})        {" "}
+          您正在為以下餐廳提交更新申請： <br /> **
+          {selectedRestaurantData?.restaurantName?.["zh-TW"]}** ({" "}
+          {selectedRestaurantData?.restaurantName?.en}){" "}
         </p>
-      )}
-           {" "}
-      {/* 全局錯誤訊息 (🚨 雖然 Admin 不產生錯誤，但保留此區塊，以防父組件設置) */}
-           {" "}
+      )}{" "}
+      {/* 全局錯誤訊息 (🚨 雖然 Admin 不產生錯誤，但保留此區塊，以防父組件設置) */}{" "}
       {globalErrorMsg && (
         <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center font-medium">
-                    {globalErrorMsg}       {" "}
+          {globalErrorMsg}{" "}
         </div>
-      )}
-           {" "}
+      )}{" "}
       {/* =======================================
-           Section 1: 餐廳詳細資料 
-           ======================================= */}
-           {" "}
+     Section 1: 餐廳詳細資料 
+     ======================================= */}{" "}
       <h2 className="text-2xl font-bold text-gray-900 border-b pb-2">
-                1. 餐廳詳細資料      {" "}
-      </h2>
-           {" "}
+        1. 餐廳詳細資料{" "}
+      </h2>{" "}
       <RestaurantDetailsSection
         inputRefs={inputRefs}
         formData={formData}
@@ -249,16 +243,13 @@ const RestaurantFormAdmin = ({
         provinceOptions={provinceOptions}
         citiesByProvince={citiesByProvince}
         CategoryOptions={categoryOptions}
-      />
-           {" "}
+      />{" "}
       {/* =======================================
-           Section 2: 營業、服務與付款 
-           ======================================= */}
-           {" "}
+     Section 2: 營業、服務與付款 
+     ======================================= */}{" "}
       <h2 className="text-2xl font-bold text-gray-900 border-b pb-2 pt-8">
-                2. 營業、服務與付款      {" "}
-      </h2>
-           {" "}
+        2. 營業、服務與付款{" "}
+      </h2>{" "}
       <HoursAndPaymentSection
         inputRefs={inputRefs}
         formData={formData}
@@ -271,35 +262,30 @@ const RestaurantFormAdmin = ({
         reservationModeOptions={reservationModeOptions}
         paymentMethodOptions={paymentMethodOptions}
         facilitiesServiceOptions={facilitiesServiceOptions}
-      />
-           {" "}
+      />{" "}
       {/* =======================================
-           Section 3: 聯絡人資訊 
-           ======================================= */}
-           {" "}
+     Section 3: 聯絡人資訊 
+     ======================================= */}{" "}
       <h2 className="text-2xl font-bold text-gray-900 border-b pb-2 pt-8">
-                3. 聯絡人資訊      {" "}
-      </h2>
-           {" "}
+        3. 聯絡人資訊{" "}
+      </h2>{" "}
       <ContactInfoSectionAdmin
         inputRefs={inputRefs}
         formData={formData}
         handleChange={handleChange}
         errors={errors} // 🚨 傳入空 Errors
       />
-            {/* 提交按鈕 */}     {" "}
+      {/* 提交按鈕 */}{" "}
       <div className="pt-6 border-t flex justify-center">
-               {" "}
+        {" "}
         <button
           type="submit"
           className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isUploading || isSubmitting} // 🚨 使用傳入的 isUploading/isSubmitting
         >
-                    {getSubmitButtonText()}       {" "}
-        </button>
-             {" "}
-      </div>
-         {" "}
+          {getSubmitButtonText()}{" "}
+        </button>{" "}
+      </div>{" "}
     </form>
   );
 };
