@@ -141,9 +141,9 @@ export const validateRestaurantForm = (
   // 5. 門面照片 (facadePhotoUrls) (🚨 僅在 Create 模式下必填)
   // 圖片在 Update 模式下是完全可選的。
   // 只有在 Create 模式下，我們才需要確保有圖片（舊圖或新選中的圖）。
-  if (!isUpdateForm && !hasValidPhotoInfo) {
-    errors.facadePhotoUrls = "請上傳一張餐廳門面照片。";
-  }
+  // if (!isUpdateForm && !hasValidPhotoInfo) {
+  //   errors.facadePhotoUrls = "請上傳一張餐廳門面照片。";
+  // }
 
   // ===========================================
   // === Step 2: 營業、服務與付款 驗證邏輯 ===
