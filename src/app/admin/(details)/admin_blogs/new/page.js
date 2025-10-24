@@ -10,7 +10,7 @@ import {
   doc,
   setDoc,
   collection,
-  getFirestore,
+  serverTimestamp,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -72,7 +72,7 @@ const BlogNewPage = () => {
           ...finalData,
           coverImage: coverImageUrl,
           authorId: currentUser.uid, // 使用 currentUser.uid
-          submittedAt: new Date(),
+          submittedAt: serverTimestamp(),
         };
 
         const docRef = doc(blogsCollectionRef, finalData.id);

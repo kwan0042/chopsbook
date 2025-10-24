@@ -101,6 +101,18 @@ const RestaurantForm = ({
 
   const [errors, setErrors] = useState(flatInitialErrors);
   const [globalErrorMsg, setGlobalErrorMsg] = useState("");
+  const handleNameEnChange = (e) => {
+    const newNameEn = e.target.value; // 1. 更新 restaurantName.en
+
+    handleChange({
+      target: { name: "restaurantName.en", value: newNameEn },
+    }); // 2. 更新 name_lowercase_en //  如果 newNameEn 存在，則轉為小寫；否則設為空字串
+
+    const newNameLowercaseEn = newNameEn ? newNameEn.toLowerCase() : "";
+    handleChange({
+      target: { name: "name_lowercase_en", value: newNameLowercaseEn },
+    });
+  };
 
   // ===========================================
   // 圖片預覽邏輯 (最終修正版 - 嚴格遵守 Update 模式不顯示舊圖)
@@ -443,6 +455,7 @@ const RestaurantForm = ({
         handleChange={handleChange}
         errors={errors} // 傳遞扁平 errors
         handleCheckboxChange={handleCheckboxChange}
+        handleNameEnChange={handleNameEnChange}
         handleProvinceChange={handleProvinceChange}
         handleCuisineCategoryChange={handleCuisineCategoryChange}
         handleSubCuisineChange={handleSubCuisineChange}

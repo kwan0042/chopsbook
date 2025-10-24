@@ -1,3 +1,4 @@
+// src/components/admin/restaurantManagement/EditRestaurantModal.js
 "use client";
 
 import React, {
@@ -7,14 +8,16 @@ import React, {
   useContext,
   useMemo,
 } from "react";
-// 🚨 關鍵修改：導入 Resizer 庫用於圖片處理
+// 🚨 關鍵修改 1: 導入 Resizer 庫用於圖片處理
 import Resizer from "react-image-file-resizer";
+// ✅ 關鍵修改 2: 導入 Admin 專用驗證函數
+import { validateRestaurantForm } from "@/lib/validation-admin";
 // 🚨 僅修改此處：導入 Admin 專用表單組件
 import RestaurantFormAdmin from "./RestaurantFormAdmin.js";
 import { AuthContext } from "@/lib/auth-context"; // <-- 確保路徑正確
 
 // 🎯 導入 Firebase 相關功能
-import { doc, setDoc, serverTimestamp, collection } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -46,8 +49,25 @@ const EditRestaurantModal = ({
     if (!formData || !initialData) return false;
 
     // 簡單的 JSON 字符串比較 (淺層檢查，但對於 Admin 表單通常足夠)
+    // 這裡需要排除 updatedAt, createdAt, id 等字段，以獲得更準確的比較，
+    // 但如果您的 initialData 和 formData 結構相同且包含這些不影響提交的字段，
+    // 則簡單比較會更嚴格 (任何時間戳變動都會觸發修改)
+
+    // 排除 updatedAt, createdAt, id, submittedBy 進行比較
+    const cleanFormData = { ...formData };
+    delete cleanFormData.updatedAt;
+    delete cleanFormData.createdAt;
+    delete cleanFormData.id;
+    delete cleanFormData.submittedBy;
+
+    const cleanInitialData = { ...initialData };
+    delete cleanInitialData.updatedAt;
+    delete cleanInitialData.createdAt;
+    delete cleanInitialData.id;
+    delete cleanInitialData.submittedBy;
+
     return (
-      JSON.stringify(formData) !== JSON.stringify(initialData) ||
+      JSON.stringify(cleanFormData) !== JSON.stringify(cleanInitialData) ||
       selectedFile !== null
     );
   }, [formData, initialData, selectedFile]);
@@ -57,6 +77,10 @@ const EditRestaurantModal = ({
   // ---------------------------------------------
   const handleChange = useCallback(
     ({ target: { name, value, type, checked }, isSpecial = false }) => {
+      // 🚨 關鍵修改 3: 移除錯誤狀態清除邏輯
+      // 保持錯誤顯示，直到用戶再次提交或關閉 Modal
+      // if (errors) { setErrors({}); }
+
       if (isSpecial) {
         setFormData((prev) => ({ ...prev, [name]: value }));
       } else if (name.includes(".")) {
@@ -82,6 +106,7 @@ const EditRestaurantModal = ({
         }));
       }
 
+      // 由於您已經決定在提交時處理錯誤，這段即時清除錯誤的邏輯可以被移除
       setErrors((prev) => {
         const errorKey = name.replace(".", "_");
         if (prev[errorKey]) {
@@ -124,6 +149,30 @@ const EditRestaurantModal = ({
       onClose(false);
       return;
     }
+
+    // 🚨 關鍵修改 4: 執行 Admin 專用驗證
+    setErrors({}); // 提交前清空舊的錯誤狀態
+
+    // 準備驗證所需的數據
+    const dataForValidation = {
+      ...finalFormData,
+      tempSelectedFile: selectedFile, // 將選中的檔案傳給驗證函數
+    };
+    const originalPhotoUrls = initialData.facadePhotoUrls || [];
+
+    // 執行 Admin 專用驗證。 isUpdate = true
+    const validationErrors = validateRestaurantForm(
+      dataForValidation,
+      true, // 這是編輯模式
+      originalPhotoUrls
+    );
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      // 驗證失敗，不執行後續邏輯
+      return;
+    }
+    // 驗證成功，繼續執行 Firebase 寫入邏輯
 
     setIsSubmitting(true);
     // 獲取現有的 URL 列表 (可能為空)
@@ -204,13 +253,12 @@ const EditRestaurantModal = ({
         setIsUploading(false);
         onRemovePhoto(); // 清除父組件的 selectedFile 狀態
       } else if (
-        finalPhotoUrls.length > 0 &&
-        onRemovePhoto &&
-        // 這裡的邏輯保持不變
-        !initialData.facadePhotoUrls.includes(finalPhotoUrls[0])
+        // 檢查用戶是否在沒有上傳新圖片的情況下清空了圖片列表
+        finalPhotoUrls.length === 0 &&
+        initialData.facadePhotoUrls &&
+        initialData.facadePhotoUrls.length > 0
       ) {
-        // 這裡處理用戶在表單中手動移除了所有圖片但沒有上傳新圖片的情況
-        finalPhotoUrls = [];
+        // finalPhotoUrls 已經是 []，不需要額外設置
       }
 
       // ----------------------------------------------------
@@ -300,6 +348,7 @@ const EditRestaurantModal = ({
             handleSubmit={handleFormSubmit}
             // 🎯 關鍵變更: 設置為 true，讓表單知道是編輯模式
             isUpdateForm={true}
+            initialErrors={errors} // ✅ 傳遞驗證後的錯誤
             isSubmitting={isSubmitting}
             isUploading={isUploading}
             selectedFile={selectedFile}

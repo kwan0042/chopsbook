@@ -115,7 +115,8 @@ const PhotoDisplay = ({ field, value }) => {
       {urls.map((url, index) => (
         <div
           key={index}
-          className="border border-gray-300 rounded-md overflow-hidden shadow-sm"
+          // 🚨 修改: 添加 h-40 和 w-full 確保父容器有尺寸，Image fill=true 才能生效
+          className="border border-gray-300 rounded-md overflow-hidden shadow-sm relative h-40 w-full"
         >
           {/* 簡單的圖片 URL 驗證，防止 XSS 或無效內容 */}
           {typeof url === "string" && url.startsWith("http") ? (
@@ -123,7 +124,8 @@ const PhotoDisplay = ({ field, value }) => {
               src={url}
               alt={`${field} ${index + 1}`}
               fill={true}
-              className="object-cover max-h-40"
+              // 🚨 修改: 移除 max-h-40，object-cover 保持不變
+              className="object-cover"
               loading="lazy"
             />
           ) : (
@@ -246,7 +248,8 @@ const AddRestaurantRequestPage = ({ requestId }) => {
       batch.set(restaurantDocRef, {
         ...finalRestaurantData,
         status: "approved",
-        createdAt: serverTimestamp(), // 🚨 新增的欄位
+        createdAt: serverTimestamp(), 
+        updatedAt: serverTimestamp(),// 🚨 新增的欄位
       });
 
       // 更新請求狀態

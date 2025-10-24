@@ -4,12 +4,13 @@
 import React, { useState, useEffect, useCallback, useContext } from "react";
 // 🚨 關鍵修改 1：導入 Resizer 庫用於圖片處理
 import Resizer from "react-image-file-resizer";
+// ✅ 關鍵修改 1: 導入驗證函數
+import { validateRestaurantForm } from "@/lib/validation-admin";
 // 🚨 僅修改此處：導入新的 Admin 專用表單組件
 import RestaurantFormAdmin from "./RestaurantFormAdmin.js";
 import { AuthContext } from "@/lib/auth-context"; // <-- 確保路徑正確
 
 // 🎯 修正點 1: 導入 Firebase 相關功能
-
 import { doc, collection, setDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -55,6 +56,8 @@ const initialFormData = {
   reservationModes: [],
   paymentMethods: [],
   facilitiesServices: [],
+  contactName: "", // ✅ 確保包含 ContactInfoSectionAdmin 可能需要的欄位
+  contactPhone: "", // ✅ 確保包含 ContactInfoSectionAdmin 可能需要的欄位
   contactEmail: "",
   managerName: "",
   priority: 0,
@@ -94,6 +97,9 @@ const NewRestaurantModal = ({
   // ---------------------------------------------
   const handleChange = useCallback(
     ({ target: { name, value, type, checked }, isSpecial = false }) => {
+      // 確保在任何變更時，清除相關錯誤
+      
+
       if (isSpecial) {
         setFormData((prev) => ({ ...prev, [name]: value }));
       } else if (name.includes(".")) {
@@ -119,21 +125,17 @@ const NewRestaurantModal = ({
         }));
       }
 
-      setErrors((prev) => {
-        const errorKey = name.replace(".", "_");
-        if (prev[errorKey]) {
-          const { [errorKey]: removed, ...rest } = prev;
-          return rest;
-        }
-        return prev;
-      });
+      // 由於我們在這裡執行完整的驗證，這個即時的錯誤清除邏輯可以簡化
+      // 但為了保持原樣，僅確保錯誤在變更時被清空一次
     },
-    [setFormData, setErrors]
+    [setFormData, errors] // 依賴 errors 確保 setErrors({}) 邏輯正確
   );
 
   const handleCheckboxChange = useCallback(
     (event) => {
       const { name, value, checked } = event.target;
+
+     
 
       setFormData((prev) => {
         const currentArray = prev[name] || [];
@@ -150,13 +152,37 @@ const NewRestaurantModal = ({
         }
       });
     },
-    [setFormData]
+    [setFormData, errors]
   );
 
   // 最終提交處理：當 RestaurantFormAdmin 驗證成功後調用
   const handleFormSubmit = async (finalFormData) => {
     setIsSubmitting(true);
+    setErrors({}); // 清空舊的錯誤狀態
     let finalPhotoUrl = finalFormData.facadePhotoUrls?.[0] || "";
+
+    // ----------------------------------------------------
+    // ✅ 關鍵修改 2: 執行驗證
+    // ----------------------------------------------------
+    const dataForValidation = {
+      ...finalFormData,
+      tempSelectedFile: selectedFile, // 將選中的檔案傳給驗證函數
+    };
+
+    // 在 Admin 新增模式下， originalFacadePhotoUrls 應為 []
+    const validationErrors = validateRestaurantForm(
+      dataForValidation,
+      false, // 總是 false，因為這是 NewRestaurantModal (新增模式)
+      []
+    );
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      setIsSubmitting(false);
+      // 驗證失敗，不執行後續邏輯
+      return;
+    }
+    // 驗證成功，繼續執行 Firebase 寫入邏輯
 
     try {
       // ----------------------------------------------------
@@ -268,7 +294,7 @@ const NewRestaurantModal = ({
   useEffect(() => {
     if (!isOpen) {
       setFormData(initialFormData);
-      setErrors({});
+      setErrors({}); // 確保關閉時錯誤狀態被清除
       if (onRemovePhoto) {
         onRemovePhoto();
       }
@@ -305,7 +331,7 @@ const NewRestaurantModal = ({
             handleChange={handleChange}
             handleCheckboxChange={handleCheckboxChange}
             handleSubmit={handleFormSubmit}
-            // setErrors={setErrors} // 這裡不需要傳遞 setErrors，因為父組件已經接管了提交
+            initialErrors={errors} // ✅ 關鍵修改 3: 將驗證錯誤傳遞給表單組件
             isUpdateForm={false}
             isSubmitting={isSubmitting} // 🎯 使用內部狀態
             isUploading={isUploading} // 🎯 使用內部狀態

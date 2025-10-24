@@ -54,7 +54,7 @@ const RestaurantFormAdmin = ({
   handleSubmit, // 父組件 (NewRestaurantModal) 傳入的最終提交函數
   isUpdateForm = false,
   selectedRestaurantData,
-  initialErrors = {}, // 🚨 接收 Admin Modal 傳入的圖片狀態和處理函數
+  initialErrors = {}, // ✅ 關鍵變更: 這是來自父組件的 errors
   selectedFile,
   onFileChange,
   onRemovePhoto,
@@ -70,9 +70,14 @@ const RestaurantFormAdmin = ({
 
   const inputRefs = useRef({});
 
-  const [errors, setErrors] = useState({}); // 🚨 錯誤狀態保留，但初始化為空
-  const [globalErrorMsg, setGlobalErrorMsg] = useState(""); // 🚨 錯誤訊息保留，但初始化為空 // =========================================== // 圖片預覽邏輯 (依賴傳入的 selectedFile) // ===========================================
+  // 🚨 關鍵修改 1: 移除本地 errors 狀態（或將其保留為不使用）
+  // 保持現有代碼結構，但我們將忽略 setErrors 的使用，並直接依賴 initialErrors
+  const [errors, setErrors] = useState({}); // 保持，但忽略其在提交時的設置
 
+  // 🚨 關鍵修改 2: 移除本地 globalErrorMsg 狀態的初始化，改為使用計算屬性
+  const [globalErrorMsg, setGlobalErrorMsg] = useState("");
+
+  // ✅ 關鍵修改 3: 移除整個 useEffect 區塊，只保留圖片預覽的 useEffect
   useEffect(() => {
     if (selectedFile) {
       const newPreviewUrl = URL.createObjectURL(selectedFile);
@@ -84,7 +89,9 @@ const RestaurantFormAdmin = ({
 
     const dbUrl = formData.facadePhotoUrls?.[0] || "";
     setPreviewUrl(dbUrl);
-  }, [selectedFile, formData.facadePhotoUrls]); // --------------------------------------------- // 圖片處理邏輯 (現在只負責調用父組件的 props) // ---------------------------------------------
+  }, [selectedFile, formData.facadePhotoUrls]);
+
+  // --------------------------------------------- // 圖片處理邏輯 (現在只負責調用父組件的 props) // ---------------------------------------------
 
   const openFilePicker = () => {
     if (!isUploading && !isSubmitting) {
@@ -181,9 +188,11 @@ const RestaurantFormAdmin = ({
    */
   const localHandleSubmit = async (event) => {
     event.preventDefault();
-    setErrors({});
-    setGlobalErrorMsg(""); // 🚨 移除所有同步驗證邏輯 // 🚨 驗證通過，直接調用父組件的提交函數 // 父組件 (NewRestaurantModal) 將負責圖片上傳和 API 提交。
+    // 🚨 關鍵修改 4: 移除 setErrors/setGlobalErrorMsg 的調用，讓父組件來設置 errors prop
+    // setErrors({});
+    // setGlobalErrorMsg("");
 
+    // 父組件 (NewRestaurantModal) 將負責驗證，如果失敗，它會傳遞 initialErrors prop
     await handleSubmit(formData);
   };
 
@@ -192,6 +201,12 @@ const RestaurantFormAdmin = ({
   const getSubmitButtonText = () => {
     return isUpdateForm ? "更新餐廳資料" : "新增餐廳";
   };
+
+  // ✅ 關鍵修改 5: 使用計算屬性來決定是否顯示全局錯誤訊息
+  const hasErrors = Object.keys(initialErrors).length > 0;
+  const displayGlobalErrorMsg = hasErrors
+    ? "請檢查表單中標記的必填/格式錯誤欄位。"
+    : "";
 
   return (
     <form onSubmit={localHandleSubmit} className="space-y-8 p-6 bg-white ">
@@ -210,10 +225,10 @@ const RestaurantFormAdmin = ({
           {selectedRestaurantData?.restaurantName?.en}){" "}
         </p>
       )}{" "}
-      {/* 全局錯誤訊息 (🚨 雖然 Admin 不產生錯誤，但保留此區塊，以防父組件設置) */}{" "}
-      {globalErrorMsg && (
+      {/* 全局錯誤訊息 (✅ 現在使用計算屬性 displayGlobalErrorMsg) */}{" "}
+      {displayGlobalErrorMsg && (
         <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center font-medium">
-          {globalErrorMsg}{" "}
+          {displayGlobalErrorMsg}{" "}
         </div>
       )}{" "}
       {/* =======================================
@@ -226,7 +241,7 @@ const RestaurantFormAdmin = ({
         inputRefs={inputRefs}
         formData={formData}
         handleChange={handleChange}
-        errors={errors} // 🚨 傳入空 Errors
+        errors={initialErrors} // ✅ 關鍵修改 6: 直接傳遞 initialErrors
         handleCheckboxChange={handleCheckboxChange}
         handleProvinceChange={handleProvinceChange}
         handleCuisineCategoryChange={handleCuisineCategoryChange}
@@ -254,7 +269,7 @@ const RestaurantFormAdmin = ({
         inputRefs={inputRefs}
         formData={formData}
         handleChange={handleChange}
-        errors={errors} // 🚨 傳入空 Errors
+        errors={initialErrors} // ✅ 關鍵修改 6: 直接傳遞 initialErrors
         handleCheckboxChange={handleCheckboxChange}
         handleBusinessHoursChange={handleBusinessHoursChange} // ✅ 現在是穩定的 useCallback 函數
         DAYS_OF_WEEK={DAYS_OF_WEEK}
@@ -273,7 +288,7 @@ const RestaurantFormAdmin = ({
         inputRefs={inputRefs}
         formData={formData}
         handleChange={handleChange}
-        errors={errors} // 🚨 傳入空 Errors
+        errors={initialErrors} // ✅ 關鍵修改 6: 直接傳遞 initialErrors
       />
       {/* 提交按鈕 */}{" "}
       <div className="pt-6 border-t flex justify-center">

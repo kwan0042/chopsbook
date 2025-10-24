@@ -9,7 +9,7 @@ export const categoryOptions = [
   "越南菜",
   "歐美菜系", // 簡化為只有主類別
   "其他菜系", // 簡化為只有主類別
-  "特色餐飲", // 簡化為只有主類別
+  // 簡化為只有主類別
 ];
 
 export const categoryImageMap = {
@@ -22,7 +22,7 @@ export const categoryImageMap = {
   越南菜: "/img/category/vn.webp",
   歐美菜系: "/img/category/eu.webp",
   其他菜系: "/img/category/other.webp",
-  特色餐飲: "/img/category/ve.webp",
+  
 };
 
 // ⚠️ 新增：subcategoryOptions專門用於細分菜系 (從 categoryOptions 中提取)
@@ -60,8 +60,6 @@ export const subcategoryOptions = [
   "中東菜",
   "土耳其菜",
 
-  // 從 '特色餐飲' 中提取 (這些也常被視為次級分類)
-  // 屬於特色餐飲中的 '其他'
 ];
 
 // restaurantTypeOptions 保持不變 (包含場所類型和服務模式)
@@ -384,13 +382,8 @@ export const SUB_CATEGORY_MAP = {
     "印尼菜",
     "中東菜",
     "土耳其菜",
-  ],
-  // 映射 "特色餐飲"
-  特色餐飲: [
-    "海鮮料理 (Seafood)",
-    "素食 (Vegetarian)",
-    "純素食 (Vegan)",
-    "健康餐飲/輕食",
     "其他",
   ],
+  // 映射 "特色餐飲"
+  
 };

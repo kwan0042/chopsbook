@@ -8,7 +8,7 @@ import {
   getDoc,
   updateDoc,
   writeBatch,
-  onSnapshot,
+  serverTimestamp
 } from "firebase/firestore";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useRouter, useParams } from "next/navigation";
@@ -73,6 +73,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
 
   const [loading, setLoading] = useState(true);
   const [originalRestaurantData, setOriginalRestaurantData] = useState(null);
+  // requestData 將在每次單一更新後需要手動更新，以模擬 onSnapshot 的效果，但初始載入只用一次 getDoc
   const [requestData, setRequestData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalMessage, setLocalModalMessage] = useState("");
@@ -88,12 +89,11 @@ const EditRestaurantRequestPage = ({ requestId }) => {
     return "N/A";
   };
 
-  useEffect(() => {
-    // 只有在 db 和 requestId 都可用時才開始載入資料
-    if (!db || !requestId) {
-      // 保持載入狀態，直到參數可用
-      return;
-    }
+  // 新增：一個函數用來獲取並設定請求資料 (替代 onSnapshot)
+  const fetchRequestData = async () => {
+    if (!db || !requestId) return;
+
+    setLoading(true); // 重新載入時也顯示 Loading 狀態
 
     const collectionPath = `artifacts/${appId}/public/data/restaurant_requests`;
     const requestDocRef = doc(db, collectionPath, requestId);
@@ -101,76 +101,77 @@ const EditRestaurantRequestPage = ({ requestId }) => {
     console.log("正在載入請求資料。請求 ID:", requestId);
     console.log("Firestore 集合路徑:", collectionPath);
 
-    // 實時監聽請求資料
-    const unsubscribe = onSnapshot(
-      requestDocRef,
-      async (requestDocSnap) => {
-        if (!requestDocSnap.exists()) {
-          console.log(requestId);
-          setLocalModalMessage("找不到指定的請求或已處理。");
-          setModalType("info");
-          setLoading(false);
-          setRequestData(null);
-          return;
-        }
+    try {
+      const requestDocSnap = await getDoc(requestDocRef);
 
-        const reqData = { ...requestDocSnap.data(), id: requestDocSnap.id };
-        // 額外檢查 document 的類型是否為 'update'
-        if (reqData.type !== "update") {
-          setLocalModalMessage("此頁面只處理更新餐廳的申請。");
-          setModalType("info");
-          setLoading(false);
-          setRequestData(null);
-          return;
-        }
+      if (!requestDocSnap.exists()) {
+        setLocalModalMessage("找不到指定的請求或已處理。");
+        setModalType("info");
+        setLoading(false);
+        setRequestData(null);
+        return;
+      }
 
-        // 🚨 新增日誌：每次數據更新時，查看 changes 狀態
-        console.log("--- 實時數據更新 (onSnapshot) ---");
-        const pendingFields = Object.keys(reqData.changes || {}).filter(
-          (key) => reqData.changes[key].status === "pending"
+      const reqData = { ...requestDocSnap.data(), id: requestDocSnap.id };
+      // 額外檢查 document 的類型是否為 'update'
+      if (reqData.type !== "update") {
+        setLocalModalMessage("此頁面只處理更新餐廳的申請。");
+        setModalType("info");
+        setLoading(false);
+        setRequestData(null);
+        return;
+      }
+
+      // 🚨 新增日誌：查看 changes 狀態
+      console.log("--- 單次數據獲取 (getDoc) ---");
+      const pendingFields = Object.keys(reqData.changes || {}).filter(
+        (key) => reqData.changes[key].status === "pending"
+      );
+      console.log("待處理欄位 (Pending Fields):", pendingFields);
+      console.log(
+        "所有 changes 物件:",
+        JSON.stringify(reqData.changes, null, 2)
+      );
+      console.log("----------------------------------");
+
+      setRequestData({ ...reqData, type: "update" });
+
+      // 獲取原始餐廳資料
+      if (reqData.restaurantId) {
+        const restaurantDocRef = doc(
+          db,
+          `artifacts/${appId}/public/data/restaurants/${reqData.restaurantId}`
         );
-        console.log("待處理欄位 (Pending Fields):", pendingFields);
-        console.log(
-          "所有 changes 物件:",
-          JSON.stringify(reqData.changes, null, 2)
-        );
-        console.log("----------------------------------");
-
-        setRequestData({ ...reqData, type: "update" });
-
-        // 獲取原始餐廳資料
-        if (reqData.restaurantId) {
-          const restaurantDocRef = doc(
-            db,
-            `artifacts/${appId}/public/data/restaurants/${reqData.restaurantId}`
-          );
-          const restaurantDocSnap = await getDoc(restaurantDocRef);
-          if (restaurantDocSnap.exists()) {
-            setOriginalRestaurantData(restaurantDocSnap.data());
-          } else {
-            setOriginalRestaurantData(null);
-          }
+        const restaurantDocSnap = await getDoc(restaurantDocRef);
+        if (restaurantDocSnap.exists()) {
+          setOriginalRestaurantData(restaurantDocSnap.data());
         } else {
           setOriginalRestaurantData(null);
         }
-
-        setLoading(false);
-      },
-      (error) => {
-        console.error("實時監聽請求資料失敗:", error);
-        setLocalModalMessage(`實時監聽資料失敗: ${error.message}`);
-        setModalType("error");
-        setLoading(false);
+      } else {
+        setOriginalRestaurantData(null);
       }
-    );
 
-    return () => {
-      unsubscribe();
-    };
-  }, [db, appId, requestId]);
+      setLoading(false);
+    } catch (error) {
+      console.error("載入請求資料失敗:", error);
+      setLocalModalMessage(`載入資料失敗: ${error.message}`);
+      setModalType("error");
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // 只有在 db 和 requestId 都可用時才開始載入資料
+    if (db && requestId) {
+      fetchRequestData(); // 使用單次獲取函數
+    }
+    // 由於是 getDoc，不需要返回 unsubscribe
+  }, [db, appId, requestId]); // 依賴項保持不變
 
   // 處理儲存所有變更的邏輯
   const handleSaveChanges = async () => {
+    // ... (保持不變)
     if (isSubmitting || !requestData) return;
     const contactFieldsToIgnore = [
       "contactName",
@@ -259,7 +260,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
       );
       batch.update(requestDocRef, {
         status: "reviewed",
-        reviewedAt: new Date(),
+        reviewedAt: serverTimestamp(),
         reviewedBy: currentUser.email || currentUser.uid,
       });
 
@@ -281,6 +282,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
   };
 
   const handleRejectAll = async () => {
+    // ... (保持不變)
     if (isSubmitting || !requestData) return;
     try {
       setIsSubmitting(true);
@@ -289,7 +291,7 @@ const EditRestaurantRequestPage = ({ requestId }) => {
       await updateDoc(requestDocRef, {
         status: "rejected",
         reviewedBy: currentUser.email || currentUser.uid,
-        reviewedAt: new Date(),
+        reviewedAt: serverTimestamp(),
       });
       setLocalModalMessage("已成功否決此請求。");
       setModalType("success");
@@ -314,14 +316,35 @@ const EditRestaurantRequestPage = ({ requestId }) => {
         `artifacts/${appId}/public/data/restaurant_requests`,
         requestId
       );
-      // 🚨 變更：滿足需求 3，紀錄批准人 ID 及時間
+
+      const approvedData = {
+        status: "approved",
+        approvedBy: currentUser.uid,
+        approvedAt: serverTimestamp(),
+      };
+
+      // 🚨 寫入批准狀態
       await updateDoc(requestDocRef, {
-        [`changes.${field}.status`]: "approved",
-        [`changes.${field}.approvedBy`]: currentUser.uid,
-        [`changes.${field}.approvedAt`]: new Date(),
+        [`changes.${field}`]: approvedData,
       });
+
+      // *** 關鍵變動：手動更新 requestData 狀態，因為沒有 onSnapshot ***
+      setRequestData((prevData) => ({
+        ...prevData,
+        changes: {
+          ...prevData.changes,
+          [field]: {
+            ...prevData.changes[field],
+            ...approvedData,
+            // 必須保留 value 欄位
+            value: prevData.changes[field].value,
+          },
+        },
+      }));
+      // *** 結束關鍵變動 ***
+
       // 🚨 新增日誌：單一批准成功
-      console.log(`批准欄位成功: ${field}. 請等待 onSnapshot 更新數據。`);
+      console.log(`批准欄位成功: ${field}. 已手動更新數據。`);
       setShowIncompleteWarning(false);
     } catch (error) {
       console.error("批准欄位失敗:", error);
@@ -342,12 +365,33 @@ const EditRestaurantRequestPage = ({ requestId }) => {
         `artifacts/${appId}/public/data/restaurant_requests`,
         requestId
       );
+
+      // 🚨 寫入否決狀態
       await updateDoc(requestDocRef, {
         [`changes.${field}.status`]: "rejected",
-        // 由於否決不需要寫入 approvedBy/At，這裡保持不變
+        [`changes.${field}.approvedBy`]: null, // 清除批准人資訊 (如果存在)
+        [`changes.${field}.approvedAt`]: null, // 清除批准時間 (如果存在)
       });
+
+      // *** 關鍵變動：手動更新 requestData 狀態，因為沒有 onSnapshot ***
+      setRequestData((prevData) => ({
+        ...prevData,
+        changes: {
+          ...prevData.changes,
+          [field]: {
+            ...prevData.changes[field],
+            status: "rejected",
+            approvedBy: null,
+            approvedAt: null,
+            // 必須保留 value 欄位
+            value: prevData.changes[field].value,
+          },
+        },
+      }));
+      // *** 結束關鍵變動 ***
+
       // 🚨 新增日誌：單一否決成功
-      console.log(`否決欄位成功: ${field}. 請等待 onSnapshot 更新數據。`);
+      console.log(`否決欄位成功: ${field}. 已手動更新數據。`);
       setShowIncompleteWarning(false);
     } catch (error) {
       console.error("否決欄位失敗:", error);
@@ -368,17 +412,33 @@ const EditRestaurantRequestPage = ({ requestId }) => {
         `artifacts/${appId}/public/data/restaurant_requests`,
         requestId
       );
-      const updates = Object.keys(requestData.changes || {}).reduce(
-        (acc, key) => {
-          // 重置狀態為 pending，同時清除 approvedBy/At
-          acc[`changes.${key}.status`] = "pending";
-          acc[`changes.${key}.approvedBy`] = null; // 清除批准人資訊
-          acc[`changes.${key}.approvedAt`] = null; // 清除批准時間
-          return acc;
-        },
-        {}
-      );
+
+      const updates = {};
+      const newChanges = { ...requestData.changes }; // 用於手動更新 State
+
+      Object.keys(requestData.changes || {}).forEach((key) => {
+        // 重置狀態為 pending，同時清除 approvedBy/At
+        updates[`changes.${key}.status`] = "pending";
+        updates[`changes.${key}.approvedBy`] = null; // 清除批准人資訊
+        updates[`changes.${key}.approvedAt`] = null; // 清除批准時間
+
+        // 更新 local state
+        if (newChanges[key]) {
+          newChanges[key].status = "pending";
+          newChanges[key].approvedBy = null;
+          newChanges[key].approvedAt = null;
+        }
+      });
+
       await updateDoc(requestDocRef, updates);
+
+      // *** 關鍵變動：手動更新 requestData 狀態 ***
+      setRequestData((prevData) => ({
+        ...prevData,
+        changes: newChanges,
+      }));
+      // *** 結束關鍵變動 ***
+
       // 🚨 新增日誌：重置成功
       console.log("所有欄位狀態已重置為 pending。");
       setShowIncompleteWarning(false);
