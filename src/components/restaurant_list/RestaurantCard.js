@@ -226,7 +226,7 @@ const RestaurantCard = ({
               isGridView ? "text-sm" : "text-sm"
             }`}
           >
-            {restaurant.city || "N/A"} | {restaurant.province || "N/A"}
+            {restaurant.city || "N/A"}
           </p>
           <p
             className={`text-gray-700 mb-1 text-wrap ${
@@ -242,7 +242,7 @@ const RestaurantCard = ({
               isGridView ? "text-sm" : "text-sm"
             }`}
           >
-            電話: {restaurant.phone || "N/A"} | 人均: ${restaurant.avgSpending || "N/A"}
+             人均: ${restaurant.avgSpending || "N/A"}
           </p>
 
           <p

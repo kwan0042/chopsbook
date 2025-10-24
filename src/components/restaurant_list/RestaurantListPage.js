@@ -1,3 +1,5 @@
+// src/components/RestaurantListPage.js (維持不變)
+
 "use client";
 
 import React, { useContext, useCallback } from "react";
@@ -20,9 +22,6 @@ const RestaurantListPage = ({
   toggleView,
   restaurants, // 從父組件接收已篩選好的餐廳列表
   loading, // 從父組件接收載入狀態
-  onNextPage,
-  onPrevPage,
-  hasMore,
 }) => {
   const { toggleFavoriteRestaurant, currentUser } = useContext(AuthContext);
 
@@ -325,26 +324,7 @@ const RestaurantListPage = ({
               />
             ))}
           </div>
-          {restaurants.length > 0 && (
-            <div className="flex justify-center gap-4 ">
-              {onPrevPage && (
-                <button
-                  onClick={onPrevPage}
-                  className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
-                >
-                  上一頁
-                </button>
-              )}
-              {hasMore && onNextPage && (
-                <button
-                  onClick={onNextPage}
-                  className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
-                >
-                  下一頁
-                </button>
-              )}
-            </div>
-          )}
+          
         </>
       )}
     </div>

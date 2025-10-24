@@ -74,7 +74,7 @@ export default function PrivacyPolicyPage() {
         <p className="my-4 px-2">
           PIPEDA
           要求組織在商業活動過程中收集、使用或披露個人資訊時，必須符合法定原則與取得使用者同意。
-          {(index = 1)} <br />
+          <br />
           PIPEDA requires organizations to follow statutory principles and
           obtain user consent when collecting, using, or disclosing personal
           information in the course of commercial activity.

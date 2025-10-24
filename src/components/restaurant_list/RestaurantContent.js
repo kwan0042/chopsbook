@@ -1,4 +1,3 @@
-// src/components/RestaurantContent.js
 "use client";
 import React, { useState, useEffect, useContext } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -10,7 +9,7 @@ import RestaurantListPage from "./RestaurantListPage";
 import Modal from "../Modal";
 import { AuthContext } from "../../lib/auth-context";
 
-// 輔助函數：判斷是否為中文 (新增)
+// 輔助函數：判斷是否為中文
 const isChinese = (text) => /[\u4e00-\u9fff]/.test(text.trim());
 
 const RestaurantContent = () => {
@@ -32,44 +31,34 @@ const RestaurantContent = () => {
   const filtersFromUrl = searchParams.get("filters");
 
   if (filtersFromUrl) {
-    // 保持不變 (如果使用單一 JSON 格式的 filters 參數)
     try {
       appliedFilters = JSON.parse(filtersFromUrl);
     } catch (e) {
       console.error("Failed to parse filters from URL:", e);
     }
   } else {
-    // 2. 修正的 URL 遍歷和解析邏輯
     const rawFilters = {};
     for (const [key, value] of searchParams.entries()) {
       if (key === "search" || key === "page" || key === "currentPage") continue;
 
       const allValues = searchParams.getAll(key);
 
-      // 統一使用 getAll() 的結果
       if (allValues.length > 0) {
-        // 處理多個值，或僅有一個值但我們想將其視為陣列的情況 (如 category/subCategory)
-
-        // 對於應該是陣列的鍵，直接賦值 allValues (即便只有一個元素)
         if (ARRAY_KEYS.includes(key)) {
           appliedFilters[key] = allValues;
         } else if (allValues.length > 1) {
-          appliedFilters[key] = allValues; // 其它多值參數
+          appliedFilters[key] = allValues;
         } else {
-          // 對於單值的參數 (如 province, city, maxAvgSpending)
           const singleValue = allValues[0];
           try {
-            // 嘗試將數字型參數（如 maxAvgSpending, min/maxSeatingCapacity）轉換為數字
             appliedFilters[key] = JSON.parse(singleValue);
           } catch (e) {
-            // 保持為字符串 (例如 province="台北", businessHours="營業中")
             appliedFilters[key] = singleValue;
           }
         }
       }
     }
 
-    // 額外處理：確保 min/maxSeatingCapacity 被正確處理為數字
     if (appliedFilters.minSeatingCapacity) {
       appliedFilters.minSeatingCapacity = Number(
         appliedFilters.minSeatingCapacity
@@ -91,15 +80,15 @@ const RestaurantContent = () => {
   const [loading, setLoading] = useState(true);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [lastDocId, setLastDocId] = useState(null);
-  const [controller, setController] = useState(null);
 
-  // 新增狀態: 追蹤當前頁碼 (用於 UI 顯示)
+  const [lastDocId, setLastDocId] = useState(null);
+  const [pageHistory, setPageHistory] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // --- 核心資料獲取函式 ---
-  // 現在 fetchMoreRestaurants 是 fetchRestaurants 的一個通用版本
-  const fetchRestaurants = async (startAfterDocId = null, abortSignal) => {
+  const [controller, setController] = useState(null);
+
+  // --- 核心資料獲取函式 (保持不變) ---
+  const fetchRestaurants = async (anchorIdToUse = null, abortSignal) => {
     console.log("Starting to fetch restaurants...");
     setLoading(true);
     try {
@@ -113,16 +102,10 @@ const RestaurantContent = () => {
         }
       }
 
-      // ⬇️ 核心修改區塊 ⬇️
       if (searchQuery) {
         const query = searchQuery.trim();
         const isZh = isChinese(query);
-
-        // 1. 告訴後端搜尋目標語言
         params.append("searchLanguage", isZh ? "zh" : "en");
-
-        // 2. 傳遞正規化後的查詢字串
-        // 如果是英文，轉為小寫，以匹配 Firestore 的 name_lowercase_en
         const normalizedQuery = isZh ? query : query.toLowerCase();
         params.append("search", normalizedQuery);
 
@@ -132,11 +115,9 @@ const RestaurantContent = () => {
           }`
         );
       }
-      // ⬆️ 核心修改區塊 ⬆️
 
-      // 傳入分頁指標
-      if (startAfterDocId) {
-        params.append("startAfterDocId", startAfterDocId);
+      if (anchorIdToUse) {
+        params.append("startAfterDocId", anchorIdToUse);
       }
 
       const url = `/api/filter?${params.toString()}`;
@@ -151,7 +132,6 @@ const RestaurantContent = () => {
       const data = await response.json();
 
       if (!abortSignal.aborted) {
-        // *** 傳統分頁模式: 不論是否為第一頁，都使用新數據替換現有列表 ***
         setRestaurants(data.restaurants);
         setHasMore(data.hasMore);
         setLastDocId(data.lastDocId);
@@ -159,8 +139,7 @@ const RestaurantContent = () => {
     } catch (error) {
       if (error.name !== "AbortError") {
         console.error("Failed to fetch restaurants:", error);
-        // 如果是第一頁請求失敗，清空列表
-        if (!startAfterDocId) {
+        if (!anchorIdToUse) {
           setRestaurants([]);
         }
         setHasMore(false);
@@ -173,23 +152,25 @@ const RestaurantContent = () => {
     }
   };
 
-  // 核心邏輯：當 URL 變更時觸發資料獲取
+  // 核心邏輯：當 URL 變更時觸發資料獲取 (保持不變)
   useEffect(() => {
-    // 每次變更時，先取消前一次的請求
     if (controller) {
       controller.abort();
     }
     const newController = new AbortController();
     setController(newController);
 
-    // 重新設定分頁狀態
     setRestaurants([]);
     setLastDocId(null);
     setHasMore(true);
-    setCurrentPage(1); // <--- 重置頁碼為第一頁
 
-    // 啟動第一次資料獲取 (startAfterDocId 為 null)
-    fetchRestaurants(null, newController.signal);
+    if (currentPage !== 1 || pageHistory.length > 0) {
+      setCurrentPage(1);
+      setPageHistory([]);
+      fetchRestaurants(null, newController.signal);
+    } else {
+      fetchRestaurants(null, newController.signal);
+    }
 
     return () => {
       console.log("useEffect cleanup. Aborting fetch.");
@@ -197,26 +178,54 @@ const RestaurantContent = () => {
     };
   }, [searchParams]);
 
-  // --- 新增: 下一頁按鈕點擊處理函式 ---
+  // 監聽 currentPage 變化 (保持不變)
+  useEffect(() => {
+    if (loading) return;
+
+    let anchorIdToUse = null;
+
+    if (currentPage === 1) {
+      anchorIdToUse = null;
+    } else {
+      anchorIdToUse = pageHistory[currentPage - 2];
+
+      if (!anchorIdToUse) {
+        console.warn(
+          `[Pagination] Missing anchorId for page ${currentPage}. Re-fetching page 1.`
+        );
+        setCurrentPage(1);
+        return;
+      }
+    }
+
+    fetchRestaurants(anchorIdToUse, controller?.signal);
+  }, [currentPage]);
+
+  // --- 新增: 下一頁按鈕點擊處理函式 (保持不變) ---
   const handleNextPage = () => {
-    // 確保有更多數據、不在載入中且有 lastDocId 才能點擊
     if (!hasMore || loading || !lastDocId) return;
 
     console.log(`Moving to page ${currentPage + 1}...`);
 
-    // 1. 更新頁碼
+    setPageHistory((prev) => [...prev, lastDocId]);
     setCurrentPage((prev) => prev + 1);
-
-    // 2. 呼叫 fetchRestaurants 載入下一頁數據
-    // 注意：這裡使用 fetchRestaurants，並傳遞 lastDocId 作為下一頁的起點
-    fetchRestaurants(lastDocId, controller?.signal);
   };
 
-  // *** 移除原有的 fetchMoreRestaurants 函式，因為它的邏輯已整合到 fetchRestaurants 並由 handleNextPage 呼叫 ***
+  // --- 上一頁按鈕點擊處理函式 (保持不變) ---
+  const handlePrevPage = () => {
+    if (currentPage > 1 && !loading) {
+      console.log(`Moving back to page ${currentPage - 1}...`);
 
+      const newPage = currentPage - 1;
+
+      setPageHistory((prev) => prev.slice(0, newPage - 1));
+      setCurrentPage(newPage);
+    }
+  };
+
+  // --- URL 更新邏輯 (保持不變) ---
   const updateUrl = (newFilters, newSearchQuery = "") => {
     const newSearchParams = new URLSearchParams();
-    // 統一將所有篩選條件獨立地加入 URL，確保後端可以讀取
     for (const key in newFilters) {
       const value = newFilters[key];
       if (Array.isArray(value)) {
@@ -229,7 +238,6 @@ const RestaurantContent = () => {
     if (newSearchQuery) {
       newSearchParams.set("search", newSearchQuery);
     }
-    // 重置分頁狀態，讓 useEffect 重新從第一頁開始
 
     const newUrl = `?${newSearchParams.toString()}`;
     router.push(newUrl);
@@ -280,9 +288,42 @@ const RestaurantContent = () => {
 
   return (
     <div className="flex flex-col font-inter mb-6">
+      {/* ⚡️ 修正 1：將 Sticky 橫幅移到最頂層，確保其粘性作用於整個視口滾動 ⚡️ */}
+      <div
+        className="md:hidden sticky top-0 z-40 w-full bg-white/95 backdrop-blur-sm 
+               border-b border-gray-200"
+      >
+        {/* 內層容器：用於限制內容的最大寬度並添加邊距 */}
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+          <div className="flex justify-between items-center w-full">
+            <h3 className="text-lg font-semibold text-gray-800">餐廳列表</h3>
+            <button
+              onClick={() => setIsFilterModalOpen(true)}
+              className="inline-flex items-center justify-center p-2 text-sm font-medium 
+                             rounded-lg shadow-md group bg-gradient-to-br from-red-200 via-red-300 to-yellow-200 
+                             transition-colors duration-200 w-fit h-fit"
+              aria-label="開啟篩選側邊欄"
+            >
+              <span
+                className="relative px-3 py-1 transition-all ease-in duration-75 
+                               bg-white dark:bg-gray-900 rounded-lg group-hover:bg-transparent 
+                               group-hover:dark:bg-transparent
+                               text-gray-900 dark:text-white font-bold 
+                               flex items-center space-x-2"
+              >
+                <FontAwesomeIcon icon={faSlidersH} className="text-base" />
+                <span>篩選</span>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+      {/* ------------------------------------------------ */}
+
       <div className="flex-grow pt-5">
         <div className="max-w-screen-xl mx-auto flex gap-x-8">
-          <div className="w-1/4 flex-shrink-0 relative">
+          {/* --- 桌面版 FilterSidebar (保持不變) --- */}
+          <div className="hidden md:block w-1/4 flex-shrink-0 relative">
             <div className="sticky top-[140px] h-[calc(100vh-140px)] overflow-y-auto">
               <FilterSidebar
                 initialFilters={appliedFilters}
@@ -291,16 +332,10 @@ const RestaurantContent = () => {
               />
             </div>
           </div>
+
           <div className="flex-grow pb-8 px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-end md:hidden mb-4">
-              <button
-                onClick={() => setIsFilterModalOpen(true)}
-                className="flex items-center bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-50 transition-colors"
-              >
-                <FontAwesomeIcon icon={faSlidersH} className="mr-2" />
-                篩選
-              </button>
-            </div>
+            {/* ⚡️ 修正 2：移除這裡原來的 Sticky 橫幅，因為已經移到最上面 ⚡️ */}
+
             <RestaurantListPage
               filters={appliedFilters}
               currentPage={currentPage}
@@ -312,33 +347,31 @@ const RestaurantContent = () => {
               restaurants={restaurants}
               loading={loading}
               isFavoritesFilterActive={isFavoritesFilterActive}
-              hasMore={hasMore}
-              
             />
 
-            {/* --- 新增分頁按鈕區塊 --- */}
+            {/* --- 分頁按鈕區塊 (保持不變) --- */}
             <div className="flex justify-center mb-3 space-x-4">
-              {/* 顯示當前頁碼 (只是視覺上的頁碼，非精確計數) */}
               <span className="flex items-center text-lg text-gray-700">
                 目前頁面: {currentPage}
               </span>
 
-              {/* 上一頁按鈕 (可選，但需要更複雜的後端邏輯來實現) */}
-              {/* 由於 Firestore Cursor 分頁難以實現「上一頁」，這裡暫時隱藏或禁用 */}
               <button
-                disabled={true} // 禁用上一頁按鈕 (因為 Firestore 難以反向分頁)
-                className="px-6 py-3 text-lg font-semibold rounded-lg transition-colors bg-gray-300 text-gray-500 cursor-not-allowed"
+                onClick={handlePrevPage}
+                disabled={currentPage === 1 || loading || searchQuery}
+                className={`px-6 py-3 text-lg font-semibold rounded-lg transition-colors ${
+                  currentPage === 1 || loading || searchQuery
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
               >
                 上一頁
               </button>
 
-              {/* 下一頁按鈕 */}
               <button
                 onClick={handleNextPage}
-                // 禁用條件：載入中 OR 沒有更多數據 OR 找不到下一頁的起始 ID
-                disabled={loading || !hasMore || !lastDocId}
+                disabled={loading || !hasMore || !lastDocId || searchQuery}
                 className={`px-6 py-3 text-lg font-semibold rounded-lg transition-colors ${
-                  loading || !hasMore || !lastDocId
+                  loading || !hasMore || !lastDocId || searchQuery
                     ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                     : "bg-blue-600 text-white hover:bg-blue-700"
                 }`}
@@ -364,6 +397,7 @@ const RestaurantContent = () => {
         initialFilters={appliedFilters}
         onApplyFilters={handleApplyFilters}
         onResetFilters={handleResetFilters}
+        sidebarClassName="w-fit"
       />
     </div>
   );
