@@ -315,7 +315,7 @@ export default function RestaurantDetailLayout({ children }) {
             <div className="flex flex-col md:flex-row border-b border-gray-200 pr-3 ">
               {/* 門面照片區塊 (左側 25% / w-1/4) */}
               <div className="md:w-1/5 w-full p-4 flex-shrink-0  ">
-                <div className="relative w-full h-40">
+                <div className="relative w-full h-50">
                   {" "}
                   {/* 👈 設定高度 + relative */}
                   <Image

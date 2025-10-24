@@ -157,11 +157,11 @@ export default function RestaurantOverviewPage() {
 
       {/* 餐廳內部區塊 */}
 
-      <section className="bg-gray-50 p-4 rounded-lg shadow-sm">
+      {/* <section className="bg-gray-50 p-4 rounded-lg shadow-sm">
         <h2 className="text-base font-bold text-gray-800 mb-4">餐廳內部</h2>
         {restaurant?.facadePhotoUrls &&
         restaurant.facadePhotoUrls.length > 0 ? (
-          <Image
+          <img
             src={displayImageUrl}
             alt={restaurantName}
             className="w-full h-80 object-cover rounded-lg shadow-md"
@@ -174,7 +174,7 @@ export default function RestaurantOverviewPage() {
         ) : (
           <p className="text-gray-700 leading-relaxed">餐廳尚未提供相片。</p>
         )}
-      </section>
+      </section> */}
 
       {/* 熱門菜品區塊 */}
 
