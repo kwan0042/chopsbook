@@ -289,7 +289,9 @@ const RestaurantDetailsSection = ({
               name="facadePhotoUrl"
               value={selectedFile ? selectedFile.name : previewUrl || ""} // 當有本地檔案時顯示檔案名稱，否則顯示 URL
               readOnly
-              className="flex-grow p-3 border border-gray-300 rounded-md bg-gray-50 text-gray-600 focus:outline-none"
+              className={`flex-grow p-3 border border-gray-300 rounded-md bg-gray-50 text-gray-600 focus:outline-none ${errors.facadePhotoUrls
+                ? "border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:ring-blue-500"}`}
               placeholder="請選擇或查看圖片"
             />
             <button

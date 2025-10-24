@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image"; // 引入 Next.js 的 Image 元件
+import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faStar,
@@ -135,7 +136,7 @@ export default function SingleReviewInteractive({
   // --- 頁面內容渲染 ---
 
   return (
-    <div className="p-8 w-full mx-auto">
+    <div className="py-8 w-full mx-auto">
       {/* 單個評論卡片 */}
       <div className="space-y-6 mx-auto">
         <div
@@ -143,14 +144,35 @@ export default function SingleReviewInteractive({
           className="bg-white p-6 w-full rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200"
         >
           {/* 第一行：用戶名、總評分、時段/類型、到訪次數、日期、詳細評分按鈕 */}
-          <div className="flex justify-between items-center mb-2">
-            <div className="flex items-center space-x-2">
-              <span className="font-semibold text-gray-800 text-lg">
-                {review.username}
-              </span>
-              {renderStars(review.overallRating)} {review.overallRating} ｜
-              {/* 在總評分旁顯示用餐時段和用餐類型圖示 */}
-              <div className="flex items-center space-x-2 ml-2">
+          {/* 調整：添加 sm:flex-nowrap 以確保在電腦版上不換行，並調整結構 */}
+          <div className="flex flex-wrap justify-between items-start sm:flex-nowrap mb-2">
+            <div className="flex flex-wrap items-center space-x-2 min-w-0 sm:flex-nowrap">
+              <div className="flex items-center justify-between w-full whitespace-nowrap sm:w-auto sm:flex-shrink-0">
+                <div className="flex items-center">
+                  <Link
+                    href={`/user/${review.userId}`}
+                    className="font-semibold text-gray-800 text-lg hover:text-blue-600 transition duration-150 cursor-pointer"
+                  >
+                    {review.username}
+                  </Link>
+                  <span className="flex items-center ml-2 ">
+                    {renderStars(review.overallRating)}
+                    <span className="mx-2">{review.overallRating}/5</span>
+                  </span>
+                </div>
+                <div className="ml-2">
+                  <span className="text-sm font-bold text-gray-500">
+                    第
+                    <span className="text-orange-400">{review.visitCount}</span>
+                    次到訪
+                  </span>
+                </div>
+              </div>
+
+              {/* 第二行內容：時段/類型圖示 */}
+              <div className="flex items-center space-x-2 ml-0 sm:ml-2 mt-1 sm:mt-0 sm:flex-shrink-0">
+                {/* ^^^^^^^^^^^^^^^^^^^^^^^ 關鍵改動 2: 在 sm 斷點處控制邊距和收縮 */}
+
                 {renderTimeIcon(review.timeOfDay)}
                 <span className="text-sm text-gray-600">
                   {reviewFields.timeOfDay.typeFields[review.timeOfDay]?.zh}
@@ -161,33 +183,36 @@ export default function SingleReviewInteractive({
                 </span>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm font-bold text-gray-500">
-                第 <span className="text-orange-400">{review.visitCount}</span>{" "}
-                次到訪
-              </span>
+
+            {/* 日期保持在右側 */}
+            <div className="flex-shrink-0 mt-2 sm:mt-0">
+              {/* 添加 flex-shrink-0 確保日期不被擠壓 */}
               <span className="text-sm text-gray-500">{formattedDate}</span>
             </div>
           </div>
 
           {/* 詳細評分區域 - 根據狀態顯示/隱藏 */}
-          <div
-            className="transition-all duration-300 ease-in-out overflow-hidden max-h-96 opacity-100 mt-4 "
-          >
+          <div className="transition-all duration-300 ease-in-out overflow-hidden max-h-96 opacity-100 mt-4 ">
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <h3 className="text-sm font-semibold text-gray-700 mb-2">
                 {reviewFields.detailedRatings.zh}
               </h3>
-              <div className="grid grid-cols-6 gap-2 text-sm text-gray-600">
+
+              {/* 關鍵修改：grid-cols-2 for mobile, lg:grid-cols-6 for larger screens */}
+              <div className="grid grid-cols-2 lg:grid-cols-6 gap-x-4 gap-y-2 text-sm text-gray-600">
                 {Object.entries(review.ratings || {}).map(([key, value]) => {
-                  // 如果 key 是 'drinks' 且值為 0，則不渲染此項目
+                  // 如果 key 是 'drinks' 且值為 0.0，則不渲染此項目
                   if (key === "drinks" && value === 0.0) {
                     return null;
                   }
 
                   return (
-                    <div key={key} className="flex items-center capitalize">
-                      <span>
+                    // 每個評分項目佔用 1 欄位
+                    <div
+                      key={key}
+                      className="flex items-center capitalize whitespace-nowrap"
+                    >
+                      <span className="w-11">
                         {reviewFields.detailedRatings.nestedFields[key]?.zh ||
                           key}
                         :

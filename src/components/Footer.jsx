@@ -107,10 +107,10 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="/help/review-policy"
+                  href="/help/review-guide"
                   className="text-base text-gray-400 hover:text-white transition duration-150"
                 >
-                  評論政策
+                  食評政策
                 </a>
               </li>
             </ul>

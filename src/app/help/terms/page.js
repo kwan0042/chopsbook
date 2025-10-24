@@ -1,6 +1,6 @@
 // src/app/help/terms/page.js
 
-import AccountLink from "@/components/help/AccountLink"
+import AccountLink from "@/components/help/AccountLink";
 export const metadata = {
   title: "ChopsBook Terms of Service / 使用條款",
   metadataBase: new URL("https://chopsbook.com"),
@@ -566,7 +566,6 @@ export default function TermsPage() {
           </h3>
           <ol className="list-decimal list-inside space-y-2">
             <li>
-              
               {/* 嵌入 Client Component */}
               <AccountLink />
             </li>
@@ -727,7 +726,15 @@ export default function TermsPage() {
       </section>
 
       <p className="text-sm text-gray-500 mt-8">
-        © 2025 ChopsBook. All rights reserved.
+        本文件可能不定期更新，請用戶定期查閱最新版。
+        <br />
+        This document may be updated periodically; please review the latest
+        version regularly.
+      </p>
+      <p className="text-sm text-gray-500 mt-8 text-right">
+        2025年10月25日修訂
+        <br />
+        Revised on October 25, 2025
       </p>
     </div>
   );

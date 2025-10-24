@@ -150,12 +150,17 @@ export default function RestaurantReviewsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="">
       <h2 className="text-2xl font-bold mb-6 text-gray-800 ">所有評論</h2>
       {recentReviews.length === 0 ? (
         <div className="text-center text-gray-600 p-8 border-2 border-dashed border-gray-300 rounded-lg">
           <p>此餐廳尚未有任何評論。</p>
-          <Link className="text-blue-950 font-bold underline px-2" href={`/personal/reviews`}>成為第一個食評家啦！</Link>
+          <Link
+            className="text-blue-950 font-bold underline px-2"
+            href={`/personal/reviews`}
+          >
+            成為第一個食評家啦！
+          </Link>
         </div>
       ) : (
         <div className="space-y-6  mx-auto">
@@ -169,20 +174,49 @@ export default function RestaurantReviewsPage() {
             const totalImagePages = review.uploadedImageUrls
               ? Math.ceil(review.uploadedImageUrls.length / IMAGES_PER_PAGE)
               : 0;
-
+            const formattedDate = review.createdAt
+              ? new Date(review.createdAt).toLocaleString("zh-TW", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "numeric",
+                })
+              : "未知時間";
             return (
               <div
                 key={review.id}
                 className="bg-white p-6 rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200"
               >
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-semibold text-gray-800 text-lg">
-                      {review.username}
-                    </span>
-                    {renderStars(review.overallRating)} {review.overallRating}{" "}
-                    ｜{/* 在總評分旁顯示用餐時段和用餐類型圖示 */}
-                    <div className="flex items-center space-x-2 ml-2">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
+                  <div className="flex flex-wrap items-center space-x-2 min-w-0 sm:flex-nowrap">
+                    <div className="flex items-center justify-between w-full whitespace-nowrap sm:w-auto sm:flex-shrink-0">
+                      <div className="flex items-center">
+                        <Link
+                          href={`/user/${review.userId}`}
+                          className="font-semibold text-gray-800 text-lg hover:text-blue-600 transition duration-150 cursor-pointer"
+                        >
+                          {review.username}
+                        </Link>
+                        <span className="flex items-center ml-2 ">
+                          {renderStars(review.overallRating)}
+                        </span>
+                      </div>
+                      <div className="ml-2">
+                        <span className="text-sm font-bold text-gray-500">
+                          第
+                          <span className="text-orange-400">
+                            {review.visitCount}
+                          </span>
+                          次到訪
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 第二行內容：時段/類型圖示 */}
+                    <div className="flex items-center space-x-2 ml-0 sm:ml-2 mt-1 sm:mt-0 sm:flex-shrink-0">
+                      {/* ^^^^^^^^^^^^^^^^^^^^^^^ 關鍵改動 2: 在 sm 斷點處控制邊距和收縮 */}
+
                       {renderTimeIcon(review.timeOfDay)}
                       <span className="text-sm text-gray-600">
                         {
@@ -200,22 +234,9 @@ export default function RestaurantReviewsPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-bold text-gray-500">
-                      第{" "}
-                      <span className="text-orange-400">
-                        {review.visitCount}
-                      </span>{" "}
-                      次到訪
-                    </span>
+                  <div className="flex items-center w-full md:w-fit justify-between md:space-x-3 mt-2 sm:mt-0 flex-shrink-0">
                     <span className="text-sm text-gray-500">
-                      {new Date(review.createdAt).toLocaleString("zh-TW", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "numeric",
-                      })}
+                      {formattedDate}
                     </span>
                     <button
                       onClick={() => toggleDetails(review.id)}
@@ -257,9 +278,9 @@ export default function RestaurantReviewsPage() {
                           return (
                             <div
                               key={key}
-                              className="flex items-center capitalize"
+                              className="flex items-center capitalize whitespace-nowrap "
                             >
-                              <span>
+                              <span className="w-11">
                                 {reviewFields.detailedRatings.nestedFields[key]
                                   ?.zh || key}
                                 :

@@ -22,11 +22,21 @@ import {
   faBuilding,
   faChair,
   faShare,
+  faInfo, // 💡 新增：用於手機版按鈕
+  faTimes, // 💡 新增：用於 Modal 關閉按鈕
 } from "@fortawesome/free-solid-svg-icons";
 import {
   faStar as faRegularStar,
   faBookmark as faRegularBookmark,
 } from "@fortawesome/free-regular-svg-icons";
+
+import { IconFileDots } from "@tabler/icons-react";
+
+// 💡 導入 MUI 元件
+import Drawer from "@mui/material/Drawer";
+import IconButton from "@mui/material/IconButton";
+import Box from "@mui/material/Box";
+
 import { AuthContext } from "../../../lib/auth-context";
 import { RestaurantContext } from "../../../lib/restaurant-context";
 import Link from "next/link";
@@ -38,6 +48,110 @@ import Image from "next/image";
 // 導入新的 Hook
 import useRestaurantStatus from "@/hooks/useRestaurantStatus";
 
+// 💡 提取「餐廳詳細資訊」內容為一個獨立的組件或函數，方便重用和條件渲染
+const RestaurantInfoPanel = ({ restaurant, formatBusinessHours }) => (
+  // 保持橫向佈局不變
+  <section className="bg-gray-50 p-4 rounded-lg shadow-sm space-y-4">
+    <h2 className="text-base font-bold text-gray-800 mb-4">餐廳詳細資訊</h2>
+    <div className="space-y-3 text-gray-700">
+      {/* 營業時間 */}
+      <div>
+        <p className="flex items-start">
+          <FontAwesomeIcon icon={faClock} className="mr-2 text-gray-500 mt-1" />
+          <span className="font-bold">營業時間:</span>
+        </p>
+        <div className="mt-2 pl-6">
+          {formatBusinessHours(restaurant.businessHours)}
+        </div>
+      </div>
+
+      {/* 設施/服務 */}
+      {restaurant.facilitiesServices &&
+        restaurant.facilitiesServices.length > 0 && (
+          <div>
+            <p>
+              <FontAwesomeIcon
+                icon={faBuilding}
+                className="mr-2 text-gray-500"
+              />
+              <span className="font-bold">設施與服務:</span>{" "}
+            </p>
+            <ul className="mt-1 ml-6 list-disc list-inside">
+              {restaurant.facilitiesServices.map((service, index) => (
+                <li key={index}>{service}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+      {/* 付款方式 */}
+      {restaurant.paymentMethods && restaurant.paymentMethods.length > 0 && (
+        <div>
+          <p>
+            <FontAwesomeIcon
+              icon={faCreditCard}
+              className="mr-2 text-gray-500"
+            />
+            <span className="font-bold">付款方式:</span>{" "}
+          </p>
+          <ul className="mt-1 ml-6 list-disc list-inside">
+            {restaurant.paymentMethods.map((method, index) => (
+              <li key={index}>{method}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* 座位數 */}
+      {restaurant.seatingCapacity && (
+        <p>
+          <FontAwesomeIcon icon={faChair} className="mr-2 text-gray-500" />
+          <span className="font-bold">座位數:</span>{" "}
+          {restaurant.seatingCapacity}
+        </p>
+      )}
+
+      {/* 電話 */}
+      {restaurant.phone && (
+        <p>
+          <FontAwesomeIcon icon={faPhone} className="mr-2 text-gray-500" />
+          <span className="font-bold">電話:</span> {restaurant.phone}
+        </p>
+      )}
+
+      {/* 網站 */}
+      {restaurant.website && (
+        <p>
+          <FontAwesomeIcon icon={faGlobe} className="mr-2 text-gray-500" />
+          <span className="font-bold">網站:</span>{" "}
+          <a
+            href={restaurant.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline"
+          >
+            {restaurant.website}
+          </a>
+        </p>
+      )}
+
+      {/* 其他資訊 */}
+      {restaurant.otherInfo && (
+        <div className="pt-2">
+          <p className="flex items-start">
+            <FontAwesomeIcon
+              icon={faInfoCircle}
+              className="mr-2 text-gray-500 mt-1"
+            />
+            <span className="font-bold">其他資訊:</span>
+          </p>
+          <p className="mt-1 ml-6">{restaurant.otherInfo}</p>
+        </div>
+      )}
+    </div>
+  </section>
+);
+
 // Layout 元件
 export default function RestaurantDetailLayout({ children }) {
   const { restaurantId } = useParams();
@@ -48,6 +162,9 @@ export default function RestaurantDetailLayout({ children }) {
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // 💡 新增狀態：控制手機版詳細資訊 Modal/Drawer
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
   // 修正：將 Hook 呼叫移到所有條件式渲染之前
   // 新的 Hook 會回傳一個物件，包含 text 和 color
@@ -141,7 +258,7 @@ export default function RestaurantDetailLayout({ children }) {
     await toggleFavoriteRestaurant(restaurantId);
   }, [currentUser, toggleFavoriteRestaurant, restaurantId, setModalMessage]);
 
-  // 💡 關鍵修正函數：用於安全地將菜系/類型物件轉換為字串
+  // 💡 關鍵修正函數：用於安全地將菜系/類型物件轉換為字串 (保持不變)
   const renderCuisineOrType = (data) => {
     if (!data) return "N/A";
 
@@ -250,7 +367,7 @@ export default function RestaurantDetailLayout({ children }) {
       <div className="space-y-1">
         {sortedHours.map((h, index) => (
           <div key={index}>
-            <span className="font-bold">{h.day}:</span>{" "}
+            <span className="font-bold">{h?.day}:</span>{" "}
             {h?.isOpen ? `${h.startTime} - ${h.endTime}` : "休息"}
           </div>
         ))}
@@ -319,9 +436,7 @@ export default function RestaurantDetailLayout({ children }) {
                   {" "}
                   {/* 👈 設定高度 + relative */}
                   <Image
-                    src={
-                      facadePhotoUrl || "/img/error/imgError_tw.webp"
-                    }
+                    src={facadePhotoUrl || "/img/error/imgError_tw.webp"}
                     alt={`${getRestaurantName(restaurant)} 門面照片`}
                     fill
                     className="object-cover rounded-lg shadow-md"
@@ -504,133 +619,94 @@ export default function RestaurantDetailLayout({ children }) {
             <div className="p-6">
               <div className="flex flex-col md:flex-row mt-4 gap-4">
                 <div className="flex-1">{children}</div>
-                <div className="md:w-1/3 flex-shrink-0">
+
+                {/* 桌面版側欄：添加 hidden md:block 確保手機上隱藏 */}
+                <div className="hidden md:block md:w-1/3 flex-shrink-0">
                   <div className="bg-white rounded-xl shadow-xl sticky top-8">
-                    <section className="bg-gray-50 p-4 rounded-lg shadow-sm space-y-4">
-                      <h2 className="text-base font-bold text-gray-800 mb-4">
-                        餐廳詳細資訊
-                      </h2>
-                      <div className="space-y-3 text-gray-700">
-                        {/* 營業時間 */}
-                        <div>
-                          <p className="flex items-start">
-                            <FontAwesomeIcon
-                              icon={faClock}
-                              className="mr-2 text-gray-500 mt-1"
-                            />
-                            <span className="font-bold">營業時間:</span>
-                          </p>
-                          <div className="mt-2 pl-6">
-                            {formatBusinessHours(restaurant.businessHours)}
-                          </div>
-                        </div>
-
-                        {/* 設施/服務 */}
-                        {restaurant.facilitiesServices &&
-                          restaurant.facilitiesServices.length > 0 && (
-                            <div>
-                              <p>
-                                <FontAwesomeIcon
-                                  icon={faBuilding}
-                                  className="mr-2 text-gray-500"
-                                />
-                                <span className="font-bold">設施與服務:</span>{" "}
-                              </p>
-                              <ul className="mt-1 ml-6 list-disc list-inside">
-                                {restaurant.facilitiesServices.map(
-                                  (service, index) => (
-                                    <li key={index}>{service}</li>
-                                  )
-                                )}
-                              </ul>
-                            </div>
-                          )}
-
-                        {/* 付款方式 */}
-                        {restaurant.paymentMethods &&
-                          restaurant.paymentMethods.length > 0 && (
-                            <div>
-                              <p>
-                                <FontAwesomeIcon
-                                  icon={faCreditCard}
-                                  className="mr-2 text-gray-500"
-                                />
-                                <span className="font-bold">付款方式:</span>{" "}
-                              </p>
-                              <ul className="mt-1 ml-6 list-disc list-inside">
-                                {restaurant.paymentMethods.map(
-                                  (method, index) => (
-                                    <li key={index}>{method}</li>
-                                  )
-                                )}
-                              </ul>
-                            </div>
-                          )}
-
-                        {/* 座位數 */}
-                        {restaurant.seatingCapacity && (
-                          <p>
-                            <FontAwesomeIcon
-                              icon={faChair}
-                              className="mr-2 text-gray-500"
-                            />
-                            <span className="font-bold">座位數:</span>{" "}
-                            {restaurant.seatingCapacity}
-                          </p>
-                        )}
-
-                        {/* 電話 */}
-                        {restaurant.phone && (
-                          <p>
-                            <FontAwesomeIcon
-                              icon={faPhone}
-                              className="mr-2 text-gray-500"
-                            />
-                            <span className="font-bold">電話:</span>{" "}
-                            {restaurant.phone}
-                          </p>
-                        )}
-
-                        {/* 網站 */}
-                        {restaurant.website && (
-                          <p>
-                            <FontAwesomeIcon
-                              icon={faGlobe}
-                              className="mr-2 text-gray-500"
-                            />
-                            <span className="font-bold">網站:</span>{" "}
-                            <a
-                              href={restaurant.website}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline"
-                            >
-                              {restaurant.website}
-                            </a>
-                          </p>
-                        )}
-
-                        {/* 其他資訊 */}
-                        {restaurant.otherInfo && (
-                          <div className="pt-2">
-                            <p className="flex items-start">
-                              <FontAwesomeIcon
-                                icon={faInfoCircle}
-                                className="mr-2 text-gray-500 mt-1"
-                              />
-                              <span className="font-bold">其他資訊:</span>
-                            </p>
-                            <p className="mt-1 ml-6">{restaurant.otherInfo}</p>
-                          </div>
-                        )}
-                      </div>
-                    </section>
+                    <RestaurantInfoPanel
+                      restaurant={restaurant}
+                      formatBusinessHours={formatBusinessHours}
+                    />
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
+        {/* 🚨 行動裝置 (md: 以下) 浮動按鈕與 Drawer 區塊 🚨 */}
+        <div className="md:hidden">
+          {/* 浮動按鈕：左側中央定位，文字直寫 (flex-col) 保持不變 */}
+          <button
+            onClick={() => setIsInfoModalOpen(true)}
+            className="fixed top-4/5  transform -translate-y-1/2 
+              inline-flex items-center justify-center p-0.5 z-40
+             overflow-hidden text-sm font-medium rounded-sm shadow-lg
+             group bg-gradient-to-br from-red-200 via-red-300 to-yellow-200 
+             
+             transition-colors duration-200 w-12 h-fit"
+            aria-label="查看餐廳詳細資訊"
+          >
+            <span
+              className="relative px-2 py-2 transition-all ease-in duration-75 
+               bg-white dark:bg-gray-900 rounded-sm group-hover:bg-transparent 
+               group-hover:dark:bg-transparent
+               text-gray-900 dark:text-white font-bold 
+               flex flex-col items-center justify-center space-y-1 w-full h-fit"
+            >
+              <IconFileDots stroke={2} />
+            </span>
+          </button>
+
+          {/* 💡 MUI Drawer 元件實現滑出滑入效果 (從左到右滑出) */}
+          <Drawer
+            anchor="left" // 從左邊滑出
+            open={isInfoModalOpen}
+            onClose={() => setIsInfoModalOpen(false)} // 點擊背景自動關閉
+            // 設置 Drawer 容器的寬度為全螢幕
+            PaperProps={{
+              sx: {
+                width: "100%", // full screen width on mobile
+              },
+            }}
+          >
+            <Box
+              role="presentation"
+              sx={{
+                width: "100%",
+                height: "100%",
+                p: 2, // 使用 MUI 的 spacing 系統來代替 Tailwind 的 p-4
+                backgroundColor: "white",
+              }}
+            >
+              {/* 關閉按鈕：MUI IconButton，使用 FontAwesome icon */}
+              <IconButton
+                onClick={() => setIsInfoModalOpen(false)}
+                sx={{
+                  position: "absolute",
+                  top: 8, // 1/2 Tailwind unit
+                  right: 8, // 1/2 Tailwind unit
+                  zIndex: 10,
+                  color: "grey.500", // 使用 MUI 顏色系統
+                }}
+                aria-label="關閉詳細資訊"
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </IconButton>
+
+              {/* 餐廳詳細資訊內容 (重用 RestaurantInfoPanel) */}
+              <div className="pt-10">
+                {" "}
+                {/* 調整內容，為 X 騰出空間 */}
+                <RestaurantInfoPanel
+                  restaurant={restaurant}
+                  formatBusinessHours={formatBusinessHours}
+                />
+              </div>
+            </Box>
+          </Drawer>
+        </div>
+        {/* 🚨 行動裝置區塊結束 🚨 */}
       </div>
     </RestaurantContext.Provider>
   );

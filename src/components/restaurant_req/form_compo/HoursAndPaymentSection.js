@@ -110,11 +110,6 @@ const HoursAndPaymentSection = ({
 
   return (
     <div>
-      {/* 僅在小螢幕上顯示標題 */}
-      <h3 className="text-2xl font-bold text-gray-800 mb-4 lg:hidden">
-        營業、服務與付款
-      </h3>
-
       {/* 營業時間和定休日 (保持 2 欄) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
         {/* 營業時間 (每週) */}
@@ -204,7 +199,7 @@ const HoursAndPaymentSection = ({
               return (
                 <div
                   key={day}
-                  className={`flex flex-col sm:flex-row sm:items-center space-x-2 h-auto sm:h-8 ${
+                  className={`flex flex-row items-center space-x-2 h-8 ${
                     hasTimeError ? "p-1 border border-red-300 rounded-md" : ""
                   }`}
                 >

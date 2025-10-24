@@ -22,7 +22,6 @@ export const categoryImageMap = {
   越南菜: "/img/category/vn.webp",
   歐美菜系: "/img/category/eu.webp",
   其他菜系: "/img/category/other.webp",
-  
 };
 
 // ⚠️ 新增：subcategoryOptions專門用於細分菜系 (從 categoryOptions 中提取)
@@ -59,7 +58,6 @@ export const subcategoryOptions = [
   "印尼菜",
   "中東菜",
   "土耳其菜",
-
 ];
 
 // restaurantTypeOptions 保持不變 (包含場所類型和服務模式)
@@ -89,7 +87,7 @@ export const restaurantTypeOptions = [
   "早餐店",
 
   // 中
- 
+
   "餃子館",
   "中式麵館",
   "中式快炒",
@@ -98,8 +96,6 @@ export const restaurantTypeOptions = [
   "煲仔飯",
   "街頭小食",
   "一般餐廳",
-
- 
 
   // II. 日式特色場所 (Japanese Specific)
   "壽司/刺身專門店",
@@ -359,6 +355,7 @@ export const SUB_CATEGORY_MAP = {
     "魯菜",
     "徽菜",
     "東北菜",
+    "其他",
   ],
   // 映射 "歐美菜系"
   歐美菜系: [
@@ -373,6 +370,7 @@ export const SUB_CATEGORY_MAP = {
     "德國菜",
     "葡萄牙菜",
     "俄羅斯菜",
+    "其他",
   ],
   // 映射 "其他菜系"
   其他菜系: [
@@ -385,5 +383,4 @@ export const SUB_CATEGORY_MAP = {
     "其他",
   ],
   // 映射 "特色餐飲"
-  
 };

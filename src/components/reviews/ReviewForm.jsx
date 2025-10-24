@@ -132,6 +132,14 @@ const ReviewForm = ({
   const [errors, setErrors] = useState({});
   const [isDailyLimitReached, setIsDailyLimitReached] = useState(false);
 
+  // 【⭐ 變動點 1: 新增 ratingMode 狀態 ⭐】
+  const [ratingMode, setRatingMode] = useState(
+    initialDraftData?.ratings &&
+      Object.values(initialDraftData.ratings).some((r) => r > 0)
+      ? "automatic"
+      : "manual"
+  ); // 'manual' 或 'automatic'
+
   const {
     uploadedImages,
     handleImageUpload,
@@ -217,7 +225,13 @@ const ReviewForm = ({
     };
   }, [hasUnsavedChanges]);
 
+  // 【⭐ 變動點 2: 修改 useEffect 邏輯，僅在 'automatic' 模式下計算總評分 ⭐】
   useEffect(() => {
+    // 只有在 "automatic" 模式下才進行計算和覆蓋
+    if (ratingMode !== "automatic") {
+      return;
+    }
+
     let sumOfRatings = 0;
     let count = 0;
     const coreRatings = ["taste", "environment", "service", "hygiene", "cp"];
@@ -231,12 +245,14 @@ const ReviewForm = ({
       sumOfRatings += ratings.drinks;
       count++;
     }
-    if (count > 0) {
-      setOverallRating(sumOfRatings / count);
-    } else {
-      setOverallRating(0);
+
+    const newOverallRating = count > 0 ? sumOfRatings / count : 0;
+
+    // 只有在計算結果與當前值不同時才更新，這也避免了不必要的渲染
+    if (newOverallRating !== overallRating) {
+      setOverallRating(newOverallRating);
     }
-  }, [ratings]);
+  }, [ratings, ratingMode, overallRating]);
 
   // 監聽 searchQuery 變更，用於重置狀態
   useEffect(() => {
@@ -291,11 +307,11 @@ const ReviewForm = ({
 
       let normalizedQuery = searchQuery.trim();
 
-      // 🚨 變更點：如果是非中文（英文），則強制轉為小寫
+      // 🚨 變動點：如果是非中文（英文），則強制轉為小寫
       if (!isChinese) {
         normalizedQuery = normalizedQuery.toLowerCase();
       }
-      // 🚨 變更點結束
+      // 🚨 變動點結束
 
       // 3. 設置查詢約束 (範圍查詢)
       queryConstraints = [
@@ -452,13 +468,39 @@ const ReviewForm = ({
     fetchUsername();
   }, [currentUser?.uid, db, appId]);
 
+  // 【⭐ 變動點 3: 修改 handleRatingChange (設為 automatic 模式) ⭐】
   const handleRatingChange = useCallback((categoryKey, value) => {
+    // 設置模式為自動
+    setRatingMode("automatic");
     setRatings((prev) => ({ ...prev, [categoryKey]: parseFloat(value) }));
+    // useEffect 會負責更新 overallRating
   }, []);
 
   const handleOverallRatingChange = useCallback((value) => {
+    // 雖然這個函數在目前的邏輯中沒有被直接調用，但保留它以備未來 StarRating 使用
     setOverallRating(parseFloat(value));
+  }, []);
+
+  // 【⭐ 變動點 4: 修改 handleOverallRatingSelection (設為 manual 模式) ⭐】
+  const handleOverallRatingSelection = useCallback((newOverallRating) => {
+    // 1. 設置模式為手動 (這將禁用 useEffect 的自動計算)
+    setRatingMode("manual");
+
+    // 2. 更新總體評級分數
+    setOverallRating(parseFloat(newOverallRating));
+
+    // 3. 細項合上 (隱藏細項評分區)
     setShowDetailedRatings(false);
+
+    // 4. 細項至 0 分 (清除細項數據)
+    // 這是關鍵一步：清除 ratings，以確保新的 overallRating 不會被舊的 ratings 覆蓋。
+    setRatings(() => {
+      const newRatings = {};
+      ratingCategories.forEach((category) => {
+        newRatings[category.key] = 0;
+      });
+      return newRatings;
+    });
   }, []);
 
   const handleSelectRestaurant = useCallback((restaurant) => {
@@ -755,7 +797,7 @@ const ReviewForm = ({
 
           <ReviewRatingSection
             overallRating={overallRating}
-            handleOverallRatingChange={handleOverallRatingChange}
+            handleOverallRatingChange={handleOverallRatingSelection}
             showDetailedRatings={showDetailedRatings}
             setShowDetailedRatings={setShowDetailedRatings}
             ratings={ratings}

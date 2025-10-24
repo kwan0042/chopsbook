@@ -19,7 +19,7 @@ const ReviewFormButtons = ({
           </span>
         </div>
       )}
-      <div className="flex justify-end space-x-4">
+      <div className="flex justify-between space-x-4">
         <button
           type="button"
           onClick={handleSaveDraft}
@@ -28,13 +28,39 @@ const ReviewFormButtons = ({
         >
           {submitting ? "儲存中..." : "儲存草稿"}
         </button>
-        <button
-          type="submit"
-          disabled={submitting || moderationWarning || isDailyLimitReached}
-          className="px-6 py-3 bg-green-600 text-white font-bold rounded-md shadow-md hover:bg-green-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? "提交中..." : "提交食評"}
-        </button>
+        <div className="flex">
+          <p
+            className=" py-3 flex items-center justify-center " // 類似按鈕的樣式
+          >
+            請參閱我們的
+            <a
+              href="/help/terms"
+              target="_blank" // 確保在新視窗開啟
+              rel="noopener noreferrer"
+              className="underline px-1 font-bold"
+            >
+              使用條款
+            </a>
+            和
+            <a
+              href="/help/review-guide"
+              target="_blank" // 確保在新視窗開啟
+              rel="noopener noreferrer"
+              className="underline pl-1 font-bold"
+            >
+              食評政策
+            </a>
+            。
+          </p>
+
+          <button
+            type="submit"
+            disabled={submitting || moderationWarning || isDailyLimitReached}
+            className="px-6 py-3 bg-green-600 text-white font-bold rounded-md shadow-md hover:bg-green-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? "發布中..." : "同意並發布"}
+          </button>
+        </div>
       </div>
     </div>
   );

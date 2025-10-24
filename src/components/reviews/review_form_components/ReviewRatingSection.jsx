@@ -24,7 +24,13 @@ const ReviewRatingSection = ({
           <StarRating
             value={overallRating}
             onValueChange={handleOverallRatingChange}
-          />
+          />{" "}
+          <span className=" text-base font-bold text-gray-800 transition-opacity duration-200">
+            / 5
+          </span>
+          <span className="mx-2 text-xs font-bold text-gray-800 transition-opacity duration-200">
+            (第一粒星星可以多按一下，令評分至零。)
+          </span>
           <button
             type="button"
             onClick={() => setShowDetailedRatings(!showDetailedRatings)}
@@ -39,7 +45,12 @@ const ReviewRatingSection = ({
       </div>
       {showDetailedRatings && (
         <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-          <h4 className="text-base font-bold text-gray-800">細項評分</h4>
+          <div className="flex items-center space-x-3">
+            <h4 className="text-base font-bold text-gray-800">細項評分</h4>{" "}
+            <span className="text-xs w-fit text-gray-800">
+              （0分項不會計算）
+            </span>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {ratingCategories.map((category) => (
               <div key={category.key} className="flex items-center">

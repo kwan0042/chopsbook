@@ -40,18 +40,11 @@ const HeroSection = () => {
       buttonLink: "/merchant/add",
       imageUrl: "/demo/home/slide3.jpg",
     },
+    
     {
       id: 4,
-      title: "夏日美食節 - 獨家優惠！",
-      description: "享用多款精選餐廳的夏日限定菜單及折扣。",
-      buttonText: "查看優惠詳情",
-      buttonLink: "/merchant/add",
-      imageUrl: "/demo/home/slide2.jpg",
-    },
-    {
-      id: 5,
-      title: "加入我們的會員俱樂部",
-      description: "獨家折扣、積分獎勵和更多驚喜等待著您！",
+      title: "加入我們的會員",
+      description: "一齊建立多倫多美食地圖。",
       buttonText: "立即註冊會員",
       buttonLink: "/sign-up",
       imageUrl: "/demo/home/slide3.jpg",

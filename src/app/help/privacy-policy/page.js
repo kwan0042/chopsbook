@@ -1,5 +1,4 @@
 // src/app/help/privacy/page.js
-import { index } from "react";
 export const metadata = {
   title: "ChopsBook 隱私政策 / Privacy Policy",
   description: "ChopsBook 平台隱私政策",
@@ -19,9 +18,8 @@ export const metadata = {
 export default function PrivacyPolicyPage() {
   return (
     <div className="prose prose-lg max-w-4xl mx-auto py-12 px-4">
-      
       <h1 className="text-2xl font-bold">
-      <h1>ChopsBook 隱私政策 / Privacy Policy</h1> 
+        <h1>ChopsBook 隱私政策 / Privacy Policy</h1>
       </h1>
       <p className="my-2">
         <strong>生效日期 / Effective Date：</strong>2025 年 10 月 20 日
@@ -72,7 +70,6 @@ export default function PrivacyPolicyPage() {
           We are based in Ontario, Canada, and therefore when handling personal
           information, we comply with the federal Canadian law PIPEDA (Personal
           Information Protection and Electronic Documents Act).
-          
         </p>
         <p className="my-4 px-2">
           PIPEDA
@@ -529,12 +526,19 @@ export default function PrivacyPolicyPage() {
         <p className="my-4 px-2">
           電子郵件 / Email：{" "}
           <a href="mailto:chopsbook@gmail.com">chopsbook@gmail.com</a>
-          
         </p>
       </section>
 
       <p className="text-sm text-gray-500 mt-8">
-        © 2025 ChopsBook. All rights reserved.
+        本文件可能不定期更新，請用戶定期查閱最新版。
+        <br />
+        This document may be updated periodically; please review the latest
+        version regularly.
+      </p>
+      <p className="text-sm text-gray-500 mt-8 text-right">
+        2025年10月25日修訂
+        <br />
+        Revised on October 25, 2025
       </p>
     </div>
   );

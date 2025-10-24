@@ -37,6 +37,7 @@ export default function RestaurantOverviewPage() {
   const { promotions, topMenus, topPhotos, recentReviews, loading, error } =
     useRestaurantData(db, appId, restaurantId);
 
+  
   const renderStars = (rating) => {
     const fullStars = Math.floor(rating);
     const hasHalfStar = rating % 1 !== 0;
@@ -63,15 +64,15 @@ export default function RestaurantOverviewPage() {
   const renderTimeIcon = (timeValue) => {
     switch (timeValue) {
       case "morning":
-        return <IconCoffee stroke={2} className="text-2xl text-orange-500" />;
+        return <IconCoffee stroke={2} className="h-5 md:h-full text-orange-500" />;
       case "noon":
         return (
-          <FontAwesomeIcon icon={faSun} className="text-2xl text-yellow-500" />
+          <FontAwesomeIcon icon={faSun} className="h-5 md:text-lg text-yellow-500" />
         );
       case "afternoon":
-        return <IconSunset2 stroke={2} className="text-2xl text-red-500" />;
+        return <IconSunset2 stroke={2} className="h-5 md:h-full text-red-500" />;
       case "night":
-        return <IconMoon stroke={2} className="text-2xl text-blue-500" />;
+        return <IconMoon stroke={2} className="h-5 md:h-full text-blue-500" />;
       default:
         return null;
     }
@@ -82,12 +83,12 @@ export default function RestaurantOverviewPage() {
     switch (serviceTypeValue) {
       case "dineIn":
         return (
-          <IconBuildingStore stroke={2} className="text-xl text-gray-600" />
+          <IconBuildingStore stroke={2} className="h-5 md:h-full text-gray-600 " />
         );
       case "delivery":
-        return <IconMoped stroke={2} className="text-xl text-gray-600" />;
+        return <IconMoped stroke={2} className="h-5 md:h-full text-gray-600" />;
       case "pickUp":
-        return <IconPaperBag stroke={2} className="text-xl text-gray-600" />;
+        return <IconPaperBag stroke={2} className="h-5 md:h-full text-gray-600" />;
       default:
         return null;
     }
@@ -251,7 +252,26 @@ export default function RestaurantOverviewPage() {
         <section className="bg-gray-50 p-4 rounded-lg shadow-sm">
           <h2 className="text-base font-bold text-gray-800 mb-4">最新評論</h2>
           <div className="space-y-4">
-            {recentReviews.map((review) => (
+          {recentReviews.map((review) => {
+                // 檢查 review 物件是否有日期欄位，並將其格式化
+                const reviewDate = review.createdAt
+                    ? new Date(review.createdAt)
+                    : null;
+                
+                let formattedDate = '';
+                if (reviewDate && !isNaN(reviewDate)) {
+                    // 使用 toLocaleDateString 進行本地化格式化
+                    formattedDate = reviewDate.toLocaleDateString('zh-TW', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                    });
+                } else {
+                    formattedDate = '未知日期'; 
+                }
+                
+                // --- 從這裡開始才是你的 JSX 回傳 ---
+                return(
               <div
                 key={review.id}
                 onClick={() =>
@@ -261,18 +281,36 @@ export default function RestaurantOverviewPage() {
                 }
                 className="bg-white p-4 rounded-lg shadow-md border border-gray-200 cursor-pointer hover:shadow-lg transition"
               >
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center space-x-2">
-                    <Link
-                      href={`/user/${review.userId}`}
-                      onClick={(e) => e.stopPropagation()} // 🚨 阻止冒泡
-                      className="font-semibold text-gray-800 hover:underline hover:text-blue-400 pr-3"
-                    >
-                      {review.username}
-                    </Link>
-                    {renderStars(review.overallRating)}
-                    {review.overallRating}{" "}
-                    <div className="flex items-center space-x-2 ml-2">
+                <div className="flex flex-wrap justify-between items-start sm:flex-nowrap mb-2">
+                  <div className="flex flex-wrap items-center space-x-2 min-w-0 sm:flex-nowrap">
+                    <div className="flex items-center justify-between w-full whitespace-nowrap sm:w-auto sm:flex-shrink-0">
+                      <div className="flex items-center">
+                        <Link
+                          href={`/user/${review.userId}`}
+                          className="font-semibold text-gray-800 text-lg hover:text-blue-600 transition duration-150 cursor-pointer"
+                        >
+                          {review.username}
+                        </Link>
+                        <span className="flex items-center ml-2 ">
+                          {renderStars(review.overallRating)}
+                          
+                        </span>
+                      </div>
+                      <div className="ml-2">
+                        <span className="text-sm font-bold text-gray-500">
+                          第
+                          <span className="text-orange-400">
+                            {review.visitCount}
+                          </span>
+                          次到訪
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 第二行內容：時段/類型圖示 */}
+                    <div className="flex items-center space-x-2 ml-0 sm:ml-2 mt-1 sm:mt-0 sm:flex-shrink-0">
+                      {/* ^^^^^^^^^^^^^^^^^^^^^^^ 關鍵改動 2: 在 sm 斷點處控制邊距和收縮 */}
+
                       {renderTimeIcon(review.timeOfDay)}
                       <span className="text-sm text-gray-600">
                         {
@@ -288,24 +326,15 @@ export default function RestaurantOverviewPage() {
                           ]?.zh
                         }
                       </span>
-                    </div>{" "}
+                      
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-bold text-gray-500">
-                      第{" "}
-                      <span className="text-orange-400">
-                        {review.visitCount}
-                      </span>{" "}
-                      次到訪
-                    </span>
-                    <span className="ml-auto text-sm text-gray-500">
-                      {new Date(review.createdAt).toLocaleString("zh-TW", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "numeric",
-                      })}
+
+                  {/* 日期保持在右側 */}
+                  <div className="flex-shrink-0 mt-2 sm:mt-0">
+                    {/* 添加 flex-shrink-0 確保日期不被擠壓 */}
+                    <span className="text-sm text-gray-500">
+                      {formattedDate}
                     </span>
                   </div>
                 </div>
@@ -313,7 +342,7 @@ export default function RestaurantOverviewPage() {
                   {review.reviewTitle}
                 </p>
               </div>
-            ))}
+                )})}
           </div>
           <div className="text-right mt-4">
             <Link

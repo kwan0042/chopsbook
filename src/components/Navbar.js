@@ -1,7 +1,13 @@
 // src/components/Navbar.js
 "use client";
 
-import React, { useContext, useState, useCallback } from "react";
+import React, {
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react"; // <--- 1. 導入 useEffect 和 useRef
 import { AuthContext } from "@/lib/auth-context";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser, faBookmark } from "@fortawesome/free-solid-svg-icons";
@@ -21,9 +27,37 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
   const router = useRouter();
   const pathname = usePathname();
 
+  // <--- 2. 創建一個 Ref 來指向 Navbar 根元素
+  const navRef = useRef(null);
+
   const isAdmin = currentUser && currentUser.isAdmin;
 
   const isRestaurantsPage = pathname === "/restaurants";
+
+  // <--- 3. 處理點擊外部關閉選單的邏輯
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // 檢查點擊是否發生在 nav 元素之外，並且選單是開啟的
+      if (
+        navRef.current &&
+        !navRef.current.contains(event.target) &&
+        isMobileMenuOpen // 只在選單開啟時才執行關閉
+      ) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    // 註冊事件監聽器到整個 document
+    document.addEventListener("mousedown", handleClickOutside);
+
+    // 清理函式：在組件卸載時移除事件監聽器
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isMobileMenuOpen]); // 依賴 isMobileMenuOpen
+
+  // 為了避免重複的邏輯，將所有會導致導航的處理器中的 setIsMobileMenuOpen(false) 移除，因為它們已在 handleClickOutside 或 handleMobileMenuItemClick 中處理。
+  // 但由於 Link 或 Button 的 onClick 事件會在導航之前觸發，我們可以保留它們來確保即時關閉，或者全部依賴 handleMobileMenuItemClick。為了簡潔，我們只保留 handleMobileMenuItemClick 的用法。
 
   const handleSearchSubmit = useCallback(
     (e) => {
@@ -37,18 +71,22 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
 
       // ✨ 修正：提交搜尋後清除搜尋框內容
       setSearchText("");
+      // 新增：提交搜尋後關閉行動選單 (如果開啟的話)
+      setIsMobileMenuOpen(false); // 保持這個，因為搜尋是表單提交，不經過單個連結點擊
     },
     [searchText, router] // 移除不必要的依賴 onSearch, isRestaurantsPage，並確保 setSearchText 隱含地穩定
   );
 
   const handleGoHome = useCallback(() => {
     router.push("/");
+    setIsMobileMenuOpen(false); // 點擊 Logo 回首頁也關閉選單
   }, [router]);
 
   // 修改此處：導向動態路徑 /user/[userId]
   const handleGoToPersonalPage = useCallback(() => {
     if (currentUser) {
       router.push(`/user/${currentUser.uid}`);
+      setIsMobileMenuOpen(false); // 新增：關閉行動選單
     } else {
       setModalMessage("請先登入才能訪問個人主頁。");
     }
@@ -56,6 +94,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
 
   const handleGoToLoginPage = useCallback(() => {
     router.push("/login");
+    setIsMobileMenuOpen(false); // 新增：關閉行動選單
   }, [router]);
 
   const handleLogout = useCallback(async () => {
@@ -64,6 +103,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
       try {
         await signOut(auth);
         router.push("/");
+        setIsMobileMenuOpen(false); // 新增：關閉行動選單
       } catch (error) {
         console.error("登出失敗:", error);
         setModalMessage("登出失敗，請稍後再試。", "error");
@@ -73,10 +113,21 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
 
   const handleGoToRestaurants = useCallback(() => {
     router.push("/restaurants");
+    setIsMobileMenuOpen(false); // 新增：關閉行動選單
   }, [router]);
 
+  // 行動選單項目點擊處理器，用於關閉選單
+  // 保持這個函式，用於點擊 Link/Button 後立即關閉，讓使用者體驗更流暢
+  const handleMobileMenuItemClick = useCallback(() => {
+    setIsMobileMenuOpen(false);
+  }, []);
+
+  // <--- 4. 將 ref 傳遞給 nav 元素
   return (
-    <nav className="bg-gray-900 text-white sticky top-0 z-50 shadow-md">
+    <nav
+      ref={navRef}
+      className="bg-gray-900 text-white sticky top-0 z-50 shadow-md"
+    >
       {/* 保持 flex-col 作為預設 (適用於 sm 以下)，並在 lg 及以上使用 flex-row */}
       <div className="flex flex-col lg:flex-row items-center w-full p-3 px-4 sm:px-4 lg:px-4 lg:justify-between">
         <div className="flex items-center justify-between w-full lg:w-[30%] mb-2 lg:mb-0 lg:justify-start">
@@ -267,7 +318,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
 
       {/* 🎯 修改 5: 行動菜單 (只在 md 螢幕以下顯示) */}
       {isMobileMenuOpen && (
-        <div className="md:hidden w-full bg-gray-800 border-t border-gray-700 py-2 px-4 flex flex-col items-center space-y-2">
+        <div className="lg:hidden w-full bg-gray-800 border-t border-gray-700 py-2 px-4 flex flex-col items-center space-y-2">
           {/* 登入/個人主頁 */}
           {currentUser ? (
             <button
@@ -288,6 +339,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
           {/* 從頂部右側移入的連結 */}
           <Link
             href={`/review`}
+            onClick={handleMobileMenuItemClick}
             className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
           >
             寫食評
@@ -295,6 +347,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
           <button
             onClick={() => {
               router.push("/merchant");
+              handleMobileMenuItemClick();
             }}
             className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
           >
@@ -304,6 +357,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
             <button
               onClick={() => {
                 router.push("/admin");
+                handleMobileMenuItemClick();
               }}
               className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 bg-transparent border-none text-white cursor-pointer"
             >
@@ -323,28 +377,45 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
           </button>
           <Link
             href="/categories"
+            onClick={handleMobileMenuItemClick}
             className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 text-white cursor-pointer"
           >
             所有類別
           </Link>
           <Link
             href="/blogs"
+            onClick={handleMobileMenuItemClick}
             className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 text-white cursor-pointer"
           >
             所有文章
           </Link>
           <Link
             href="/categories"
+            onClick={handleMobileMenuItemClick}
             className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 text-white cursor-pointer"
           >
             餐廳優惠
           </Link>
           <Link
             href="#"
+            onClick={handleMobileMenuItemClick}
             className="hover:text-yellow-500 transition duration-200 text-sm w-full text-center py-1 text-white cursor-pointer"
           >
             新開業餐廳
           </Link>
+
+          {/* 登出按鈕 (只在行動選單中，如果已登入) */}
+          {currentUser && (
+            <>
+              <div className="w-1/2 h-px bg-gray-700 my-1"></div>
+              <button
+                onClick={handleLogout}
+                className="text-red-400 hover:text-red-500 font-bold text-sm w-full text-center py-1 bg-transparent border-none cursor-pointer"
+              >
+                登出
+              </button>
+            </>
+          )}
         </div>
       )}
 

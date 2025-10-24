@@ -225,8 +225,11 @@ export default function ReviewsList({ publishedReviews }) {
                       return null;
                     }
                     return (
-                      <div key={key} className="flex items-center capitalize">
-                        <span>
+                      <div
+                        key={key}
+                        className="flex items-center capitalize whitespace-nowrap "
+                      >
+                        <span className="w-11">
                           {reviewFields.detailedRatings.nestedFields[key]?.zh ||
                             key}
                           :

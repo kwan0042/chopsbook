@@ -13,7 +13,7 @@ export default async function ReviewDetailPage(context) {
   if (!review) notFound();
 
   return (
-    <div className="w-full mx-auto p-4 md:p-8">
+    <div className="w-full mx-auto  md:p-8">
       <article className="sr-only">
         <h1>{review.reviewTitle}</h1>
         <p>{review.reviewContent}</p>
@@ -25,7 +25,7 @@ export default async function ReviewDetailPage(context) {
         </p>
       </article>
       {/* 返回按鈕 */}
-      <div className="pl-8 ">
+      <div className="md:pl-8 ">
         <Link
           href={`/restaurants/${review.restaurantId}/reviews`}
           className="inline-block px-4 py-2 rounded-lg bg-cbbg text-gray-800 hover:bg-gray-200 transition"

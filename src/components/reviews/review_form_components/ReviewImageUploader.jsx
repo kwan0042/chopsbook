@@ -11,7 +11,7 @@ const ReviewImageUploader = ({
   return (
     <div>
       <label className="block text-gray-700 text-sm font-bold mb-2">
-        上傳圖片 (最多 5 張，僅限 .jpg)
+        上傳圖片 (最多 6 張，僅限 .jpg)
       </label>
       <div className="flex items-center space-x-4">
         <label className="text-sm flex-shrink-0 cursor-pointer bg-blue-500 text-white font-bold py-2 px-4 rounded-md shadow-md hover:bg-blue-600 transition-colors">
@@ -22,12 +22,12 @@ const ReviewImageUploader = ({
             accept=".jpg,.jpeg"
             multiple
             onChange={handleImageUpload}
-            disabled={uploadedImages.length >= 5}
+            disabled={uploadedImages.length >= 6}
             className="hidden"
           />
         </label>
         <span className="text-gray-600 text-sm">
-          已選擇 {uploadedImages.length} / 5 張
+          已選擇 {uploadedImages.length} / 6 張
         </span>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 mt-4">
