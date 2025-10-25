@@ -17,15 +17,15 @@ import {
 
 import {
   categoryOptions,
-  SUB_CATEGORY_MAP, // ⚡️ 導入 SUB_CATEGORY_MAP
+  SUB_CATEGORY_MAP,
   restaurantTypeOptions,
   reservationModeOptions,
   paymentMethodOptions,
   facilitiesServiceOptions,
   provinceOptions,
   citiesByProvince,
-  seatingCapacityOptions,
-} from "../../data/restaurant-options";
+  seatingCapacityOptions, // ⚡️ 重新引入 seatingCapacityOptions
+} from "../../data/restaurant-options"; // 假設路徑正確
 
 import {
   CheckboxesFilter,
@@ -34,31 +34,23 @@ import {
   SelectDropdownFilter,
 } from "./FilterComponents";
 
-import { AuthContext } from "@/lib/auth-context";
+import { AuthContext } from "@/lib/auth-context"; // 假設路徑正確
 
-// 輔助函數：解析座位數選項 (保持不變)
+// ⚡️ 重新引入修正後的輔助函數：解析座位數選項
 const parseSeatingCapacityOptions = (options) => {
   return options
     .filter((option) => option !== "選擇座位數")
     .map((option) => {
-      if (option.includes("-")) {
-        const [minStr, maxStr] = option.split("-");
-        return {
-          label: `${option}人`,
-          value: `${minStr}-${maxStr}`,
-          min: parseInt(minStr, 10),
-          max: parseInt(maxStr, 1.0),
-        };
-      } else if (option.includes("+")) {
-        const minStr = option.replace("+", "");
-        return {
-          label: `${minStr}+ 人`,
-          value: `${minStr}+`,
-          min: parseInt(minStr, 10),
-          max: 9999,
-        };
-      }
-      return null;
+      // 不再解析 min/max，直接使用字串作為 value
+      // 處理 51+ 格式，確保 value 是 "51+"
+      const value = option.includes("+")
+        ? `${option.replace("人", "")}`
+        : option.replace("人", "");
+
+      return {
+        label: option, // 保持 label 為完整字串 (e.g., "51+人")
+        value: value,
+      };
     })
     .filter(Boolean);
 };
@@ -88,20 +80,26 @@ const FilterSidebar = ({
   onResetFilters,
   onClose,
 }) => {
-  // initialFiltersRef 被移除，改用 localFilters 和 initialFilters 比較
+  // ⚡️ 重新引入 seatingCapacity 的初始化
+  const [localFilters, setLocalFilters] = useState({
+    ...initialFilters,
+    seatingCapacity:
+      initialFilters.seatingCapacity ||
+      initialFilters.minSeatingCapacity || // 舊欄位向下兼容
+      "",
+  });
 
-  const [localFilters, setLocalFilters] = useState(initialFilters);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
   const [showTopMask, setShowTopMask] = useState(false);
   const scrollContainerRef = useRef(null);
 
-  // 菜系滑動面板狀態
+  const [showCityError, setShowCityError] = useState(false);
+
   const [expandedCategory, setExpandedCategory] = useState(null);
   const [cuisineContainerHeight, setCuisineContainerHeight] = useState(0);
   const subCategoryRef = useRef(null);
   const categoryRef = useRef(null);
 
-  // 折疊狀態 (保持不變)
   const [isRegionCollapsed, setIsRegionCollapsed] = useState(true);
   const [isCuisineCollapsed, setIsCuisineCollapsed] = useState(true);
   const [isRestaurantTypeCollapsed, setIsRestaurantTypeCollapsed] =
@@ -114,11 +112,11 @@ const FilterSidebar = ({
   const [isPaymentMethodsCollapsed, setIsPaymentMethodsCollapsed] =
     useState(true);
   const [isFacilitiesCollapsed, setIsFacilitiesCollapsed] = useState(true);
+  // ⚡️ 重新引入 isSeatingCapacityCollapsed 狀態
   const [isSeatingCapacityCollapsed, setIsSeatingCapacityCollapsed] =
     useState(true);
   const [isTimeAndPartyCollapsed, setIsTimeAndPartyCollapsed] = useState(true);
 
-  // 地區/其他狀態 (保持不變)
   const [cities, setCities] = useState([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(
     !!initialFilters.favoriteRestaurantIds
@@ -165,18 +163,34 @@ const FilterSidebar = ({
     }
   }, [handleScroll]);
 
-  // -------------------- 狀態同步 useEffect (保持不變) --------------------
+  // -------------------- 狀態同步 useEffect (已修正) --------------------
   useEffect(() => {
-    // 只有當 localFilters 與外部傳入的 initialFilters 確實不同時才進行同步，
-    if (JSON.stringify(localFilters) !== JSON.stringify(initialFilters)) {
-      // 確保 localFilters 接收到外部狀態，但只在必要時
-      setLocalFilters(initialFilters);
+    // ⚡️ 同步時，將 min/max 的舊欄位轉換為新的 seatingCapacity 欄位
+    const newSeatingCapacity =
+      initialFilters.seatingCapacity || initialFilters.minSeatingCapacity || "";
+
+    const newLocalFilters = {
+      ...initialFilters,
+      seatingCapacity: newSeatingCapacity,
+    };
+
+  
+
+    // 僅當實際值發生變化時才更新狀態，避免無限循環
+    if (
+      JSON.stringify(localFilters) !== JSON.stringify(newLocalFilters) ||
+      avgSpending !== (initialFilters.maxAvgSpending || 0) ||
+      showFavoritesOnly !== !!initialFilters.favoriteRestaurantIds
+    ) {
+      setLocalFilters(newLocalFilters);
       setAvgSpending(initialFilters.maxAvgSpending || 0);
       setShowFavoritesOnly(!!initialFilters.favoriteRestaurantIds);
     }
-  }, [initialFilters]); // 僅依賴於 initialFilters
+  }, [initialFilters]); // 依賴於外部傳入的篩選條件
 
   useEffect(() => {
+    setShowCityError(false);
+
     if (localFilters.province) {
       const citiesForProvince = citiesByProvince[localFilters.province] || [];
       setCities(citiesForProvince);
@@ -190,11 +204,15 @@ const FilterSidebar = ({
   const handleFilterChange = useCallback((key, value) => {
     setLocalFilters((prevFilters) => {
       if (key === "province") {
+        setShowCityError(false);
         return {
           ...prevFilters,
           [key]: value,
           city: "",
         };
+      }
+      if (key === "city") {
+        setShowCityError(false);
       }
 
       return {
@@ -293,13 +311,27 @@ const FilterSidebar = ({
     });
   }, []);
 
-  // -------------------- ⚡️ 修正後的 handleApply ⚡️ --------------------
+  // -------------------- ⚡️ 修正後的 handleApply --------------------
   const handleApply = useCallback(async () => {
+    if (
+      localFilters.province &&
+      !localFilters.city &&
+      (citiesByProvince[localFilters.province] || []).length > 0
+    ) {
+      setShowCityError(true);
+      return;
+    }
+
+    setShowCityError(false);
     const newFilters = { ...localFilters };
 
     delete newFilters.cuisineType;
 
-    // ⚡️ 修正 1：確保 category 是陣列或被刪除。
+    // ⚡️ 刪除舊的座位數欄位，只保留新的 seatingCapacity
+    delete newFilters.minSeatingCapacity;
+    delete newFilters.maxSeatingCapacity;
+    delete newFilters.partySize;
+
     if (
       newFilters.category &&
       Array.isArray(newFilters.category) &&
@@ -308,7 +340,6 @@ const FilterSidebar = ({
       delete newFilters.category;
     }
 
-    // ⚡️ 修正 2：確保 subCategory 是陣列或被刪除。
     if (
       newFilters.subCategory &&
       Array.isArray(newFilters.subCategory) &&
@@ -317,17 +348,13 @@ const FilterSidebar = ({
       delete newFilters.subCategory;
     }
 
-    // **注意：所有將陣列轉換為字符串的 `.join()` 邏輯都已移除**
-
     if (avgSpending > 0) {
       newFilters.maxAvgSpending = avgSpending;
     } else {
       delete newFilters.maxAvgSpending;
     }
 
-    // ⚡️ 修正 3：favoriteRestaurantIds 保持為陣列，或移除空值。
     if (showFavoritesOnly && currentUser && currentUser.favoriteRestaurants) {
-      // 假設 currentUser.favoriteRestaurants 是一個陣列，直接傳遞陣列。
       newFilters.favoriteRestaurantIds = currentUser.favoriteRestaurants;
     } else {
       delete newFilters.favoriteRestaurantIds;
@@ -336,23 +363,22 @@ const FilterSidebar = ({
     // 清理空值 (這段邏輯是正確的，用來刪除空值或空陣列)
     Object.keys(newFilters).forEach((key) => {
       const value = newFilters[key];
-      // 檢查是否為空值或空字符串
       const isValueEmpty =
         value === null || value === undefined || value === "";
-      // 檢查是否為空陣列
       const isArrayEmpty = Array.isArray(value) && value.length === 0;
 
       const isDefaultEmpty =
         (key === "province" && value === "") ||
         (key === "city" && value === "") ||
-        (key === "restaurantType" && value === "");
+        (key === "restaurantType" && value === "") ||
+        // ⚡️ 確保 seatingCapacity 為空字串時被移除
+        (key === "seatingCapacity" && value === "");
 
       if (isValueEmpty || isDefaultEmpty || isArrayEmpty) {
         delete newFilters[key];
       }
     });
 
-    // 將包含陣列的篩選器對象傳遞給父組件
     onApplyFilters(newFilters);
     if (onClose) onClose();
   }, [
@@ -369,6 +395,7 @@ const FilterSidebar = ({
     setShowFavoritesOnly(false);
     setAvgSpending(0);
     setExpandedCategory(null);
+    setShowCityError(false);
     onResetFilters();
     if (onClose) onClose();
   }, [onResetFilters, onClose]);
@@ -378,6 +405,8 @@ const FilterSidebar = ({
   const displayPaymentMethods = paymentMethodOptions;
   const displayFacilities = facilitiesServiceOptions;
   const displayProvinces = provinceOptions;
+
+  // ⚡️ 使用修正後的解析函數，只獲取 value 字串
   const parsedSeatingCapacities = parseSeatingCapacityOptions(
     seatingCapacityOptions
   );
@@ -390,15 +419,25 @@ const FilterSidebar = ({
 
   const hasFiltersApplied = () => {
     const filterKeys = Object.keys(localFilters).filter(
-      (key) => key !== "maxSeatingCapacity" && key !== "minSeatingCapacity"
+      // ⚡️ 檢查 seatingCapacity 欄位
+      (key) => key !== "seatingCapacity"
     );
+    // 檢查是否有其他篩選器
+    const hasOtherFilters = filterKeys.length > 0;
+    // 檢查 seatingCapacity 是否被選取 (非空字串)
+    const isSeatingCapacitySelected = !!localFilters.seatingCapacity;
 
-    return filterKeys.length > 0 || showFavoritesOnly || avgSpending > 0;
+    return (
+      hasOtherFilters ||
+      isSeatingCapacitySelected ||
+      showFavoritesOnly ||
+      avgSpending > 0
+    );
   };
   const isFiltersActive = hasFiltersApplied();
 
   return (
-    <div className="relative bg-white p-6  rounded-2xl w-full flex flex-col h-full">
+    <div className="relative bg-white p-6 rounded-2xl w-full flex flex-col h-full">
       <h3 className="text-xl font-bold text-gray-900 mb-6">篩選餐廳</h3>
       {onClose && (
         <button
@@ -417,7 +456,7 @@ const FilterSidebar = ({
       ></div>
       <div
         ref={scrollContainerRef}
-        className="flex-grow h-full overflow-y-auto pr-2 -mr-2  scrollbar-hide"
+        className="flex-grow h-full overflow-y-auto pr-2 -mr-2 scrollbar-hide"
       >
         <div className="space-y-4 mb-8">
           <FilterGroup
@@ -486,42 +525,38 @@ const FilterSidebar = ({
                 </div>
               </div>
 
-              {(localFilters.province || cities.length > 0) && (
-                <div>
-                  <label
-                    htmlFor="city"
-                    className="block text-sm font-medium text-gray-700 mb-1"
+              <div>
+                <label
+                  htmlFor="city"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  城市
+                </label>
+                <div className="relative">
+                  <select
+                    id="city"
+                    value={localFilters.city || ""}
+                    onChange={(e) => handleFilterChange("city", e.target.value)}
+                    className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8 ${
+                      !localFilters.province || cities.length === 0
+                        ? "bg-gray-100 cursor-not-allowed"
+                        : ""
+                    }`}
+                    disabled={!localFilters.province || cities.length === 0}
                   >
-                    城市
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="city"
-                      value={localFilters.city || ""}
-                      onChange={(e) =>
-                        handleFilterChange("city", e.target.value)
-                      }
-                      className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8 ${
-                        !localFilters.province || cities.length === 0
-                          ? "bg-gray-100 cursor-not-allowed"
-                          : ""
-                      }`}
-                      disabled={!localFilters.province || cities.length === 0}
-                    >
-                      <option value="">選擇城市</option>
-                      {cities.map((city) => (
-                        <option key={city} value={city}>
-                          {city}
-                        </option>
-                      ))}
-                    </select>
-                    <FontAwesomeIcon
-                      icon={faChevronDown}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-                    />
-                  </div>
+                    <option value="">選擇城市</option>
+                    {cities.map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </select>
+                  <FontAwesomeIcon
+                    icon={faChevronDown}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+                  />
                 </div>
-              )}
+              </div>
             </div>
           </FilterGroup>
 
@@ -539,7 +574,6 @@ const FilterSidebar = ({
                   : "auto",
               }}
             >
-              {/* -------------------- 1. Category 列表 (左側/底層) -------------------- */}
               <div
                 ref={categoryRef}
                 className={`space-y-2 text-sm transition-opacity duration-300 w-full`}
@@ -556,7 +590,6 @@ const FilterSidebar = ({
                       className="flex items-center justify-between group"
                     >
                       <div className="flex items-center flex-grow">
-                        {/* 主菜系 checkbox */}
                         <input
                           type="checkbox"
                           id={`cuisine-category-${category}`}
@@ -569,18 +602,14 @@ const FilterSidebar = ({
                               true
                             )
                           }
-                          className={`h-4 w-4 rounded focus:ring-blue-500 
-                            ${
-                              isPartial
-                                ? "indeterminate text-blue-500 bg-blue-100 border-blue-500"
-                                : "text-blue-600 border-gray-300"
-                            }
-                            ${
-                              !!expandedCategory
-                                ? "cursor-not-allowed opacity-60"
-                                : ""
-                            }
-                          `}
+                          className={`h-4 w-4 rounded focus:ring-blue-500
+${
+  isPartial
+    ? "indeterminate text-blue-500 bg-blue-100 border-blue-500"
+    : "text-blue-600 border-gray-300"
+}
+${!!expandedCategory ? "cursor-not-allowed opacity-60" : ""}
+`}
                           ref={(el) => {
                             if (el) {
                               el.indeterminate = isPartial;
@@ -598,7 +627,6 @@ const FilterSidebar = ({
                         </label>
                       </div>
 
-                      {/* 更多按鈕 (只有當有細分選項時才顯示) */}
                       {hasSubTypes && (
                         <button
                           onClick={() => setExpandedCategory(category)}
@@ -613,7 +641,6 @@ const FilterSidebar = ({
                 })}
               </div>
 
-              {/* -------------------- 2. SubType 列表 (右側覆蓋層) -------------------- */}
               <div
                 ref={subCategoryRef}
                 className={`absolute top-0 right-0 h-fit bg-white transition-transform duration-300 ease-in-out z-20 shadow-lg border-l border-gray-200`}
@@ -675,7 +702,6 @@ const FilterSidebar = ({
               </div>
             </div>
           </FilterGroup>
-          {/* 菜系類別滑動邏輯結束 */}
 
           <FilterGroup
             title="餐廳類型"
@@ -724,6 +750,7 @@ const FilterSidebar = ({
             </div>
           </FilterGroup>
 
+          {/* -------------------- ⚡️ 重新加入 座位數篩選器 -------------------- */}
           <FilterGroup
             title="座位數"
             isCollapsed={isSeatingCapacityCollapsed}
@@ -734,33 +761,14 @@ const FilterSidebar = ({
             <RadioGroupFilter
               title="seatingCapacity"
               options={[
-                { label: "不限", value: "any" },
+                { label: "不限", value: "" }, // ⚡️ 設為空字串，方便清除和篩選
                 ...parsedSeatingCapacities,
               ]}
-              selectedValue={
-                localFilters.minSeatingCapacity
-                  ? `${localFilters.minSeatingCapacity}-${localFilters.maxSeatingCapacity}`
-                  : "any"
-              }
+              // ⚡️ selectedValue 直接使用 localFilters.seatingCapacity
+              selectedValue={localFilters.seatingCapacity || ""}
               onSelect={(value) => {
-                if (value === "any") {
-                  handleFilterChange("minSeatingCapacity", "");
-                  handleFilterChange("maxSeatingCapacity", "");
-                } else {
-                  const selectedOption = parsedSeatingCapacities.find(
-                    (opt) => opt.value === value
-                  );
-                  if (selectedOption) {
-                    handleFilterChange(
-                      "minSeatingCapacity",
-                      selectedOption.min
-                    );
-                    handleFilterChange(
-                      "maxSeatingCapacity",
-                      selectedOption.max
-                    );
-                  }
-                }
+                // ⚡️ 直接將字串值儲存到 seatingCapacity
+                handleFilterChange("seatingCapacity", value);
               }}
               valueKey="value"
               labelKey="label"
@@ -843,10 +851,15 @@ const FilterSidebar = ({
         }}
       ></div>
       <div className="mt-auto bg-transparent">
-        <div className="flex items-center space-x-4 pt-6  px-6">
+        {showCityError && (
+          <p className="text-red-600 text-sm font-semibold text-center mb-4 px-6">
+            請在選擇省份後，務必選擇城市以進行地區篩選。
+          </p>
+        )}
+        <div className="flex items-center space-x-4 pt-6 px-6">
           <button
             onClick={handleApply}
-            className="w-full bg-cbbg hover:bg-gray-600 hover:text-cbbg text-gray-600 font-bold py-3 px-4 rounded-xl shadow-md transition duration-200  "
+            className="w-full bg-cbbg hover:bg-gray-600 hover:text-cbbg text-gray-600 font-bold py-3 px-4 rounded-xl shadow-md transition duration-200 "
           >
             應用篩選
           </button>

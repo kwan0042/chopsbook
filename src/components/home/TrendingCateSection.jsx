@@ -161,7 +161,7 @@ const TrendingCateSection = () => {
 
   // 樣式調整: 確保手機和網頁版有不同的間距
   return (
-    <section className="py-4 md:py-12 px-0 text-left md:text-center">
+    <section className="md:py-4 px-0 text-left md:text-center">
       {/* 標題調整：手機左對齊，網頁居中，字體變小，增加手機左右邊距 */}
       <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6 px-4 md:px-0">
         熱門餐廳類別與菜系

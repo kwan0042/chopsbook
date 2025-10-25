@@ -1,7 +1,6 @@
-// src/components/admin/restaurantManagement/RestaurantFormAdmin.js
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react"; // ✅ 導入 useCallback
+import React, { useState, useRef, useEffect, useCallback } from "react";
 // 🚨 移除整合後的單一驗證函數 validateRestaurantForm 導入
 
 // 引入所有選項數據
@@ -15,6 +14,7 @@ import {
   provinceOptions,
   citiesByProvince,
   SUB_CATEGORY_MAP,
+  // 確保路徑正確
 } from "@/data/restaurant-options";
 
 // 引入三個子組件
@@ -71,7 +71,6 @@ const RestaurantFormAdmin = ({
   const inputRefs = useRef({});
 
   // 🚨 關鍵修改 1: 移除本地 errors 狀態（或將其保留為不使用）
-  // 保持現有代碼結構，但我們將忽略 setErrors 的使用，並直接依賴 initialErrors
   const [errors, setErrors] = useState({}); // 保持，但忽略其在提交時的設置
 
   // 🚨 關鍵修改 2: 移除本地 globalErrorMsg 狀態的初始化，改為使用計算屬性
@@ -151,7 +150,27 @@ const RestaurantFormAdmin = ({
     handleChange({
       target: { name: "name_lowercase_en", value: newNameLowercaseEn },
     });
-  }; // ✅ 關鍵修改：使用 useCallback 包裹 handleBusinessHoursChange
+  };
+
+  // ✅ 關鍵新增：專門處理 noChineseName 的 Checkbox 改變 (確保它不是 array)
+  const handleNoChineseNameToggle = useCallback(
+    (e) => {
+      // 這裡我們只傳遞 name 和 checked 給父組件的 handleChange
+      // 由於父組件的 handleChange 會檢查 type="checkbox"
+      // 這裡只需要模擬一個包含 name 和 checked 的 event
+      handleChange({
+        target: {
+          name: "noChineseName",
+          type: "checkbox",
+          checked: e.target.checked,
+          value: e.target.value, // 傳遞 value 雖然 checkbox 不需要，但保持結構一致性
+        },
+      });
+    },
+    [handleChange]
+  );
+
+  // ✅ 關鍵修改：使用 useCallback 包裹 handleBusinessHoursChange
 
   const handleBusinessHoursChange = useCallback(
     (index, field, value) => {
@@ -242,11 +261,13 @@ const RestaurantFormAdmin = ({
         formData={formData}
         handleChange={handleChange}
         errors={initialErrors} // ✅ 關鍵修改 6: 直接傳遞 initialErrors
-        handleCheckboxChange={handleCheckboxChange}
+        handleCheckboxChange={handleCheckboxChange} // 傳遞給多選 (e.g. restaurantType)
         handleProvinceChange={handleProvinceChange}
         handleCuisineCategoryChange={handleCuisineCategoryChange}
-        handleSubCuisineChange={handleSubCuisineChange} // ✅ 關鍵修改：將處理英文名稱的函數替換為本地的 handleNameEnChange
+        handleSubCuisineChange={handleSubCuisineChange}
         handleNameEnChange={handleNameEnChange}
+        // 🎯 關鍵修改 7: 將處理 noChineseName 的函數替換為專門的 Toggle 函數
+        handleNoChineseNameChange={handleNoChineseNameToggle}
         subCategoryOptions={currentSubcategoryOptions}
         openFilePicker={openFilePicker}
         previewUrl={previewUrl}

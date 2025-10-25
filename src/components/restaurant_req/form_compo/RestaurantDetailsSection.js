@@ -17,6 +17,8 @@ const RestaurantDetailsSection = ({
   errors,
   handleCheckboxChange,
   handleProvinceChange,
+  // 🎯 關鍵修改 1: 接受新的 noChineseName 專用處理函數
+  handleNoChineseNameChange,
   // 菜系相關 props (更新為使用獨立欄位)
   handleCuisineCategoryChange,
   handleSubCuisineChange,
@@ -78,13 +80,10 @@ const RestaurantDetailsSection = ({
               checked={formData.noChineseName || false}
               onChange={(e) => {
                 const isChecked = e.target.checked;
-                handleCheckboxChange({
-                  target: {
-                    name: "noChineseName",
-                    type: "checkbox",
-                    checked: isChecked,
-                  },
-                });
+                // 🎯 關鍵修改 2: 使用專用的 handleNoChineseNameChange 處理 Checkbox 狀態
+                handleNoChineseNameChange(e);
+
+                // 保持清除中文名稱的邏輯 (這部分是正確的)
                 if (isChecked) {
                   handleChange({
                     target: { name: "restaurantName.zh-TW", value: "" },
@@ -289,9 +288,11 @@ const RestaurantDetailsSection = ({
               name="facadePhotoUrl"
               value={selectedFile ? selectedFile.name : previewUrl || ""} // 當有本地檔案時顯示檔案名稱，否則顯示 URL
               readOnly
-              className={`flex-grow p-3 border border-gray-300 rounded-md bg-gray-50 text-gray-600 focus:outline-none ${errors.facadePhotoUrls
-                ? "border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:ring-blue-500"}`}
+              className={`flex-grow p-3 border border-gray-300 rounded-md bg-gray-50 text-gray-600 focus:outline-none ${
+                errors.facadePhotoUrls
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
+              }`}
               placeholder="請選擇或查看圖片"
             />
             <button

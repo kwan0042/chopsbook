@@ -1,4 +1,4 @@
-// cleanupCuisineData.js
+// cleanupRestaurantType.js
 
 // ❗ 載入 .env.local 檔案中的環境變數 ❗
 // 這樣腳本才能讀取到 FIREBASE_ADMIN_SERVICE_ACCOUNT_KEY
@@ -49,13 +49,12 @@ const COLLECTION_PATH = `artifacts/${APP_ID}/public/data/restaurants`;
 // ***************************************************************
 
 /**
- * 執行資料清理和欄位重命名：
- * 1. 移除 cuisineType 欄位。
- * 2. 將 subTypes 欄位重命名為 subCategory。
+ * 執行資料清理：
+ * 移除 restaurantType 陣列中的 "一般餐廳" 選項。
  */
 async function cleanupCuisineData() {
   try {
-    console.log(`\n--- 🧹 菜系資料清理腳本啟動 ---`);
+    console.log(`\n--- 🧹 餐廳類別 (restaurantType) 清理腳本啟動 ---`);
     console.log(`正在讀取集合: ${COLLECTION_PATH}`);
     const restaurantsRef = db.collection(COLLECTION_PATH);
     const snapshot = await restaurantsRef.get();
@@ -76,20 +75,19 @@ async function cleanupCuisineData() {
       let shouldUpdate = false;
       const updateData = {};
 
-      // 1. 處理欄位重命名：subTypes -> subCategory
-      if (data.subTypes !== undefined) {
-        // 將舊 subTypes 的值賦予給新欄位 subCategory
-        updateData.subCategory = data.subTypes;
-        // 標記舊 subTypes 欄位為刪除
-        updateData.subTypes = admin.firestore.FieldValue.delete();
-        shouldUpdate = true;
-      }
+      // 核心邏輯：處理 restaurantType 陣列，移除 "一般餐廳"
+      if (Array.isArray(data.restaurantType)) {
+          const initialLength = data.restaurantType.length;
+          // 過濾掉 "一般餐廳"，保留其他選項
+          const newRestaurantType = data.restaurantType.filter(
+              (type) => type !== "一般餐廳"
+          );
 
-      // 2. 處理欄位移除：cuisineType
-      if (data.cuisineType !== undefined) {
-        // 標記 cuisineType 欄位為刪除
-        updateData.cuisineType = admin.firestore.FieldValue.delete();
-        shouldUpdate = true;
+          // 只有在新陣列長度小於原長度時，才需要更新
+          if (newRestaurantType.length < initialLength) {
+              updateData.restaurantType = newRestaurantType;
+              shouldUpdate = true;
+          }
       }
 
       // 執行批次操作
@@ -119,7 +117,7 @@ async function cleanupCuisineData() {
     }
 
     console.log("\n=============================================");
-    console.log(`🎉 腳本執行完畢！成功清理和重命名了 ${totalUpdated} 個文件。`);
+    console.log(`🎉 腳本執行完畢！成功清理了 ${totalUpdated} 個文件的 restaurantType 欄位。`);
     console.log("=============================================");
   } catch (error) {
     console.error("執行過程中發生錯誤:", error);

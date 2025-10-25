@@ -1,4 +1,3 @@
-// src/components/admin/restaurantManagement/NewRestaurantModal.js
 "use client";
 
 import React, { useState, useEffect, useCallback, useContext } from "react";
@@ -37,7 +36,7 @@ const initialBusinessHours = DAYS_OF_WEEK.map((day) => ({
 
 const initialFormData = {
   restaurantName: { "zh-TW": "", en: "" },
-  noChineseName: false,
+  noChineseName: false, // ✅ 確保此處為布林值
   province: "",
   city: "",
   postalCode: "",
@@ -68,6 +67,55 @@ const initialFormData = {
   otherInfo: "",
   submittedBy: "",
   createdAt: "",
+};
+
+// -------------------------------------------------------------
+// 🚨 更新：深度清理函數
+// -------------------------------------------------------------
+const cleanData = (obj) => {
+  if (typeof obj !== "object" || obj === null) {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    // 陣列遞迴處理：過濾掉 undefined 和 null 元素
+    return obj
+      .map((item) => cleanData(item))
+      .filter((item) => item !== undefined && item !== null);
+  }
+
+  const newObj = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const value = obj[key];
+
+      // 🚨 關鍵修訂：特殊處理 noChineseName 欄位，確保它不是空陣列，而是布林值
+      if (
+        key === "noChineseName" &&
+        Array.isArray(value) &&
+        value.length === 0
+      ) {
+        newObj[key] = false; // 如果被錯誤處理成空陣列，則恢復為 false
+        continue;
+      }
+
+      // 僅處理非 undefined 的頂層值 (Firebase 不支援 undefined)
+      if (value !== undefined) {
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          !(value instanceof Date) &&
+          !value.hasOwnProperty("_isServerTimestamp")
+        ) {
+          const cleanedNested = cleanData(value);
+          newObj[key] = cleanedNested;
+        } else {
+          newObj[key] = value;
+        }
+      }
+    }
+  }
+  return newObj;
 };
 
 // -------------------------------------------------------------
@@ -118,7 +166,7 @@ const NewRestaurantModal = ({
               ? value === ""
                 ? ""
                 : Number(value)
-              : type === "checkbox"
+              : type === "checkbox" // <-- 關鍵的布林值處理邏輯
               ? checked
               : value,
         }));
@@ -156,13 +204,18 @@ const NewRestaurantModal = ({
   const handleFormSubmit = async (finalFormData) => {
     setIsSubmitting(true);
     setErrors({}); // 清空舊的錯誤狀態
+
+    console.log("Debug: finalFormData before validation:", finalFormData);
     let finalPhotoUrl = finalFormData.facadePhotoUrls?.[0] || "";
+
+    // 🚨 關鍵新增：使用 cleanData 確保數據中沒有 undefined 和陣列中的 null
+    const dataToWrite = cleanData(finalFormData);
 
     // ----------------------------------------------------
     // ✅ 關鍵修改 2: 執行驗證
     // ----------------------------------------------------
     const dataForValidation = {
-      ...finalFormData,
+      ...dataToWrite, // 🚨 使用清理後的數據進行驗證
       tempSelectedFile: selectedFile, // 將選中的檔案傳給驗證函數
     };
 
@@ -261,7 +314,7 @@ const NewRestaurantModal = ({
       const submittedByUid = currentUser?.uid || "admin_manual_entry";
 
       const finalDataForFirestore = {
-        ...finalFormData,
+        ...dataToWrite, // 🚨 使用清理後的數據 (dataToWrite)
         id: restaurantId, // 將 ID 寫入 document 內 (通常不需要，但有助於查詢)
         facadePhotoUrls: finalPhotoUrl ? [finalPhotoUrl] : [],
         submittedBy: submittedByUid,

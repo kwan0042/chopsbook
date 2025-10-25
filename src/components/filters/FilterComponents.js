@@ -6,7 +6,7 @@ import {
   faCalendarAlt,
   faClock,
   faChevronDown,
-  faArrowRight // 引入用於下拉選單的圖標
+  faArrowRight, // 引入用於下拉選單的圖標
 } from "@fortawesome/free-solid-svg-icons";
 
 // 處理多選框的元件，例如菜系、設施等
@@ -49,6 +49,7 @@ const RadioGroupFilter = ({
           id={`${title}-${option[valueKey]}`}
           name={title}
           checked={selectedValue === option[valueKey]}
+          // ⚡️ 修正：確保 onChange 事件呼叫 onSelect
           onChange={() => onSelect(option[valueKey])}
           className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
         />
@@ -87,9 +88,7 @@ const SelectDropdownFilter = ({
           onChange={(e) => onSelect(e.target.value)}
           className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8"
         >
-          <option value="" disabled hidden>
-            {placeholder || "請選擇..."}
-          </option>
+          <option value="">{placeholder || "請選擇..."}</option>
           {options.map((option) => (
             <option key={option} value={option}>
               {option}
@@ -185,6 +184,7 @@ const DateTimeFilter = ({ localFilters, handleFilterChange }) => {
             onClick={() => setCurrentMonth(new Date(year, month + 1))}
             className="text-gray-600 hover:text-blue-600"
           >
+            {/* ⚡️ 修正：使用 faArrowRight 替代錯誤的 > 符號 */}
             <FontAwesomeIcon icon={faArrowRight} />
           </button>
         </div>
@@ -285,7 +285,7 @@ const DateTimeFilter = ({ localFilters, handleFilterChange }) => {
           </div>
         )}
       </div>
-      <div>
+      {/* <div>
         <label
           htmlFor="partySize"
           className="block text-sm font-medium text-gray-700 mb-1"
@@ -305,7 +305,7 @@ const DateTimeFilter = ({ localFilters, handleFilterChange }) => {
           placeholder="人數"
           className="w-full p-2 border border-gray-300 rounded-lg"
         />
-      </div>
+      </div> */}
     </div>
   );
 };

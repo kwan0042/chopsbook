@@ -96,7 +96,7 @@ export default async function HomePageServer() {
 
         <div className="mx-auto py-10 px-2 sm:px-2 lg:px-12">
           {/* 【新增行動版區塊 A】：熱門分類 (移至頂部，只在手機顯示) */}
-          <div className="md:hidden pb-4">
+          <div className="md:hidden ">
             <TrendingCateSection />
           </div>
 
@@ -118,8 +118,8 @@ export default async function HomePageServer() {
               <PromotionsSection />
               <TrendingTopicsSection />
               <div className="hidden md:block">
-              <TrendingCateSection />
-            </div>
+                <TrendingCateSection />
+              </div>
             </div>
 
             {/* 3. 右側欄位 (只在網頁版顯示) */}
@@ -137,8 +137,6 @@ export default async function HomePageServer() {
             <LatestReviewsSection />
             <ClientSideHomeWrapper side="right" />
           </div>
-
-          
         </div>
       </main>
     </div>

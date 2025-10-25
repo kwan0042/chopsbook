@@ -27,17 +27,18 @@ const isRestaurantOpen = (businessHours, date, time) => {
   const [queryHour, queryMinute] = time.split(":").map(Number);
 
   const openTimeInMinutes = openHour * 60 + openMinute;
-  const closeTimeInMinutes = closeHour * 60 + closeMinute;
+  let closeTimeInMinutes = closeHour * 60 + closeMinute;
   let queryTimeInMinutes = queryHour * 60 + queryMinute;
 
   // 處理跨夜營業時間
   if (closeTimeInMinutes < openTimeInMinutes) {
     if (queryTimeInMinutes < openTimeInMinutes) {
       queryTimeInMinutes += 24 * 60;
+      closeTimeInMinutes += 24 * 60; // 統一時間軸
     }
     return (
       queryTimeInMinutes >= openTimeInMinutes &&
-      queryTimeInMinutes <= closeTimeInMinutes + 24 * 60
+      queryTimeInMinutes <= closeTimeInMinutes
     );
   } else {
     return (
@@ -47,21 +48,27 @@ const isRestaurantOpen = (businessHours, date, time) => {
   }
 };
 
-// 解析座位容量邏輯 (保持不變)
+// 解析座位容量邏輯 (保持不變 - 仍然被 passesSeatingFilter 使用)
 const parseSeatingCapacity = (seatingCapacityData) => {
   let min = 0;
   let max = Infinity;
 
   if (typeof seatingCapacityData === "string") {
     if (seatingCapacityData.includes("+")) {
-      min = parseInt(seatingCapacityData.replace("+", ""), 10);
+      // 處理 "51+"
+      min = parseInt(
+        seatingCapacityData.replace("+", "").replace("人", ""),
+        10
+      );
       max = Infinity;
     } else if (seatingCapacityData.includes("-")) {
-      const parts = seatingCapacityData.split("-");
+      // 處理 "10-20人"
+      const parts = seatingCapacityData.replace("人", "").split("-");
       min = parseInt(parts[0], 10);
       max = parseInt(parts[1], 10);
     } else {
-      min = parseInt(seatingCapacityData, 10);
+      // 處理單一數字
+      min = parseInt(seatingCapacityData.replace("人", ""), 10);
       max = min;
     }
   } else if (typeof seatingCapacityData === "number") {
@@ -76,13 +83,14 @@ const parseSeatingCapacity = (seatingCapacityData) => {
   return result;
 };
 
-// 檢查 Party Size 邏輯 (保持不變)
+// 檢查 Party Size 邏輯 (保持不變 - 仍需使用 parseSeatingCapacity)
 const passesSeatingFilter = (restaurant, partySize) => {
   if (isNaN(partySize) || partySize <= 0) {
     return true;
   }
 
   const seatingCapacityData = restaurant.seatingCapacity;
+  // 仍然需要解析餐廳的最大容量來檢查 partySize 是否超額
   const { max: restaurantMaxCapacity } =
     parseSeatingCapacity(seatingCapacityData);
 
@@ -114,26 +122,30 @@ export async function GET(request) {
       limit = 18,
       startAfterDocId,
       search,
-      searchLanguage, // 🚨 新增：接收前端傳來的語言標誌
+      searchLanguage, // 🚨 接收前端傳來的語言標誌
       favoriteRestaurantIds,
-      province,
+      // province, // ⚡️ 變動點 1.1: 移除 province
       city,
-      minAvgSpending,
+      // minAvgSpending, // ⚡️ 變動點 A: 忽略 minAvgSpending 參數
       maxAvgSpending,
       minRating,
       partySize,
-      minSeatingCapacity,
-      maxSeatingCapacity,
+      seatingCapacity, // ⚡️ 接收座位容量字串 (e.g., "10-20")
       reservationModes,
       paymentMethods,
       facilities,
       reservationDate,
       reservationTime,
       category, // 頂層菜系 (String)
-      restaurantType, // 🚨 新增: 接收 restaurantType 參數
-      subCategory, // 細分菜系/特色 (String) ⚠️ 這裡從 Array 變為 String
+      restaurantType, // 接收 restaurantType 參數
+      subCategory, // 細分菜系/特色 (String)
       businessHours,
     } = filters;
+
+    // ⚡️ 新增: 解析 maxAvgSpending
+    const parsedMaxAvgSpending = maxAvgSpending
+      ? parseInt(maxAvgSpending, 10)
+      : 0;
 
     // 將 favoriteRestaurantIds 轉換為陣列
     const favoriteIdsArray = Array.isArray(favoriteRestaurantIds)
@@ -158,16 +170,16 @@ export async function GET(request) {
     const hasOnlyFavoriteFilter =
       favoriteIdsArray.length > 0 &&
       !search &&
-      !province &&
+      // !province && // ⚡️ 變動點 1.2: 移除 province
       !city &&
       !category &&
       !restaurantType &&
       !subCategory &&
-      !minAvgSpending &&
+      // ⚡️ 變動點 A.2: 檢查人均消費欄位
       !maxAvgSpending &&
       !minRating &&
-      !minSeatingCapacity &&
-      !maxSeatingCapacity &&
+      // ⚡️ 變動點 A.1: 檢查新的 seatingCapacity 欄位
+      !seatingCapacity &&
       !reservationModes &&
       !paymentMethods &&
       !facilities &&
@@ -257,14 +269,14 @@ export async function GET(request) {
       ? [category]
       : [];
 
-    // 🚨 【修正】：準備 subCategory 陣列用於 Firestore 查詢 (DB 欄位現在是 String，但前端可能傳多個值，所以我們使用 'in')
+    // 🚨 【修正】：準備 subCategory 陣列用於 Firestore 查詢 (DB 欄位現在是 String，所以我們使用 'in')
     const subCategoriesArray = Array.isArray(subCategory)
       ? subCategory
       : subCategory && subCategory !== ""
       ? [subCategory]
       : [];
 
-    // 🚨 【修正】：準備 restaurantType 陣列用於 Firestore 查詢 (DB 欄位現在是 Array，所以使用 array-contains-any)
+    // 🚨 【修正】：準備 restaurantType 陣列用於 Firestore 查詢 (DB 欄位是 Array，所以使用 array-contains-any)
     const restaurantTypesArray = Array.isArray(restaurantType)
       ? restaurantType
       : restaurantType && restaurantType !== ""
@@ -301,9 +313,9 @@ export async function GET(request) {
       q = q.orderBy("__name__"); // 使用文件ID作為次要排序
 
       // 確保在搜尋模式下，地區篩選條件能夠與 searchField 一起組成有效的複合索引
-      if (province) {
-        q = q.where("province", "==", province);
-      }
+      // if (province) { // ⚡️ 變動點 1.3: 移除 province
+      //   q = q.where("province", "==", province);
+      // }
       if (city) {
         q = q.where("city", "==", city);
       }
@@ -314,9 +326,28 @@ export async function GET(request) {
 
       // A. 處理 Where 條件 (精確匹配與單一範圍查詢)
 
-      if (province) {
-        q = q.where("province", "==", province);
+      // ⚡️ 變動點 B: 處理 maxAvgSpending 的單一範圍查詢邏輯
+      let avgSpendingRangeField = null;
+      let avgSpendingRangeValue = null;
+
+      if (parsedMaxAvgSpending > 0) {
+        if (parsedMaxAvgSpending === 200) {
+          // 200 代表 200 或以上
+          avgSpendingRangeField = "avgSpending";
+          avgSpendingRangeValue = parsedMaxAvgSpending;
+          q = q.where("avgSpending", ">=", parsedMaxAvgSpending);
+        } else {
+          // 其他值 (例如 500) 代表 500 或以下
+          avgSpendingRangeField = "avgSpending";
+          avgSpendingRangeValue = parsedMaxAvgSpending;
+          q = q.where("avgSpending", "<=", parsedMaxAvgSpending);
+        }
       }
+      // ⚡️ 變動點 B 結束
+
+      // if (province) { // ⚡️ 變動點 1.4: 移除 province
+      //   q = q.where("province", "==", province);
+      // }
 
       if (city) {
         q = q.where("city", "==", city);
@@ -352,6 +383,12 @@ export async function GET(request) {
         );
       }
 
+      // ⚡️ 變動點 C: 新增 SeatingCapacity 的精確匹配查詢
+      if (seatingCapacity && typeof seatingCapacity === "string") {
+        q = q.where("seatingCapacity", "==", seatingCapacity);
+      }
+      // ⚡️ 變動點 C 結束
+
       // 獨立篩選器 3: facilities (陣列 OR)
       if (facilitiesArray.length > 0) {
         q = q.where(
@@ -382,29 +419,52 @@ export async function GET(request) {
       // 獨立篩選器 6: minRating (單一範圍查詢)
       const parsedMinRating = minRating ? parseInt(minRating, 10) : 0;
       if (parsedMinRating > 0) {
-        q = q.where("rating", ">=", parsedMinRating);
+        // ⚠️ 如果 avgSpending 已經是範圍查詢，minRating 必須在伺服器端過濾
+        if (!avgSpendingRangeField) {
+          q = q.where("rating", ">=", parsedMinRating);
+        }
       }
+
+      // 🚨 變動點 D: 判斷是否存在任何會強制複合索引的複雜篩選條件
+      const hasComplexFilter =
+        categoriesArray.length > 0 ||
+        subCategoriesArray.length > 0 ||
+        restaurantTypesArray.length > 0 ||
+        facilitiesArray.length > 0 ||
+        paymentMethodsArray.length > 0 ||
+        reservationModesArray.length > 0 ||
+        // 只有在 minRating 沒有被 avgSpending 排除時才算複雜篩選
+        (parsedMinRating > 0 && !avgSpendingRangeField);
+
+      // ⚡️ 變動點 E: 檢查是否存在單一範圍查詢 (avgSpending 或 rating)
+      const hasSingleRangeQuery =
+        !!avgSpendingRangeField ||
+        (parsedMinRating > 0 && !avgSpendingRangeField);
 
       // B. 處理 OrderBy 條件
 
-      // 依據 priority 降序排序 (必須保留)
+      // 1. 如果有單一範圍查詢 (avgSpending 或 rating)，它必須是第一個排序欄位
+      if (avgSpendingRangeField) {
+        // 範圍查詢 (<=) 必須搭配該欄位的相同方向排序 (desc)
+        // 範圍查詢 (>=) 必須搭配該欄位的相同方向排序 (asc)
+        const direction = parsedMaxAvgSpending === 200 ? "asc" : "desc";
+        q = q.orderBy("avgSpending", direction);
+      } else if (parsedMinRating > 0) {
+        // 如果 avgSpending 沒有佔用範圍查詢，並且 minRating 存在
+        q = q.orderBy("rating", "desc"); // minRating >= 使用 desc 排序 (默認)
+      }
+
+      // 2. 依據 priority 降序排序 (必須保留)
       q = q.orderBy("priority", "desc");
 
-      // 如果 minRating 存在，必須在 priority 之後以 rating 排序
-      if (parsedMinRating > 0) {
-        // ⚠️ 這需要複合索引 (priority, desc), (rating, desc)
-        q = q.orderBy("rating", "desc");
+      // 🚨 關鍵修改區塊：只有在沒有複雜篩選時才使用 updatedAt 排序
+      if (!hasComplexFilter) {
+        // 預設載入模式：priority + updatedAt
+        q = q.orderBy("updatedAt", "desc");
       }
 
-      // 添加一個預設排序，如果沒有其他排序
-      if (
-        categoriesArray.length === 0 &&
-        restaurantTypesArray.length === 0 &&
-        subCategoriesArray.length === 0 && // 🚨 納入 subCategory 檢查
-        parsedMinRating === 0
-      ) {
-        q = q.orderBy("__name__");
-      }
+      // 添加一個預設排序 (文件ID，升序)，作為最終的 tie-breaker
+      q = q.orderBy("__name__");
     }
     // ----------------------------------------------------
     // ⬆️ 標準查詢邏輯結束 ⬆️
@@ -453,15 +513,9 @@ export async function GET(request) {
     let filteredRestaurants = restaurantsFromDb.filter((restaurant) => {
       // 檢查不在 Firestore 查詢中的篩選條件
 
-      // 伺服器端過濾 1: minAvgSpending (不變)
-      const passesMinAvgSpending =
-        !minAvgSpending ||
-        restaurant.avgSpending >= parseInt(minAvgSpending, 10);
-
-      // 伺服器端過濾 2: maxAvgSpending (不變)
-      const passesMaxAvgSpending =
-        !maxAvgSpending ||
-        restaurant.avgSpending <= parseInt(maxAvgSpending, 10);
+      // ⚡️ 變動點 F: MinAvgSpending/MaxAvgSpending 現在都透過 Firestore 查詢，這裡設為 true
+      const passesMinAvgSpending = true;
+      const passesMaxAvgSpending = true;
 
       // 設置為 true，因為已在 Firestore 查詢中處理 (不變)
       const passesMinRating = true;
@@ -469,32 +523,15 @@ export async function GET(request) {
       const passesPaymentMethods = true;
       const passesFacilities = true;
       const passesCategory = true;
-
-      // 🚨 修正: restaurantType 已在 Firestore 查詢中使用 array-contains-any 處理，因此這裡設為 true
       const passesRestaurantType = true;
-      // 🚨 修正: subCategory 已在 Firestore 查詢中使用 ==/in 處理，因此這裡設為 true
       const passesSubCategory = true;
+      const passesSeatingCapacityFilter = true;
 
       // 伺服器端過濾 3: 收藏餐廳篩選 (只有在標準流程中，才在這裡過濾)
       const passesFavorites =
         !favoriteIdsArray || // 使用 favoriteIdsArray
         favoriteIdsArray.length === 0 ||
         favoriteIdsArray.includes(restaurant.id);
-
-      // 伺服器端過濾 4: Min/Max Seating Capacity (不變)
-      const { min: restaurantMinCapacity, max: restaurantMaxCapacity } =
-        parseSeatingCapacity(restaurant.seatingCapacity);
-
-      const parsedMinSeating = minSeatingCapacity
-        ? parseInt(minSeatingCapacity, 10)
-        : 0;
-      const parsedMaxSeating = maxSeatingCapacity
-        ? parseInt(maxSeatingCapacity, 10)
-        : Infinity;
-
-      const passesMinMaxSeating =
-        (!minSeatingCapacity || restaurantMinCapacity >= parsedMinSeating) &&
-        (!maxSeatingCapacity || restaurantMaxCapacity <= parsedMaxSeating);
 
       // 伺服器端過濾 5: partySize (不變)
       const passesPartySize = passesSeatingFilter(
@@ -566,7 +603,7 @@ export async function GET(request) {
         passesPaymentMethods &&
         passesFacilities &&
         passesFavorites &&
-        passesMinMaxSeating &&
+        passesSeatingCapacityFilter && // ⚡️ 設為 true
         passesPartySize &&
         passesTimeAndHoursFilter &&
         passesSearch
