@@ -64,15 +64,23 @@ const RadioGroupFilter = ({
   </div>
 );
 
-// ⚡️ 新增：處理單選下拉列表的元件 (例如餐廳類型)
+// ⚡️ 新增/更新：處理單選下拉列表的元件 (例如餐廳類型、菜系)
 const SelectDropdownFilter = ({
-  title, // 用於 HTML id 和 label
+  title, // ⚡️ 用於 HTML id 和 label
   placeholder,
-  options, // 字符串陣列
+  options, // 應該是 { label, value } 陣列，但為了兼容舊的 string[]，這裡接受 string[] 或 { label, value }[]
   selectedValue,
   onSelect,
+  disabled = false,
+  allowClear = false,
 }) => {
   const effectiveValue = selectedValue || "";
+
+  // 處理 options 格式，確保 options 具備 label/value 結構
+  const normalizedOptions = options.map((option) =>
+    typeof option === "string" ? { label: option, value: option } : option
+  );
+
   return (
     <div>
       <label
@@ -84,14 +92,17 @@ const SelectDropdownFilter = ({
       <div className="relative">
         <select
           id={title}
-          value={effectiveValue} // 預設使用第一個選項作為初始/清除狀態
+          value={effectiveValue}
           onChange={(e) => onSelect(e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8"
+          disabled={disabled}
+          className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8 
+             ${disabled ? "bg-gray-100 cursor-not-allowed" : ""}`}
         >
+          {/* 增加一個選項用於清除/預設 */}
           <option value="">{placeholder || "請選擇..."}</option>
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
+          {normalizedOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>
@@ -184,7 +195,7 @@ const DateTimeFilter = ({ localFilters, handleFilterChange }) => {
             onClick={() => setCurrentMonth(new Date(year, month + 1))}
             className="text-gray-600 hover:text-blue-600"
           >
-            {/* ⚡️ 修正：使用 faArrowRight 替代錯誤的 > 符號 */}
+            {/* ⚡️ 修正：使用 faArrowRight 圖標 */}
             <FontAwesomeIcon icon={faArrowRight} />
           </button>
         </div>

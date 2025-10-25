@@ -14,12 +14,41 @@ import {
   getDoc,
 } from "firebase/firestore";
 import Link from "next/link";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faStar, faStarHalfStroke } from "@fortawesome/free-solid-svg-icons";
+
+// 引入 useRouter 來使用 router.push()
+import { useRouter } from "next/navigation";
+
+const renderStars = (rating) => {
+  const fullStars = Math.floor(rating);
+  const hasHalfStar = rating % 1 !== 0;
+  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+  return (
+    <div className="flex items-center text-yellow-400">
+      {Array.from({ length: fullStars }, (_, i) => (
+        <FontAwesomeIcon key={`full-${i}`} icon={faStar} />
+      ))}
+      {hasHalfStar && <FontAwesomeIcon key="half" icon={faStarHalfStroke} />}
+      {Array.from({ length: emptyStars }, (_, i) => (
+        <FontAwesomeIcon
+          key={`empty-${i}`}
+          icon={faStar}
+          className="text-gray-300"
+        />
+      ))}
+    </div>
+  );
+};
 
 /**
  * LatestReviewsSection: 顯示最新使用者食評的區塊。
  */
 const LatestReviewsSection = () => {
   const { db, loadingUser, appId } = useContext(AuthContext);
+  // 初始化 useRouter
+  const router = useRouter();
 
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -108,17 +137,21 @@ const LatestReviewsSection = () => {
             >
               <p className="font-bold text-left">{review.restaurantName}</p>
               <p className="mt-1 text-left">{review.reviewTitle}</p>
-              <p
-                // 確保它還是靠右對齊
-                className="mt-1 block text-right text-xs underline hover:text-indigo-500 transition-colors duration-150 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
+              <div className="mt-2 flex items-center justify-between">
+                {renderStars(review.overallRating)}
+                <p
+                  // 確保它還是靠右對齊
+                  className="mt-1 block text-right text-xs underline hover:text-indigo-500 transition-colors duration-150 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
 
-                  router.push(`/user/${review.userId}`);
-                }}
-              >
-                {review.username}
-              </p>
+                    // 解決了 router 未定義的問題，現在點擊人名會導航到用戶頁
+                    router.push(`/user/${review.userId}`);
+                  }}
+                >
+                  {review.username}
+                </p>
+              </div>
             </Link>
           ))}
         </div>

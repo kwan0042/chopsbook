@@ -80,13 +80,20 @@ const FilterSidebar = ({
   onResetFilters,
   onClose,
 }) => {
-  // ⚡️ 重新引入 seatingCapacity 的初始化
+  // ⚡️ 狀態初始化：將 category 和 subCategory 轉換為單一字串
+  const initialCategory = Array.isArray(initialFilters.category)
+    ? initialFilters.category[0] || ""
+    : initialFilters.category || "";
+  const initialSubCategory = Array.isArray(initialFilters.subCategory)
+    ? initialFilters.subCategory[0] || ""
+    : initialFilters.subCategory || "";
+
   const [localFilters, setLocalFilters] = useState({
     ...initialFilters,
+    category: initialCategory,
+    subCategory: initialSubCategory,
     seatingCapacity:
-      initialFilters.seatingCapacity ||
-      initialFilters.minSeatingCapacity || // 舊欄位向下兼容
-      "",
+      initialFilters.seatingCapacity || initialFilters.minSeatingCapacity || "",
   });
 
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
@@ -169,12 +176,20 @@ const FilterSidebar = ({
     const newSeatingCapacity =
       initialFilters.seatingCapacity || initialFilters.minSeatingCapacity || "";
 
+    // ⚡️ 確保 incoming category/subCategory 被視為單一字串
+    const newCategory = Array.isArray(initialFilters.category)
+      ? initialFilters.category[0] || ""
+      : initialFilters.category || "";
+    const newSubCategory = Array.isArray(initialFilters.subCategory)
+      ? initialFilters.subCategory[0] || ""
+      : initialFilters.subCategory || "";
+
     const newLocalFilters = {
       ...initialFilters,
+      category: newCategory,
+      subCategory: newSubCategory,
       seatingCapacity: newSeatingCapacity,
     };
-
-  
 
     // 僅當實際值發生變化時才更新狀態，避免無限循環
     if (
@@ -222,50 +237,36 @@ const FilterSidebar = ({
     });
   }, []);
 
+  // ⚡️ 核心修改：將多選邏輯改為單選邏輯
   const handleCuisineSelectChange = useCallback(
     (key, value, isCategory = false) => {
       setLocalFilters((prevFilters) => {
-        const currentCategoryValues = prevFilters.category || [];
-        const currentSubCategoryValues = prevFilters.subCategory || [];
-        let newCategoryValues = [...currentCategoryValues];
-        let newSubCategoryValues = [...currentSubCategoryValues];
-
-        if (isCategory) {
-          const subTypes = SUB_CATEGORY_MAP[value] || [];
-          const isSelected = newCategoryValues.includes(value);
-
-          if (isSelected) {
-            newCategoryValues = newCategoryValues.filter((v) => v !== value);
-            newSubCategoryValues = newSubCategoryValues.filter(
-              (v) => !subTypes.includes(v)
-            );
-          } else {
-            newCategoryValues.push(value);
-          }
-        } else {
-          if (currentSubCategoryValues.includes(value)) {
-            newSubCategoryValues = newSubCategoryValues.filter(
-              (item) => item !== value
-            );
-          } else {
-            newSubCategoryValues.push(value);
-          }
-        }
-
         const nextFilters = { ...prevFilters };
 
-        if (newCategoryValues.length > 0) {
-          nextFilters.category = newCategoryValues;
+        if (isCategory) {
+          // 選擇主類別
+          if (prevFilters.category === value) {
+            // 如果點擊當前選中的類別，則取消選擇
+            delete nextFilters.category;
+            delete nextFilters.subCategory; // 清除細分
+          } else {
+            // 選擇新的類別，並清除細分
+            nextFilters.category = value;
+            delete nextFilters.subCategory;
+          }
+          setExpandedCategory(null); // 點擊主菜系後收起面板
         } else {
-          delete nextFilters.category;
+          // 選擇細分類別
+          if (prevFilters.subCategory === value) {
+            // 如果點擊當前選中的細分類別，則取消選擇
+            delete nextFilters.subCategory;
+          } else {
+            // 選擇新的細分類別
+            nextFilters.subCategory = value;
+          }
         }
 
-        if (newSubCategoryValues.length > 0) {
-          nextFilters.subCategory = newSubCategoryValues;
-        } else {
-          delete nextFilters.subCategory;
-        }
-
+        // 確保 cuisineType 被刪除 (舊欄位)
         delete nextFilters.cuisineType;
 
         return nextFilters;
@@ -274,21 +275,27 @@ const FilterSidebar = ({
     []
   );
 
+  // ⚡️ 輔助函數修改：檢查單一字串是否被選中
   const isCategorySelected = useCallback(
-    (category) => (localFilters.category || []).includes(category),
+    (category) => localFilters.category === category,
     [localFilters.category]
   );
 
+  // ⚡️ 輔助函數修改：檢查是否為當前展開的類別且選中了子類別
   const isSubCategoryPartiallySelected = useCallback(
     (category) => {
-      const selectedSubCuisines = localFilters.subCategory || [];
+      // 由於現在是單選，不需要檢查 Partial，只需檢查當前選中的 subCategory 是否屬於這個 category
+      if (!localFilters.subCategory) return false;
+
       const subTypes = SUB_CATEGORY_MAP[category] || [];
-      if (subTypes.length === 0) return false;
-      const selectedCount = subTypes.filter((sub) =>
-        selectedSubCuisines.includes(sub)
-      ).length;
+
+      // 如果 subCategory 有值，且它屬於當前 category，並且 category 本身沒有被選中，則表示「細分選中」
+      const isSubSelectedInThisCategory = subTypes.includes(
+        localFilters.subCategory
+      );
       const isCategoryActive = isCategorySelected(category);
-      return selectedCount > 0 && !isCategoryActive;
+
+      return isSubSelectedInThisCategory && !isCategoryActive;
     },
     [localFilters.subCategory, isCategorySelected]
   );
@@ -327,25 +334,25 @@ const FilterSidebar = ({
 
     delete newFilters.cuisineType;
 
-    // ⚡️ 刪除舊的座位數欄位，只保留新的 seatingCapacity
+    // 刪除舊的座位數欄位，只保留新的 seatingCapacity
     delete newFilters.minSeatingCapacity;
     delete newFilters.maxSeatingCapacity;
     delete newFilters.partySize;
 
-    if (
-      newFilters.category &&
-      Array.isArray(newFilters.category) &&
-      newFilters.category.length === 0
-    ) {
+    // ⚡️ 修正 category 和 subCategory 的清除邏輯 (現在是單一字串)
+    if (newFilters.category === "") {
       delete newFilters.category;
     }
-
-    if (
-      newFilters.subCategory &&
-      Array.isArray(newFilters.subCategory) &&
-      newFilters.subCategory.length === 0
-    ) {
+    if (newFilters.subCategory === "") {
       delete newFilters.subCategory;
+    }
+    // 確保如果 category 有值，subCategory 必須屬於它
+    if (newFilters.subCategory && newFilters.category) {
+      const subTypes = SUB_CATEGORY_MAP[newFilters.category] || [];
+      // 如果 subCategory 不屬於選中的 category，則清除 subCategory
+      if (!subTypes.includes(newFilters.subCategory)) {
+        delete newFilters.subCategory;
+      }
     }
 
     if (avgSpending > 0) {
@@ -365,14 +372,20 @@ const FilterSidebar = ({
       const value = newFilters[key];
       const isValueEmpty =
         value === null || value === undefined || value === "";
-      const isArrayEmpty = Array.isArray(value) && value.length === 0;
+      // ⚡️ 只對非 category/subCategory 的陣列進行空陣列檢查
+      const isArrayEmpty =
+        Array.isArray(value) &&
+        value.length === 0 &&
+        key !== "category" &&
+        key !== "subCategory";
 
       const isDefaultEmpty =
         (key === "province" && value === "") ||
         (key === "city" && value === "") ||
         (key === "restaurantType" && value === "") ||
-        // ⚡️ 確保 seatingCapacity 為空字串時被移除
         (key === "seatingCapacity" && value === "");
+
+      // ⚡️ 對於 category/subCategory, 已經在上邊處理了空字串，這裡不再重複處理
 
       if (isValueEmpty || isDefaultEmpty || isArrayEmpty) {
         delete newFilters[key];
@@ -418,17 +431,23 @@ const FilterSidebar = ({
   ];
 
   const hasFiltersApplied = () => {
+    // ⚡️ 調整檢查邏輯，排除 category/subCategory 的空值檢查（因為它們會作為單一字串被檢查）
     const filterKeys = Object.keys(localFilters).filter(
-      // ⚡️ 檢查 seatingCapacity 欄位
-      (key) => key !== "seatingCapacity"
+      (key) =>
+        key !== "seatingCapacity" && key !== "category" && key !== "subCategory"
     );
     // 檢查是否有其他篩選器
     const hasOtherFilters = filterKeys.length > 0;
-    // 檢查 seatingCapacity 是否被選取 (非空字串)
+
+    // ⚡️ 檢查單選欄位是否被選取 (非空字串)
+    const isCategorySelected = !!localFilters.category;
+    const isSubCategorySelected = !!localFilters.subCategory;
     const isSeatingCapacitySelected = !!localFilters.seatingCapacity;
 
     return (
       hasOtherFilters ||
+      isCategorySelected ||
+      isSubCategorySelected ||
       isSeatingCapacitySelected ||
       showFavoritesOnly ||
       avgSpending > 0
@@ -560,7 +579,7 @@ const FilterSidebar = ({
             </div>
           </FilterGroup>
 
-          {/* -------------------- 菜系類別 (主菜系 + 細分菜系 滑動面板) -------------------- */}
+          {/* -------------------- 菜系類別 (主菜系 + 細分菜系 滑動面板 - 已修改為單選) -------------------- */}
           <FilterGroup
             title="菜系類別"
             isCollapsed={isCuisineCollapsed}
@@ -582,7 +601,7 @@ const FilterSidebar = ({
                   const subTypes = SUB_CATEGORY_MAP[category];
                   const hasSubTypes = subTypes && subTypes.length > 0;
                   const isSelected = isCategorySelected(category);
-                  const isPartial = isSubCategoryPartiallySelected(category);
+                  const isPartial = isSubCategoryPartiallySelected(category); // 現在只是檢查是否有子項被選中
 
                   return (
                     <div
@@ -591,8 +610,9 @@ const FilterSidebar = ({
                     >
                       <div className="flex items-center flex-grow">
                         <input
-                          type="checkbox"
+                          type="radio" // ⚡️ 從 checkbox 改為 radio
                           id={`cuisine-category-${category}`}
+                          name="category-group" // ⚡️ 添加 name 屬性使其為單選組
                           checked={isSelected}
                           disabled={!!expandedCategory}
                           onChange={() =>
@@ -602,19 +622,13 @@ const FilterSidebar = ({
                               true
                             )
                           }
-                          className={`h-4 w-4 rounded focus:ring-blue-500
-${
-  isPartial
-    ? "indeterminate text-blue-500 bg-blue-100 border-blue-500"
-    : "text-blue-600 border-gray-300"
-}
-${!!expandedCategory ? "cursor-not-allowed opacity-60" : ""}
-`}
-                          ref={(el) => {
-                            if (el) {
-                              el.indeterminate = isPartial;
+                          className={`h-4 w-4 rounded-full text-blue-600 border-gray-300 focus:ring-blue-500
+                            ${
+                              !!expandedCategory
+                                ? "cursor-not-allowed opacity-60"
+                                : ""
                             }
-                          }}
+                          `}
                         />
                         <label
                           htmlFor={`cuisine-category-${category}`}
@@ -623,8 +637,9 @@ ${!!expandedCategory ? "cursor-not-allowed opacity-60" : ""}
                           }`}
                         >
                           {category}
-                          {isPartial && " (含細分選中)"}
+                          {isPartial && " (細分選中)"}
                         </label>
+                        {/* ⚡️ 移除 indeterminate 邏輯，因為單選不需要 */}
                       </div>
 
                       {hasSubTypes && (
@@ -639,6 +654,34 @@ ${!!expandedCategory ? "cursor-not-allowed opacity-60" : ""}
                     </div>
                   );
                 })}
+                {/* ⚡️ 增加一個清除主菜系的選項 */}
+                <div className="flex items-center">
+                  <input
+                    type="radio"
+                    id="cuisine-category-clear"
+                    name="category-group"
+                    checked={!localFilters.category}
+                    disabled={!!expandedCategory}
+                    onChange={() =>
+                      handleCuisineSelectChange("category", "", true)
+                    }
+                    className={`h-4 w-4 rounded-full text-blue-600 border-gray-300 focus:ring-blue-500
+                          ${
+                            !!expandedCategory
+                              ? "cursor-not-allowed opacity-60"
+                              : ""
+                          }
+                        `}
+                  />
+                  <label
+                    htmlFor="cuisine-category-clear"
+                    className={`ml-2 text-gray-700 cursor-pointer ${
+                      !!expandedCategory ? "opacity-60" : ""
+                    }`}
+                  >
+                    不限主菜系
+                  </label>
+                </div>
               </div>
 
               <div
@@ -666,16 +709,36 @@ ${!!expandedCategory ? "cursor-not-allowed opacity-60" : ""}
                       </button>
                     </div>
                     <div className="space-y-2 px-2 pb-2">
+                      {/* ⚡️ 增加一個清除細分菜系的選項 */}
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id={`cuisine-subType-clear`}
+                          name="subCategory-group"
+                          checked={!localFilters.subCategory}
+                          onChange={() =>
+                            handleCuisineSelectChange("subCategory", "", false)
+                          }
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded-full focus:ring-blue-500"
+                        />
+                        <label
+                          htmlFor={`cuisine-subType-clear`}
+                          className="ml-2 text-gray-700 cursor-pointer font-semibold"
+                        >
+                          不限細分
+                        </label>
+                      </div>
+
                       {(SUB_CATEGORY_MAP[expandedCategory] || []).map(
                         (subType) => {
-                          const isSelected = (
-                            localFilters.subCategory || []
-                          ).includes(subType);
+                          const isSelected =
+                            localFilters.subCategory === subType; // ⚡️ 檢查單一值
                           return (
                             <div key={subType} className="flex items-center">
                               <input
-                                type="checkbox"
+                                type="radio" // ⚡️ 從 checkbox 改為 radio
                                 id={`cuisine-subType-${subType}`}
+                                name="subCategory-group" // ⚡️ 添加 name 屬性使其為單選組
                                 checked={isSelected}
                                 onChange={() =>
                                   handleCuisineSelectChange(
@@ -684,7 +747,7 @@ ${!!expandedCategory ? "cursor-not-allowed opacity-60" : ""}
                                     false
                                   )
                                 }
-                                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                className="h-4 w-4 text-blue-600 border-gray-300 rounded-full focus:ring-blue-500"
                               />
                               <label
                                 htmlFor={`cuisine-subType-${subType}`}
@@ -711,6 +774,7 @@ ${!!expandedCategory ? "cursor-not-allowed opacity-60" : ""}
             }
           >
             <SelectDropdownFilter
+              title="餐廳類型"
               placeholder="請選擇餐廳類型"
               options={displayRestaurantTypes}
               selectedValue={localFilters.restaurantType}

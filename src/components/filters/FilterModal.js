@@ -45,7 +45,8 @@ const parseSeatingCapacityOptions = (options) => {
           max: parseInt(maxStr, 10),
         };
       } else if (option.includes("+")) {
-        const minStr = option.replace("+", "");
+        // 修正：確保處理 '51+人' 的情況
+        const minStr = option.replace("+", "").replace("人", "");
         return {
           label: `${minStr}+ 人`,
           value: `${minStr}+`,
@@ -84,11 +85,10 @@ const FilterModal = ({
   const [avgSpending, setAvgSpending] = useState(0);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  
   const [isTimeAndPartyCollapsed, setIsTimeAndPartyCollapsed] = useState(true);
   const [isRegionCollapsed, setIsRegionCollapsed] = useState(true);
-  const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(true); // 👈 主菜系折疊狀態
-  const [isSubCategoryCollapsed, setIsSubCategoryCollapsed] = useState(true); // 👈 細分菜系折疊狀態
+  // ⚡️ 修正：將菜系篩選合併到一個折疊狀態
+  const [isCuisineCollapsed, setIsCuisineCollapsed] = useState(true);
   const [isRestaurantTypeCollapsed, setIsRestaurantTypeCollapsed] =
     useState(true);
   const [isAvgSpendingCollapsed, setIsAvgSpendingCollapsed] = useState(true);
@@ -101,6 +101,10 @@ const FilterModal = ({
   const [isPaymentMethodsCollapsed, setIsPaymentMethodsCollapsed] =
     useState(true);
   const [isFacilitiesCollapsed, setIsFacilitiesCollapsed] = useState(true);
+
+  // ⚡️ 移除：不再需要獨立的 isCategoryCollapsed 和 isSubCategoryCollapsed
+  // const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(true);
+  // const [isSubCategoryCollapsed, setIsSubCategoryCollapsed] = useState(true);
 
   const initialFiltersJsonRef = useRef(JSON.stringify(initialFilters));
 
@@ -155,15 +159,20 @@ const FilterModal = ({
           }
         }
 
-        // 處理單選下拉列表和單選按鈕的清空邏輯 (包括 restaurantType, businessHours, seating)
-        const isRestaurantTypeDefault =
-          key === "restaurantType" && value === "";
+        // 處理單選下拉列表和單選按鈕的清空邏輯
+        // 包含 restaurantType, businessHours, category, subCategory
+        const isDefaultSelect =
+          (key === "restaurantType" ||
+            key === "category" ||
+            key === "subCategory" ||
+            key === "businessHours") &&
+          value === "";
 
         if (
           value === "" ||
           value === null ||
           value === undefined ||
-          isRestaurantTypeDefault
+          isDefaultSelect
         ) {
           const { [key]: _, ...rest } = prevFilters;
           return rest;
@@ -178,7 +187,7 @@ const FilterModal = ({
     [cities]
   );
 
-  // 處理多選篩選器的通用函數 (用於 category, subCategory, reservationModes...)
+  // 處理多選篩選器的通用函數 (用於 reservationModes, paymentMethods, facilities...) (保持不變)
   const handleMultiSelectFilterChange = useCallback((key, value) => {
     setLocalFilters((prevFilters) => {
       const currentValues = prevFilters[key] || [];
@@ -214,10 +223,8 @@ const FilterModal = ({
       delete newFilters.favoriteRestaurantIds;
     }
 
-    // ⚡️ 核心修正：確保只使用 category 和 subCategory
+    // ⚡️ 核心修正：只對 Reservation Modes, Payment Methods, Facilities 進行陣列化處理
     const multiSelectKeys = [
-      "category",
-      "subCategory",
       "reservationModes",
       "paymentMethods",
       "facilities",
@@ -226,20 +233,23 @@ const FilterModal = ({
     multiSelectKeys.forEach((key) => {
       const arr = ensureArray(newFilters[key]);
       if (arr.length > 0) {
-        // 確保陣列賦值到正確的 key (category 或 subCategory)
         newFilters[key] = arr;
       } else {
         delete newFilters[key];
       }
     });
 
-    
     // 移除所有值為空或未定義的屬性
     Object.keys(newFilters).forEach((key) => {
       const value = newFilters[key];
 
-      // 檢查是否為預設的下拉列表值 (餐廳類型預設值為 "")
-      const isRestaurantTypeDefault = key === "restaurantType" && value === "";
+      // 檢查是否為預設的下拉列表值 (category, subCategory, restaurantType 預設值為 "")
+      const isDefaultSelect =
+        (key === "restaurantType" ||
+          key === "category" ||
+          key === "subCategory" ||
+          key === "businessHours") &&
+        value === "";
 
       // 處理地區下拉選單的預設值（字串陣列的第一個元素）
       const isProvinceDefault =
@@ -254,7 +264,7 @@ const FilterModal = ({
         value === null ||
         value === undefined ||
         (Array.isArray(value) && value.length === 0) ||
-        isRestaurantTypeDefault ||
+        isDefaultSelect ||
         isProvinceDefault ||
         isCityDefault
       ) {
@@ -262,7 +272,7 @@ const FilterModal = ({
       }
     });
 
-    // 傳遞 newFilters (此時應只包含 category 和 subCategory)
+    // 傳遞 newFilters
     onApplyFilters(newFilters);
     onClose();
   };
@@ -406,6 +416,7 @@ const FilterModal = ({
             }
           >
             <SelectDropdownFilter
+              title="餐廳類型"
               placeholder="請選擇餐廳類型"
               options={displayRestaurantTypes}
               selectedValue={localFilters.restaurantType}
@@ -413,37 +424,30 @@ const FilterModal = ({
             />
           </FilterGroup>
 
-          {/* -------------------- 菜系類別 (主菜系 - category) -------------------- */}
+          {/* -------------------- ⚡️ 菜系類別 (主菜系/細分特色) - 合併為單一滑動面板 -------------------- */}
           <FilterGroup
-            title="主菜系 (Category)"
-            isCollapsed={isCategoryCollapsed}
-            onToggle={() => setIsCategoryCollapsed(!isCategoryCollapsed)}
+            title="菜系類別"
+            isCollapsed={isCuisineCollapsed}
+            onToggle={() => setIsCuisineCollapsed(!isCuisineCollapsed)}
           >
-            <CheckboxesFilter
-              title="category"
-              options={categoryOptions} // 綁定到主菜系選項
-              selected={localFilters.category || []} // 綁定到 category
-              onToggle={(value) =>
-                handleMultiSelectFilterChange("category", value)
-              }
-            />
-          </FilterGroup>
-          {/* ---------------------------------------------------------------------- */}
-
-          {/* -------------------- 細分菜系/特色餐飲 (SubCategory) -------------------- */}
-          <FilterGroup
-            title="細分菜系/特色 (SubCategory)"
-            isCollapsed={isSubCategoryCollapsed}
-            onToggle={() => setIsSubCategoryCollapsed(!isSubCategoryCollapsed)}
-          >
-            <CheckboxesFilter
-              title="subCategory"
-              options={subcategoryOptions} // 綁定到細分菜系選項
-              selected={localFilters.subCategory || []} // 綁定到 subCategory
-              onToggle={(value) =>
-                handleMultiSelectFilterChange("subCategory", value)
-              }
-            />
+            <div className="space-y-4">
+              {/* 主菜系 (Category) */}
+              <SelectDropdownFilter
+                title="category"
+                placeholder="請選擇主菜系"
+                options={categoryOptions}
+                selectedValue={localFilters.category}
+                onSelect={(value) => handleFilterChange("category", value)}
+              />
+              {/* 細分菜系/特色餐飲 (SubCategory) */}
+              <SelectDropdownFilter
+                title="subCategory"
+                placeholder="請選擇細分菜系"
+                options={subcategoryOptions}
+                selectedValue={localFilters.subCategory}
+                onSelect={(value) => handleFilterChange("subCategory", value)}
+              />
+            </div>
           </FilterGroup>
           {/* ---------------------------------------------------------------------- */}
 
@@ -502,6 +506,7 @@ const FilterModal = ({
                   handleFilterChange("minSeatingCapacity", undefined);
                   handleFilterChange("maxSeatingCapacity", undefined);
                 } else {
+                  // 解析 value 的格式 (e.g., "1-20" 或 "51+")
                   const selectedOption = parsedSeatingCapacities.find(
                     (opt) => opt.value === value
                   );
