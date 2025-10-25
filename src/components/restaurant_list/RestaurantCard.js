@@ -128,132 +128,223 @@ const RestaurantCard = ({
       <div
         className={`bg-white shadow-lg overflow-hidden h-fit ${
           isGridView
-            ? "hover:scale-105 rounded-xl transform transition duration-300 ease-in-out"
-            : "flex flex-row items-start rounded-xl p-3 border border-gray-200 hover:shadow-md"
+            ? "hover:scale-105 rounded-xl transform transition duration-300 ease-in-out" // 網格視圖不變
+            : "flex flex-col rounded-xl p-3 border border-gray-200 hover:shadow-md md:flex-row md:items-start" // 列表視圖：手機 (flex-col) / 網頁 (md:flex-row)
         }`}
       >
-        {/* 圖片區域 - 點擊導航 */}
-        <Link href={`/restaurants/${restaurant.id}`} passHref>
-          <div
-            className={`relative flex-shrink-0 rounded-lg overflow-hidden ${
-              isGridView ? "w-full h-48" : "w-[350px] h-[200px] mr-4"
-            }`}
-          >
-            <img
-              src={displayImageUrl}
-              alt={
-                restaurant.restaurantName?.["zh-TW"] ||
-                restaurant.restaurantName?.en ||
-                "餐廳圖片"
-              }
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = `https://placehold.co/${placeholderSize}/CCCCCC/333333?text=圖片`;
-              }}
-            />
+        {/* === 手機列表視圖專用：餐廳名稱 + 評分/評論 (頂部獨立一行) === */}
+        {!isGridView && (
+          <div className="flex items-center mb-3  md:mb-2 md:hidden">
+            {/* 餐廳名稱 - 點擊導航 */}
+            <Link
+              href={`/restaurants/${restaurant.id}`}
+              passHref
+              className=" pr-2"
+            >
+              <h3
+                className={`font-bold text-gray-900 leading-tight text-wrap hover:underline cursor-pointer text-base`}
+              >
+                {restaurant.restaurantName?.["zh-TW"] ||
+                  restaurant.restaurantName?.en ||
+                  `未知餐廳`}
+              </h3>
+            </Link>
           </div>
-        </Link>
+        )}
+        {/* ========================================================== */}
 
+        {/* === 圖片與詳細資訊區域 (手機 flex-row / 網頁 md:flex-row) === */}
         <div
-          className={`${isGridView ? "p-6 h-60" : "flex-grow text-left py-1"}`}
+          className={`flex w-full ${
+            isGridView ? "flex-col" : "flex-row items-start"
+          }`}
         >
-          {/* 餐廳名稱 - 點擊導航 */}
+          {/* 圖片區域 - 點擊導航 */}
           <Link href={`/restaurants/${restaurant.id}`} passHref>
-            <h3
-              className={`font-bold text-gray-900 mb-1 leading-tight text-wrap hover:underline cursor-pointer ${
-                isGridView ? "text-base" : "text-base"
+            <div
+              className={`relative flex-shrink-0 rounded-lg overflow-hidden ${
+                isGridView
+                  ? "w-full h-48"
+                  : "w-[170px] h-48 mr-3 md:w-[150px] md:h-48 md:mr-4 lg:w-[350px] lg:h-[200px]" // 手機列表縮小 w-[120px] h-32
               }`}
             >
-              {restaurant.restaurantName?.["zh-TW"] ||
-                restaurant.restaurantName?.en ||
-                `未知餐廳`}
-            </h3>
+              <img
+                src={displayImageUrl}
+                alt={
+                  restaurant.restaurantName?.["zh-TW"] ||
+                  restaurant.restaurantName?.en ||
+                  "餐廳圖片"
+                }
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = `https://placehold.co/${placeholderSize}/CCCCCC/333333?text=圖片`;
+                }}
+              />
+            </div>
           </Link>
 
-          {/* 其他資訊 - 不可點擊 */}
+          {/* 詳細資訊區域 (包含網格和網頁列表的標題/評分) */}
           <div
-            className={`flex items-center mb-1 ${
-              isGridView ? "text-sm" : "text-sm"
+            className={`${
+              isGridView ? "p-6 h-60" : "flex-grow text-left md:py-1"
             }`}
           >
-            {Array.from({ length: 5 }, (_, index) => (
-              <FontAwesomeIcon
-                key={index}
-                icon={
-                  index < Math.floor(restaurant.averageRating || 0)
-                    ? faSolidStar
-                    : faRegularStar
-                }
-                className={`${isGridView ? "text-sm" : "text-sm"} ${
-                  index < Math.floor(restaurant.averageRating || 0)
-                    ? "text-yellow-500"
-                    : "text-gray-300"
+            {/* 餐廳名稱 - 點擊導航 (網格視圖 & 網頁列表視圖才顯示) */}
+            <Link
+              href={`/restaurants/${restaurant.id}`}
+              passHref
+              className={`${!isGridView ? "hidden md:block" : ""}`} // 手機列表視圖隱藏
+            >
+              <h3
+                className={`font-bold text-gray-900 mb-1 leading-tight text-wrap hover:underline cursor-pointer ${
+                  isGridView ? "text-base" : "text-base"
                 }`}
-              />
-            ))}
-            <span
-              className={`text-gray-800 font-bold ml-1 ${
+              >
+                {restaurant.restaurantName?.["zh-TW"] ||
+                  restaurant.restaurantName?.en ||
+                  `未知餐廳`}
+              </h3>
+            </Link>
+
+            {/* 其他資訊 - 不可點擊 (網格視圖 & 網頁列表視圖才顯示) */}
+            <div
+              className={`flex items-center mb-1 ${
                 isGridView ? "text-sm" : "text-sm"
-              }`}
+              } ${!isGridView ? "hidden md:flex" : ""}`} // 手機列表視圖隱藏
             >
-              {restaurant.averageRating?.toFixed(1) || "N/A"}
-            </span>
-            <span
-              className={`ml-2 flex items-center text-gray-700 ${
-                isGridView ? "text-sm" : "text-sm"
-              }`}
-            >
-              <div className="relative">
-                <FontAwesomeIcon icon={faComment} className="text-blue-500" />
-                <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
-                  {restaurant.reviewCount || 0}
-                </span>
+              {Array.from({ length: 5 }, (_, index) => (
+                <FontAwesomeIcon
+                  key={index}
+                  icon={
+                    index < Math.floor(restaurant.averageRating || 0)
+                      ? faSolidStar
+                      : faRegularStar
+                  }
+                  className={`${isGridView ? "text-sm" : "text-sm"} ${
+                    index < Math.floor(restaurant.averageRating || 0)
+                      ? "text-yellow-500"
+                      : "text-gray-300"
+                  }`}
+                />
+              ))}
+              <span
+                className={`text-gray-800 font-bold ml-1 ${
+                  isGridView ? "text-sm" : "text-sm"
+                }`}
+              >
+                {restaurant.averageRating?.toFixed(1) || "N/A"}
+              </span>
+              <span
+                className={`ml-2 flex items-center text-gray-700 ${
+                  isGridView ? "text-sm" : "text-sm"
+                }`}
+              >
+                <Link
+                  href={`/restaurants/${restaurant.id}/reviews`}
+                  passHref
+                  className={`${!isGridView ? "hidden md:block" : ""}`} // 手機列表視圖隱藏
+                >
+                  <div className="flex items-center">
+                    <FontAwesomeIcon
+                      icon={faComment}
+                      className="text-blue-500"
+                    />
+                    <span className=" text-xs font-bold px-1 flex items-center justify-center">
+                      {restaurant.reviewCount || 0} 評論
+                    </span>
+                  </div>
+                </Link>
+              </span>
+            </div>
+
+            {!isGridView && (
+              <div className="flex items-center md:hidden">
+                {/* 星級評分與評論數 (右側對齊) */}
+                <div className={`flex items-center flex-shrink-0 text-sm`}>
+                  {Array.from({ length: 5 }, (_, index) => (
+                    <FontAwesomeIcon
+                      key={index}
+                      icon={
+                        index < Math.floor(restaurant.averageRating || 0)
+                          ? faSolidStar
+                          : faRegularStar
+                      }
+                      className={`text-sm ${
+                        index < Math.floor(restaurant.averageRating || 0)
+                          ? "text-yellow-500"
+                          : "text-gray-300"
+                      }`}
+                    />
+                  ))}
+                  <span className={`text-gray-800 font-bold ml-1 text-sm`}>
+                    {restaurant.averageRating?.toFixed(1) || "N/A"}
+                  </span>
+                </div>
               </div>
-            </span>
+            )}
+            {!isGridView && (
+              <span className={` flex items-center my-1 text-gray-700 text-sm`}>
+                <Link
+                  href={`/restaurants/${restaurant.id}/reviews`}
+                  passHref
+                  className={`${!isGridView ? " md:hidden" : ""}`} // 手機列表視圖隱藏
+                >
+                  <div className="flex items-center">
+                    <FontAwesomeIcon
+                      icon={faComment}
+                      className="text-blue-500"
+                    />
+                    <span className=" text-xs font-bold px-1 flex items-center justify-center">
+                      {restaurant.reviewCount || 0} 評論
+                    </span>
+                  </div>
+                </Link>
+              </span>
+            )}
+            {/* 共通詳細資訊 (手機版和網頁版都顯示) */}
+            <p
+              className={`text-gray-700 mb-1 text-wrap ${
+                isGridView ? "text-sm" : "text-sm"
+              }`}
+            >
+              {restaurant.fullAddress || "N/A"}
+            </p>
+
+            <p
+              className={`text-gray-700 mb-1 text-wrap ${
+                isGridView ? "text-sm" : "text-sm"
+              }`}
+            >
+              {restaurant.city || "N/A"}
+            </p>
+            <p
+              className={`text-gray-700 mb-1 text-wrap ${
+                isGridView ? "text-sm" : "text-sm"
+              }`}
+            >
+              {" "}
+              {CategorysText}{" "}
+            </p>
+
+            <p
+              className={`text-gray-700 mb-1 text-wrap ${
+                isGridView ? "text-sm" : "text-sm"
+              }`}
+            >
+              人均: ${restaurant.avgSpending || "N/A"}
+            </p>
+
+            <p
+              className={`text-gray-700 mt-1 text-wrap ${
+                isGridView ? "text-sm" : "text-sm"
+              }`}
+            >
+              <span className={`font-bold ${operatingStatusColor}`}>
+                {operatingStatus}
+              </span>
+            </p>
           </div>
-
-          <p
-            className={`text-gray-700 mb-1 text-wrap ${
-              isGridView ? "text-sm" : "text-sm"
-            }`}
-          >
-            {restaurant.fullAddress || "N/A"}
-          </p>
-
-          <p
-            className={`text-gray-700 mb-1 text-wrap ${
-              isGridView ? "text-sm" : "text-sm"
-            }`}
-          >
-            {restaurant.city || "N/A"}
-          </p>
-          <p
-            className={`text-gray-700 mb-1 text-wrap ${
-              isGridView ? "text-sm" : "text-sm"
-            }`}
-          >
-            {" "}
-            {CategorysText}{" "}
-          </p>
-
-          <p
-            className={`text-gray-700 mb-1 text-wrap ${
-              isGridView ? "text-sm" : "text-sm"
-            }`}
-          >
-             人均: ${restaurant.avgSpending || "N/A"}
-          </p>
-
-          <p
-            className={`text-gray-700 mt-1 text-wrap ${
-              isGridView ? "text-sm" : "text-sm"
-            }`}
-          >
-            <span className={`font-bold ${operatingStatusColor}`}>
-              {operatingStatus}
-            </span>
-          </p>
         </div>
       </div>
 

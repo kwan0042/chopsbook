@@ -2,9 +2,8 @@
 import React, { useState, useEffect, useContext } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSlidersH } from "@fortawesome/free-solid-svg-icons";
+import { faSlidersH, faTimes } from "@fortawesome/free-solid-svg-icons";
 import FilterSidebar from "../filters/FilterSidebar";
-import FilterModal from "../filters/FilterModal";
 import RestaurantListPage from "./RestaurantListPage";
 import Modal from "../Modal";
 import { AuthContext } from "../../lib/auth-context";
@@ -245,12 +244,12 @@ const RestaurantContent = () => {
 
   const handleApplyFilters = (filters) => {
     updateUrl(filters);
-    setIsFilterModalOpen(false);
+    setIsFilterModalOpen(false); // 應用後關閉側邊欄
   };
 
   const handleResetFilters = () => {
     updateUrl({});
-    setIsFilterModalOpen(false);
+    setIsFilterModalOpen(false); // 重設後關閉側邊欄
   };
 
   const handleRemoveFilter = (key, valueToRemove) => {
@@ -289,18 +288,14 @@ const RestaurantContent = () => {
   return (
     <div className="flex flex-col font-inter mb-6">
       {/* ⚡️ 修正 1：將 Sticky 橫幅移到最頂層，確保其粘性作用於整個視口滾動 ⚡️ */}
-      <div
-        className="md:hidden sticky top-0 z-40 w-full bg-white/95 backdrop-blur-sm 
-               border-b border-gray-200"
-      >
+      <div className="md:hidden sticky top-[116px] z-40 w-full bg-gray-700 ">
         {/* 內層容器：用於限制內容的最大寬度並添加邊距 */}
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-          <div className="flex justify-between items-center w-full">
-            <h3 className="text-lg font-semibold text-gray-800">餐廳列表</h3>
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 ">
+          <div className="flex justify-between items-center w-full ">
             <button
               onClick={() => setIsFilterModalOpen(true)}
               className="inline-flex items-center justify-center p-2 text-sm font-medium 
-                             rounded-lg shadow-md group bg-gradient-to-br from-red-200 via-red-300 to-yellow-200 
+                             rounded-lg shadow-md group bg-gradient-to-br 
                              transition-colors duration-200 w-fit h-fit"
               aria-label="開啟篩選側邊欄"
             >
@@ -334,8 +329,6 @@ const RestaurantContent = () => {
           </div>
 
           <div className="flex-grow pb-8 px-4 sm:px-6 lg:px-8">
-            {/* ⚡️ 修正 2：移除這裡原來的 Sticky 橫幅，因為已經移到最上面 ⚡️ */}
-
             <RestaurantListPage
               filters={appliedFilters}
               currentPage={currentPage}
@@ -390,15 +383,51 @@ const RestaurantContent = () => {
           isOpen={!!modalMessage}
         />
       )}
-      <FilterModal
-        key={isFilterModalOpen ? "open" : "closed"}
-        isOpen={isFilterModalOpen}
-        onClose={() => setIsFilterModalOpen(false)}
-        initialFilters={appliedFilters}
-        onApplyFilters={handleApplyFilters}
-        onResetFilters={handleResetFilters}
-        sidebarClassName="w-fit"
-      />
+
+      {/* ⚡️ 修正 3: 手機版 FilterSidebar 的自訂 Modal 實作 (從左側滑入/滑出) ⚡️ */}
+      <div
+        className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300
+          ${isFilterModalOpen ? "opacity-100 visible" : "opacity-0 invisible"}`}
+      >
+        {/* 1. 背景遮罩 (Fade-in/out) */}
+        <div
+          className="absolute inset-0 bg-black/50"
+          onClick={() => setIsFilterModalOpen(false)} // 點擊背景關閉
+        />
+
+        {/* 2. 側邊欄內容 (Slide-in/out) */}
+        <div
+          // ⚡️ 修正: 定位從 right-0 改為 left-0 ⚡️
+          className={`absolute left-0 top-0 h-full w-full sm:w-80 max-w-[80%] 
+            bg-white shadow-2xl overflow-y-auto transform transition-transform duration-300 ease-out`}
+          style={{
+            // ⚡️ 修正: transform 從 translateX(100%) 改為 translateX(-100%) ⚡️
+            transform: isFilterModalOpen
+              ? "translateX(0)"
+              : "translateX(-100%)",
+          }}
+          // 阻止點擊側邊欄內容時關閉 Modal
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* ⚡️ 修正 2: 關閉按鈕定位改為左上角 (sticky top-4 left-4) ⚡️ */}
+          <button
+            onClick={() => setIsFilterModalOpen(false)}
+            className="sticky top-4 left-4 z-10 p-2 text-gray-600 hover:text-gray-900 transition-colors bg-white rounded-full shadow-md m-4"
+            aria-label="關閉篩選側邊欄"
+          >
+            <FontAwesomeIcon icon={faTimes} className="text-xl" />
+          </button>
+
+          {/* 重新渲染 FilterSidebar，現在它成為移動端的 Modal 內容 */}
+          <FilterSidebar
+            initialFilters={appliedFilters}
+            onApplyFilters={handleApplyFilters}
+            onResetFilters={handleResetFilters}
+            // 由於關閉按鈕在外部，我們不需要在 FilterSidebar 內部處理關閉邏輯
+          />
+        </div>
+      </div>
+      {/* --------------------------------------------- */}
     </div>
   );
 };

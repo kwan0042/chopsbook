@@ -461,7 +461,7 @@ const RestaurantManagement = () => {
           <thead className="bg-gray-50 sticky top-0 z-[5]">
             <tr>
               {/* ID 寬度 10% */}
-              <th className="w-[15%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
+              <th className="w-[12%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
                 ID
               </th>
               {/* 🎯 核心修改 2: 處理標題欄位寬度 */}
@@ -474,7 +474,7 @@ const RestaurantManagement = () => {
                       ? "w-[20%]"
                       : field.key === "submittedBy"
                       ? "w-[20%]" // 🎯 核心修改 1: 設置 submittedBy 為 w-[20%]
-                      : "w-[8%]" // 剩下的欄位 (createdAt, updatedAt) 平分剩餘空間 (100-10-30-15 = 45; 45/3=15; 重新計算: 10(ID)+30(名稱)+15(操作)=55; 45/3=15)
+                      : "w-[10%]" // 剩下的欄位 (createdAt, updatedAt) 平分剩餘空間 (100-10-30-15 = 45; 45/3=15; 重新計算: 10(ID)+30(名稱)+15(操作)=55; 45/3=15)
                     // 重新分配：10(ID) + 30(名稱) + 20(SubmittedBy) + 15(updatedAt) + 15(createdAt) = 90. 10% 給操作 (15%太寬)
                     // 為了避免複雜計算，統一給定一個基於總寬度的百分比，並確保總和不超過 100%
                   } px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate`}
@@ -483,7 +483,7 @@ const RestaurantManagement = () => {
                 </th>
               ))}
               {/* 操作寬度 15% */}
-              <th className="w-[15%] px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="w-[12%] px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 操作
               </th>
             </tr>

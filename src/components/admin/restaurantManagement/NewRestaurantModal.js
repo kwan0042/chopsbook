@@ -98,7 +98,6 @@ const NewRestaurantModal = ({
   const handleChange = useCallback(
     ({ target: { name, value, type, checked }, isSpecial = false }) => {
       // 確保在任何變更時，清除相關錯誤
-      
 
       if (isSpecial) {
         setFormData((prev) => ({ ...prev, [name]: value }));
@@ -134,8 +133,6 @@ const NewRestaurantModal = ({
   const handleCheckboxChange = useCallback(
     (event) => {
       const { name, value, checked } = event.target;
-
-     
 
       setFormData((prev) => {
         const currentArray = prev[name] || [];
@@ -307,11 +304,13 @@ const NewRestaurantModal = ({
   if (!isOpen) return null;
 
   return (
-    // 模擬 Modal 背景遮罩
+    // 模擬 Modal 背景遮罩 (fixed inset-0 z-50 overflow-y-auto...)
     <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 flex items-start justify-center p-4">
-      {/* 模擬 Modal 內容容器 */}
+      {/* 模擬 Modal 內容容器 
+          ✅ 調整：將 max-w-5xl 移到這裡，並確保內容能滾動 */}
       <div className="bg-white rounded-lg shadow-xl relative w-full max-w-5xl mt-12 mb-12">
-        <div className="overflow-y-auto max-h-[90vh] p-8 min-h-[500px]">
+        {/* ✅ 調整：移除 min-h-[500px] 和 max-h-[90vh]，讓內層表單控制內容高度和滾動 */}
+        <div className="p-8">
           <h3 className="text-xl font-semibold text-gray-800 mb-6 border-b pb-3">
             新增餐廳資訊 (Admin)
           </h3>

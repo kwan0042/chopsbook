@@ -308,7 +308,7 @@ const RestaurantListPage = ({
             className={
               isGridView
                 ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6"
-                : "flex flex-col space-y-4"
+                : "md:flex md:flex-col md:space-y-4 grid grid-cols-1"
             }
           >
             {restaurants.map((restaurant) => (
@@ -324,7 +324,6 @@ const RestaurantListPage = ({
               />
             ))}
           </div>
-          
         </>
       )}
     </div>
