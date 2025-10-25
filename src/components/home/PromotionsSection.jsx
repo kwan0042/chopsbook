@@ -77,14 +77,16 @@ const PromotionModal = ({ isVisible, onClose, promotion, openImageModal }) => {
       onClick={onClose} // 點擊背景關閉
     >
       <div
-        // 💡 修正 1: 主容器添加 overflow-y-auto，在手機版時，圖片和內容作為一個整體滾動
-        className="relative w-full max-w-lg md:max-w-[90vw] h-auto max-h-[90vh] mx-4 bg-white rounded-lg shadow-2xl flex flex-col md:flex-row overflow-y-auto" // 💡 修改：添加 overflow-y-auto
+        // 💡 修正 1: 移除外層的 overflow-y-auto，並將 h-auto 改為 h-full (md: 視窗下)
+        // 在網頁版 (md:flex-row) 中，Flex 容器需要高度拉伸才能讓子元素同步高度。
+        // 手機版 (flex-col) 依然依靠 max-h-[90vh] 和自身的 overflow-y-auto 滾動。
+        className="relative w-full max-w-lg md:max-w-[90vw] h-auto max-h-[90vh] mx-4 bg-white rounded-lg shadow-2xl flex flex-col md:flex-row overflow-y-auto" // ✅ 修改：移除 overflow-y-auto
         onClick={(e) => e.stopPropagation()} // 阻止點擊 Modal 內容時關閉
       >
         {/* 封面圖片 - 網頁版在左 */}
         <div
-          // 💡 修正 2: 移除手機版 (無 md:) 的 max-h-64 限制，讓它自然高度。
-          className="relative w-full md:w-1/2 md:max-h-full flex-shrink-0 cursor-pointer p-4 pb-0 md:p-6 md:pb-0" // 💡 修改: 移除 max-h-64
+          // 💡 修正 2: 圖片容器 (Flex Item 1) 在網頁版中需要 h-full 來被 Flexbox 拉伸，並確保圖片在容器內置中
+          className="relative w-full md:w-1/2 flex-shrink-0 cursor-pointer p-4 pb-0 md:p-6 md:h-full flex md:items-center md:justify-center" // ✅ 修改：添加 md:h-full flex md:items-center md:justify-center
           onClick={() => openImageModal(promotion.coverUrl)}
           role="button"
           tabIndex="0"
@@ -94,35 +96,37 @@ const PromotionModal = ({ isVisible, onClose, promotion, openImageModal }) => {
             src={promotion.coverUrl}
             alt={promotion.title}
             width={800} // ✅ 寫死寬度或用父層控制 w-full
-            height={0} // ✅ 設 height={0} + sizes 可令 Next.js 自動根據比例
+            height={1000} // ✅ 設 height={0} + sizes 可令 Next.js 自動根據比例
             sizes="(max-width: 768px) 100vw, 50vw" // ✅ 根據 viewport 自動縮放
-            className="w-full h-auto rounded-lg object-contain" // ✅ 關鍵：object-contain + h-auto
+            // 💡 修正 3: 圖片元件在網頁版中需要 h-full 來佔滿拉伸後的容器高度
+            className="w-full h-auto rounded-lg object-contain md:h-full" // ✅ 修改：添加 md:h-full
             priority
           />
         </div>
 
         {/* 內容區域 - 滾動只保留給網頁版 (md:) 處理，因為手機版已經在父層滾動 */}
-        <div className="p-4 md:p-6 md:w-1/2 flex-grow md:overflow-y-auto">
+        <div className="p-4 md:p-6 md:w-1/2 flex-grow flex flex-col md:h-full md:overflow-y-auto">
           {" "}
-          {/* 💡 修改: md:overflow-y-auto 讓網頁版（左右佈局）的文字內容可獨立滾動 */}
+          {/* 💡 修正 4: 內容容器 (Flex Item 2) 需要 flex flex-col 和 md:h-full 佈局，並允許自身滾動 */}
           {/* 標題 */}
-          <h1 className="text-xl md:text-3xl font-extrabold text-gray-900 my-4 md:mt-0">
+          <h1 className="flex-shrink-0 text-xl md:text-3xl font-extrabold text-gray-900 my-4 md:mt-0">
             {promotion.title}
           </h1>
           {/* 副標題 / 信息 */}
-          <div className="text-sm text-gray-500 mb-6 border-b pb-4">
+          <div className="flex-shrink-0 text-sm text-gray-500 mb-6 border-b pb-4">
             <p className="font-semibold text-gray-700 mb-2">
               {promotion.subtitle}
             </p>
-            
+
             <p className="font-semibold text-gray-700 mb-2">
-            優惠期由 {promotion.promoStart} 開始至 {promotion?.promoEnd || "~"}
+              優惠期由 {promotion.promoStart} 開始至{" "}
+              {promotion?.promoEnd || "~"}
             </p>
             <p>發佈時間: {promotion.updatedAt}</p>
           </div>
           {/* 文章內容 */}
-          <div className="prose max-w-none text-gray-700 leading-relaxed space-y-4">
-            {/* 這裡模擬文章內容的渲染 */}
+          <div className="prose max-w-none text-gray-700 leading-relaxed space-y-4 flex-grow overflow-y-auto">
+            {/* 💡 修正: 文章內容需要 flex-grow 和 overflow-y-auto 讓它佔滿剩餘空間並滾動 */}
             <p
               className="whitespace-pre-wrap"
               dangerouslySetInnerHTML={{ __html: promotion.content }}
@@ -179,8 +183,8 @@ const PromotionsSection = () => {
       title: "Midori 每日限定優惠 ",
       subtitle: "Midori Ramen人氣日式拉麵",
       coverUrl: "/img/promotion/Midori_Ramen_promo_1a.webp",
-      promoStart:"2025年10月25日",
-      promoEnd:"",
+      promoStart: "2025年10月25日",
+      promoEnd: "",
       content:
         "<h1>【Midori Ramen人氣日式拉麵｜每日限定優惠】</h1><h4><strong>優惠期由 2025年10月25日 開始 ~</strong></h4><p>Midori Ramen 多倫多人氣爆燈嘅招牌雞白湯（Tori Paitan）濃得嚟又唔膩，麵條彈牙，叉燒厚切又嫩滑～ <br />店內乾淨企理，唔怪得成日大排長龍！<br /><br />而家<strong>(由2025年10月25日開始)</strong> 每日仲有限定優惠，無論你係拉麵控定丼飯迷，都一定搵到心水！<br /><br /><strong>每日優惠一覽｜Midori Ramen Daily Specials</strong><br />(部分款式如 Gyudon Ramen 及 Tori Buta Ramen 不參與優惠，詳情請向店員查詢)</p><p>&nbsp;</p><hr /><p><br />1️⃣&nbsp;<strong>星期一 MONDAY</strong>｜拉麵控必搶！<br />✨ 原味雞白湯拉麵 半價 50% OFF！<br />👉 最人氣、最多好評嘅「Original Tori Paitan」，香滑濃郁嘅雞湯底配厚切叉燒～CP值爆燈！<br /><br />2️⃣ <strong>星期二 TUESDAY</strong>｜丼飯迷最愛！<br />✨ 買一送一 &mdash; Buy 1 Donburi, Get 1 Free！<br />👉 熱門之選包括牛丼、唐揚雞丼、叉燒丼等～同朋友一齊share最抵！🥟 <br /><br />3️⃣&nbsp;<strong>星期三 WEDNESDAY</strong>｜中場放送，小食加碼！<br />✨ 點任何主餐，即送 餃子 Gyoza 或 章魚燒 Takoyaki 乙份<br />👉 打卡熱爆！每日限量供應～&nbsp;<br /><br />4️⃣&nbsp;<strong>星期四 THURSDAY</strong>｜肉食獸專屬日！<br />✨ 拉麵 免費雙倍肉量 Double Protein Free！<br />👉 叉燒控注意～滿滿肉量唔加價！<br /><br />5️⃣&nbsp;<strong>星期五 FRIDAY</strong>｜完美收尾週五賞！<br />✨ 點兩份主餐，即送 迷你丼飯 Mini Don 乙份！<br />👉 最啱情侶或朋友檔～滿足又抵食！<br /><br /></p><hr /><h3><br /><strong>優惠進行中</strong>｜Midori Ramen 全線分店同步推出！<strong><br />( Edmonton 分店除外)<br /><br /></strong>資料來源:https://midoriramen.com/, https://www.instagram.com/p/DP4jW2VDcvq</h3>",
       status: "published",
@@ -193,9 +197,12 @@ const PromotionsSection = () => {
     {
       promoId: 3,
       title: "限定優惠|4小時任食放題",
-      subtitle: "劉一手火鍋限定優惠",
+      subtitle: "劉一手火鍋",
       coverUrl: "/img/promotion/Liuyishou_promo_1.webp",
-      content: "",
+      promoStart: "2025年10月25日",
+      promoEnd: "",
+      content:
+        "<h1>【劉一手火鍋限定優惠 | 4小時任食放題!】</h1><h4><strong>優惠期由 即日起 開始 ~</strong></h4><h2><strong>劉一手火鍋 Liuyishou Hot Pot Toronto (Downtown 分店)</strong></h2><h4>地址:254 Spadina Ave, Toronto, ON M5T 2C2</h4><p>唔洗趕住食!劉一手推出全新 「4小時任食火鍋放題」~<br />慢慢歎、慢慢打，一次過滿足你嘅火鍋靈魂</p><p>&nbsp;</p><hr /><br /><p>每位只需 <strong>$38.95</strong></p><ul><li>包 $10 湯底</li><li>汽水任飲 All You Can Drink!</li></ul><p>真係一價全包，食到飽又唔使急!</p><p>&nbsp;</p><hr /><p>&nbsp;</p><p><strong>平日午市時段 | Weekday Lunch Hours</strong><br /><strong>11:30 AM &ndash; 4:59 PM</strong><br /><strong>提示:3:00 PM 前入座嘅客人可享用至 5:00 PM!</strong></p><p>電話:(416) 777-1682</p><br /><p>Liuyishou Hot Pot 保留最終解釋權，如有疑問請向餐廳查詢。</p><br /><p>無論你係鍋底控、牛肉控定丸類愛好者~ 4小時放題時間夠晒彈性，慢慢歎慢慢傾</p><p><br />資料來源:https://www.facebook.com/photo?fbid=1580794612891941&amp;set=a.736144957356915</p>",
       status: "published",
       updatedAt: "2025年10月20日",
       submittedAt: "2025年10月20日",
@@ -205,10 +212,13 @@ const PromotionsSection = () => {
     },
     {
       promoId: 1,
-      title: "Midori 每日限定優惠 ",
-      subtitle: "Midori Ramen人氣日式拉麵",
+      title: "秋日海鮮盛宴限定回歸",
+      subtitle: "Dragon Pearl Buffet",
       coverUrl: "/img/promotion/Dragon_Pearl.webp",
-      content: "",
+      promoStart: "2025年10月25日",
+      promoEnd: "2025年10月30日",
+      content:
+        "<h1>【Dragon Pearl Buffet|秋日海鮮盛宴限定回歸】</h1><h4><strong>秋天又嚟啦~ 想食返啲暖笠笠又豪氣嘅?</strong></h4><h2><strong>Dragon Pearl Buffet 龍珠自助餐</strong></h2><h4>地址: 建議填寫地址（例如：2033 Kennedy Rd, Scarborough, ON M1T 3G5）</h4><p>由 10月14日至11月23日，龍珠又帶住「秋日海鮮盛宴」回歸，全部海鮮控都會尖叫嘅 lineup!</p><p>&nbsp;</p><hr /><p><strong>週末晚餐限定 | Weekend Specials</strong></p><ul><li>星期五 &amp; 星期日：烤生蠔任食~蒜香四溢、鮮味爆棚</li><li>星期六：每位送半隻龍蝦尾!肉質嫩滑到不得了</li></ul><p>&nbsp;</p><hr /><p><strong>平日晚餐限定 (星期一至四 | 公眾假期除外)</strong></p><p>蒜蓉粉絲扇貝任食~啖啖蒜香超邪惡</p><p>&nbsp;</p><p>無論係想 family dinner、同朋友聚會，定係自己想食好啲~</p><p>呢個秋天，一於去龍珠 buffet 食個夠啦！</p>",
       status: "published",
       updatedAt: "2025年10月20日",
       submittedAt: "2025年10月20日",
@@ -218,10 +228,13 @@ const PromotionsSection = () => {
     },
     {
       promoId: 2,
-      title: "Midori 每日限定優惠 ",
-      subtitle: "Midori Ramen人氣日式拉麵",
+      title: "秋日限定優惠|KIBO Sushi 免費送餐上門!】",
+      subtitle: "KIBO Sushi",
       coverUrl: "/img/promotion/Kibo_promo_1.webp",
-      content: "",
+      promoStart: "2025年10月14日",
+      promoEnd: "2025年11月23日",
+      content:
+        "<h1>【秋日限定優惠|KIBO Sushi 免費送餐上門!】</h1><h4><strong>呢個秋天~讓 KIBO Sushi 為你送上滿滿嘅幸福滋味</strong></h4><h2><strong>KIBO Sushi 官網限定優惠</strong></h2><h4>網址: kibosushi.com</h4><p>喺屋企都食到最鮮美嘅壽司~一齊嘆住日式暖意。</p><p>&nbsp;</p><hr /><p>限時優惠:</p><p><strong>凡於官網下單滿 $50，即享免費送餐!</strong></p><ul><li>優惠只限 kibosushi.com 官網訂單</li><li>單筆訂單需滿 $50 (稅前)</li></ul><p>叫埋朋友一齊 order 外賣~開心 share 一餐好味又方便。</p><p>&nbsp;</p><hr /><p>&nbsp;</p><p><strong>優惠期:</strong><br /><strong>即日起至 10 月 30 日止</strong></p><p>KIBO Sushi 保留最終解釋權，如有疑問請向餐廳查詢。</p>",
       status: "published",
       updatedAt: "2025年10月20日",
       submittedAt: "2025年10月20日",
@@ -229,8 +242,7 @@ const PromotionsSection = () => {
       reviewedBy: "Annie",
       reviewedAt: "2025年10月20日",
     },
-    
-    
+
     // 💡 增加更多項目以展示橫向滾動效果
   ];
 

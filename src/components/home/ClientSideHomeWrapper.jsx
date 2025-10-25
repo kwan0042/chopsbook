@@ -149,7 +149,7 @@ const ClientSideHomeWrapper = ({ side }) => {
         {currentUser && <PersonalizedSection />}
 
         {/* B2. 互動式投票或問答 (你原有的) */}
-        <InteractivePollSection />
+        {/* <InteractivePollSection /> */}
 
         {/* <WeeklyRankingsSection /> */}
 

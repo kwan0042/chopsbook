@@ -101,7 +101,7 @@ export default async function HomePageServer() {
           </div>
 
           {/* 【新增行動版區塊 B】：原左側欄 Client 互動區 (只在手機顯示) */}
-          <div className="md:hidden grid grid-cols-1 gap-4 mb-4">
+          <div className="md:hidden grid grid-cols-1 gap-4 md:mb-4 my-4 ">
             <ClientSideHomeWrapper side="left" />
           </div>
 
