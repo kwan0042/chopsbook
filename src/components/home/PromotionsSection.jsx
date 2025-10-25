@@ -216,7 +216,7 @@ const PromotionsSection = () => {
       subtitle: "Dragon Pearl Buffet",
       coverUrl: "/img/promotion/Dragon_Pearl.webp",
       promoStart: "2025年10月25日",
-      promoEnd: "2025年10月30日",
+      promoEnd: "2025年11月23日",
       content:
         "<h1>【Dragon Pearl Buffet|秋日海鮮盛宴限定回歸】</h1><h4><strong>秋天又嚟啦~ 想食返啲暖笠笠又豪氣嘅?</strong></h4><h2><strong>Dragon Pearl Buffet 龍珠自助餐</strong></h2><h4>地址: 建議填寫地址（例如：2033 Kennedy Rd, Scarborough, ON M1T 3G5）</h4><p>由 10月14日至11月23日，龍珠又帶住「秋日海鮮盛宴」回歸，全部海鮮控都會尖叫嘅 lineup!</p><p>&nbsp;</p><hr /><p><strong>週末晚餐限定 | Weekend Specials</strong></p><ul><li>星期五 &amp; 星期日：烤生蠔任食~蒜香四溢、鮮味爆棚</li><li>星期六：每位送半隻龍蝦尾!肉質嫩滑到不得了</li></ul><p>&nbsp;</p><hr /><p><strong>平日晚餐限定 (星期一至四 | 公眾假期除外)</strong></p><p>蒜蓉粉絲扇貝任食~啖啖蒜香超邪惡</p><p>&nbsp;</p><p>無論係想 family dinner、同朋友聚會，定係自己想食好啲~</p><p>呢個秋天，一於去龍珠 buffet 食個夠啦！</p>",
       status: "published",
@@ -232,7 +232,7 @@ const PromotionsSection = () => {
       subtitle: "KIBO Sushi",
       coverUrl: "/img/promotion/Kibo_promo_1.webp",
       promoStart: "2025年10月14日",
-      promoEnd: "2025年11月23日",
+      promoEnd: "2025年10月30日",
       content:
         "<h1>【秋日限定優惠|KIBO Sushi 免費送餐上門!】</h1><h4><strong>呢個秋天~讓 KIBO Sushi 為你送上滿滿嘅幸福滋味</strong></h4><h2><strong>KIBO Sushi 官網限定優惠</strong></h2><h4>網址: kibosushi.com</h4><p>喺屋企都食到最鮮美嘅壽司~一齊嘆住日式暖意。</p><p>&nbsp;</p><hr /><p>限時優惠:</p><p><strong>凡於官網下單滿 $50，即享免費送餐!</strong></p><ul><li>優惠只限 kibosushi.com 官網訂單</li><li>單筆訂單需滿 $50 (稅前)</li></ul><p>叫埋朋友一齊 order 外賣~開心 share 一餐好味又方便。</p><p>&nbsp;</p><hr /><p>&nbsp;</p><p><strong>優惠期:</strong><br /><strong>即日起至 10 月 30 日止</strong></p><p>KIBO Sushi 保留最終解釋權，如有疑問請向餐廳查詢。</p>",
       status: "published",

@@ -35,14 +35,14 @@ const ANNOUNCEMENTS_LIST = [
   {
     id: 101,
     title: "✨ 最新功能：餐廳收藏與分享",
-    subtitle: "現在您可以儲存喜愛的餐廳並與朋友分享清單！",
+    subtitle: "現在您可以儲存喜愛的餐廳！",
     date: "2025年10月25日",
     details: (
       <div className="prose max-w-none">
         <h4 className="text-xl font-bold text-gray-900 mb-3">
           收藏與分享功能已上線！
         </h4>
-        <p>我們聽到了用戶的聲音！從今天起，您可以收藏和分享餐廳清單。</p>
+        <p>我們聽到了用戶的聲音！從今天起，您可以收藏喜愛的餐廳。</p>
       </div>
     ),
   },
@@ -60,21 +60,11 @@ const ANNOUNCEMENTS_LIST = [
       </div>
     ),
   },
-  {
-    id: 103,
-    title: "🎁 慶祝用戶突破十萬！領取 $50 優惠券",
-    subtitle: "所有用戶可領取 $50 優惠券。",
-    date: "2025年10月20日",
-    details: (
-      <div className="prose max-w-none">
-        <p>為感謝廣大用戶支持，即日起登錄即可領取限時 $50 優惠券！</p>
-      </div>
-    ),
-  },
+  
   {
     id: 104,
-    title: "📢 隱私政策更新 (已於 10/18 生效)",
-    subtitle: "新的隱私政策已於 10/18 生效。",
+    title: "📢 隱私政策更新 (已於 10/25 生效)",
+    subtitle: "新的隱私政策已於 10/25 生效。",
     date: "2025年10月18日",
     details: (
       <div className="prose max-w-none">
