@@ -3,7 +3,7 @@
 import sharp from "sharp";
 import { bucket } from "@/lib/firebase-admin"; // ⚠️ 請確保路徑正確
 import { NextResponse } from "next/server";
-
+export const runtime = "nodejs";
 /**
  * 處理圖片上傳、Sharp 轉換為 WebP 並儲存到 Firebase Storage。
  * @param {Request} request Next.js App Router 的標準 Request 物件

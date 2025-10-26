@@ -136,12 +136,12 @@ const LatestReviewsSection = () => {
               className="block p-3 bg-orange-100 rounded-lg text-orange-800 text-sm cursor-pointer transition-shadow duration-200 hover:shadow-md hover:bg-orange-200"
             >
               <p className="font-bold text-left">{review.restaurantName}</p>
-              <p className="mt-1 text-left">{review.reviewTitle}</p>
+              <p className="mt-1 text-left text-gray-700">{review.reviewTitle}</p>
               <div className="mt-2 flex items-center justify-between">
                 {renderStars(review.overallRating)}
                 <p
                   // 確保它還是靠右對齊
-                  className="mt-1 block text-right text-xs underline hover:text-indigo-500 transition-colors duration-150 cursor-pointer"
+                  className=" ml-3 mt-1 block text-right text-xs underline hover:text-indigo-500 transition-colors duration-150 cursor-pointer truncate white-space: nowrap;"
                   onClick={(e) => {
                     e.stopPropagation();
 
