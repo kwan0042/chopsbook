@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useContext, useState } from "react";
-import { useParams } from "next/navigation";
-import Image from "next/image"; // 引入 Next.js 的 Image 元件
+import { useParams, useRouter } from "next/navigation"; // ⬅️ 新增 useRouter
+import Image from "next/image";
 import { AuthContext } from "../../../../lib/auth-context";
 import { useRestaurantData } from "../../../../hooks/useRestaurantData";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
@@ -12,10 +12,10 @@ import {
   faStarHalfStroke,
   faChevronDown,
   faChevronUp,
-  faArrowLeft, // 引入左箭頭圖標
-  faArrowRight, // 引入右箭頭圖標
-  faSun, // 引入太陽圖標
-  faTimes, // 引入關閉圖標
+  faArrowLeft,
+  faArrowRight,
+  faSun,
+  faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   IconCoffee,
@@ -91,8 +91,10 @@ const IMAGES_PER_PAGE = 4;
 export default function RestaurantReviewsPage() {
   const { restaurantId } = useParams();
   const { db, appId } = useContext(AuthContext);
+  const router = useRouter(); // ⬅️ 新增：定義 router 變數
 
-  const { recentReviews, loading, error } = useRestaurantData(
+  const { restaurant, recentReviews, loading, error } = useRestaurantData(
+    // ⬅️ 關鍵修改：新增 restaurant 解構
     db,
     appId,
     restaurantId
@@ -149,18 +151,42 @@ export default function RestaurantReviewsPage() {
     );
   }
 
+  // 確保 restaurant 有值之後才執行，否則可能在 loading 結束但 restaurant 仍是 null 時報錯
+  if (!restaurant && !error) {
+    return (
+      <div className="flex justify-center items-center min-h-[300px]">
+        <p>載入中... (餐廳詳細資料)</p>
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  const handleCheckInClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const restaurantName =
+      restaurant?.restaurantName?.["zh-TW"] || // ⬅️ 確保 restaurant 存在
+      restaurant?.restaurantName?.en ||
+      "未知餐廳";
+    router.push(
+      `/review?restaurantId=${restaurantId}&restaurantName=${encodeURIComponent(
+        restaurantName
+      )}`
+    );
+  };
+
   return (
     <div className="">
       <h2 className="text-2xl font-bold mb-6 text-gray-800 ">所有評論</h2>
       {recentReviews.length === 0 ? (
         <div className="text-center text-gray-600 p-8 border-2 border-dashed border-gray-300 rounded-lg">
           <p>此餐廳尚未有任何評論。</p>
-          <Link
+          <a
             className="text-blue-950 font-bold underline px-2"
-            href={`/personal/reviews`}
+            onClick={handleCheckInClick}
           >
             成為第一個食評家啦！
-          </Link>
+          </a>
         </div>
       ) : (
         <div className="space-y-6  mx-auto">

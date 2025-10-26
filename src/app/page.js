@@ -94,7 +94,7 @@ export default async function HomePageServer() {
 
         <HeroSection />
 
-        <div className="mx-auto py-10 px-2 sm:px-2 lg:px-12">
+        <div className="mx-auto py-5 md:py-10 px-2 sm:px-2 lg:px-12">
           {/* 【新增行動版區塊 A】：熱門分類 (移至頂部，只在手機顯示) */}
           <div className="md:hidden ">
             <TrendingCateSection />

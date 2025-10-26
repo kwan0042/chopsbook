@@ -1,9 +1,15 @@
-// src/hooks/useRestaurantData.js (假設這是您的檔案路徑)
-
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, query, getDocs, orderBy, where } from "firebase/firestore";
+import {
+  collection,
+  query,
+  getDocs,
+  orderBy,
+  where,
+  doc, // ⬅️ 新增
+  getDoc, // ⬅️ 新增
+} from "firebase/firestore";
 
 /**
  * Custom Hook to fetch all necessary data for a restaurant page.
@@ -13,6 +19,7 @@ import { collection, query, getDocs, orderBy, where } from "firebase/firestore";
  */
 export const useRestaurantData = (firestoreDb, appId, restaurantId) => {
   const [data, setData] = useState({
+    restaurant: null, // ⬅️ 關鍵修改：新增餐廳基本資料狀態
     promotions: [],
     topMenus: [],
     topPhotos: [],
@@ -60,24 +67,52 @@ export const useRestaurantData = (firestoreDb, appId, restaurantId) => {
           });
         };
 
-        const [promos, menus, photos, reviews] = await Promise.all([
-          fetchCollection(
-            `artifacts/${appId}/public/data/restaurants/${restaurantId}/promotions`
-          ),
-          fetchCollection(
-            `artifacts/${appId}/public/data/restaurants/${restaurantId}/menus`
-          ),
-          fetchCollection(
-            `artifacts/${appId}/public/data/restaurants/${restaurantId}/facadePhotoUrls`
-          ),
-          fetchCollection(`artifacts/${appId}/public/data/reviews`, [
-            where("restaurantId", "==", restaurantId),
-            where("status", "==", "published"),
-            orderBy("createdAt", "desc"),
-          ]),
-        ]);
+        // ⬅️ 新增：獲取單個餐廳文件的函數
+        const fetchRestaurantDetails = async () => {
+          const docRef = doc(
+            firestoreDb,
+            `artifacts/${appId}/public/data/restaurants`,
+            restaurantId
+          );
+          const docSnap = await getDoc(docRef);
+
+          totalReads += 1; // 增加一次讀取
+
+          if (docSnap.exists()) {
+            return { id: docSnap.id, ...docSnap.data() };
+          } else {
+            return null;
+          }
+        };
+
+        const [restaurantDetails, promos, menus, photos, reviews] =
+          await Promise.all([
+            fetchRestaurantDetails(), // ⬅️ 呼叫此函數
+            fetchCollection(
+              `artifacts/${appId}/public/data/restaurants/${restaurantId}/promotions`
+            ),
+            fetchCollection(
+              `artifacts/${appId}/public/data/restaurants/${restaurantId}/menus`
+            ),
+            fetchCollection(
+              `artifacts/${appId}/public/data/restaurants/${restaurantId}/facadePhotoUrls`
+            ),
+            fetchCollection(`artifacts/${appId}/public/data/reviews`, [
+              where("restaurantId", "==", restaurantId),
+              where("status", "==", "published"),
+              orderBy("createdAt", "desc"),
+            ]),
+          ]);
+
+        // 錯誤處理：如果找不到餐廳文件
+        if (!restaurantDetails) {
+          setError("找不到此餐廳資料。");
+          setLoading(false);
+          return;
+        }
 
         setData({
+          restaurant: restaurantDetails, // ⬅️ 關鍵修改：儲存餐廳基本資料
           promotions: promos,
           topMenus: menus.slice(0, 3),
           topPhotos: photos.slice(0, 10),
@@ -103,6 +138,6 @@ export const useRestaurantData = (firestoreDb, appId, restaurantId) => {
     fetchData();
   }, [firestoreDb, appId, restaurantId]);
 
-  // 保持原始的 Hook 返回值 (沒有 readCount)
+  // 保持原始的 Hook 返回值 (現在包含 restaurant, loading, error)
   return { ...data, loading, error };
 };

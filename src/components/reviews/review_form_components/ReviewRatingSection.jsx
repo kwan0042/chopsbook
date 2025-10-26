@@ -20,21 +20,21 @@ const ReviewRatingSection = ({
         >
           總體評級 <span className="text-red-500">*</span>
         </label>
-        <div className="flex items-center space-x-3">
+        <div className="md:flex items-center md:space-x-3 space-y-3 ">
           <StarRating
             value={overallRating}
             onValueChange={handleOverallRatingChange}
-          />{" "}
-          <span className=" text-base font-bold text-gray-800 transition-opacity duration-200">
+          />
+          <span className=" py-2 md:py-0 text-base font-bold text-gray-800 transition-opacity duration-200">
             / 5
           </span>
-          <span className="mx-2 text-xs font-bold text-gray-800 transition-opacity duration-200">
+          <span className=" py-2 md:py-0 mx-2 text-xs font-bold text-gray-800 transition-opacity duration-200">
             (第一粒星星可以多按一下，令評分至零。)
           </span>
           <button
             type="button"
             onClick={() => setShowDetailedRatings(!showDetailedRatings)}
-            className="text-sm ml-auto px-4 py-2 text-blue-600 font-semibold rounded-md border border-blue-600 hover:bg-blue-50 transition-colors"
+            className="my-3 md:my-0 text-sm ml-auto px-4 py-2 text-blue-600 font-semibold rounded-md border border-blue-600 hover:bg-blue-50 transition-colors"
           >
             {showDetailedRatings ? "隱藏細項" : "詳細評分"}
           </button>
@@ -57,7 +57,7 @@ const ReviewRatingSection = ({
                 <span className="text-sm w-fit text-gray-800">
                   {category.label}：
                 </span>
-                <div className="text-sm flex-1 flex items-center justify-end space-x-3 mr-11">
+                <div className="text-sm flex-1 flex items-center justify-end space-2 mr-2 md:mr-11">
                   <StarRating
                     value={ratings[category.key]}
                     onValueChange={(val) =>

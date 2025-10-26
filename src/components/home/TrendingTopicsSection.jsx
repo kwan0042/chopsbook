@@ -110,7 +110,7 @@ const TrendingTopicsSection = () => {
                 {/* 【修改點 4】：卡片樣式調整 - 移除 overflow-hidden, 調整寬度, 縮小 hover:scale */}
                 <div
                   className="
-                        flex-shrink-0 w-[80vw] sm:w-[50vw] md:w-auto 
+                        flex-shrink-0 w-[60vw] w md:w-auto 
                         bg-gray-50 rounded-lg my-1 shadow-sm 
                         transform hover:scale-102 transition duration-300 ease-in-out border border-gray-200 cursor-pointer
                     "

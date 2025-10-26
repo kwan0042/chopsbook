@@ -184,7 +184,8 @@ const TrendingCateSection = () => {
             <div
               key={type.name}
               onClick={() => handleCategoryClick(type.name, type.filterKey)}
-              // 【修改點 2】：移除 style 屬性，改用 Next/Image
+              // 【Image 錯誤修復】：在有圖片時，手機版要設定一個 min-h-* 確保 Image fill 不會 collapse
+              // 【備註】：`relative` 和 `md:aspect-square` 已經存在，但手機版缺乏高度。
               className={`
                 /* 共同樣式 */
                 text-center transition-transform hover:scale-105 cursor-pointer relative 
@@ -197,7 +198,8 @@ const TrendingCateSection = () => {
                 shadow-sm
                 ${
                   type.imageUrl
-                    ? "my-1 rounded-xl text-white"
+                    ? // 【核心修改 1】：增加 min-h-[50px] 或 min-h-12 讓手機版圖片的父容器有高度
+                      "my-1 rounded-xl text-white min-h-[50px] flex items-center justify-center"
                     : "bg-gray-100 text-gray-700 border border-gray-200 rounded-full"
                 } 
                 
@@ -233,14 +235,14 @@ const TrendingCateSection = () => {
 
               {/* 摩登簡約設計：將文字作為卡片主體 */}
               <p
-                className=" 
+                // 【核心修改 2】：修正錯誤的字串插值語法
+                className={` 
                   text-sm md:text-base font-bold 
                   whitespace-nowrap 
                   md:whitespace-normal
                   z-20 relative 
-                  
-                  ${type.imageUrl ? 'text-white' : 'text-gray-700'}
-                "
+                  ${type.imageUrl ? "text-white" : "text-gray-700"}
+                `}
               >
                 {type.display}
               </p>
