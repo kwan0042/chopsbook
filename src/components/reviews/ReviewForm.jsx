@@ -52,7 +52,7 @@ const ReviewForm = ({
   initialDraftData,
   initialRestaurants,
 }) => {
-  const { db, currentUser, appId, saveReviewDraft } = useContext(AuthContext);
+  const { db, currentUser, appId, saveReviewDraft,storage } = useContext(AuthContext);
   const router = useRouter();
 
   const hasCheckedDailyLimit = useRef(false);
@@ -147,7 +147,7 @@ const ReviewForm = ({
     handleRemoveImage,
     uploadImagesToFirebase,
     resetImages,
-  } = useImageUploader(currentUser);
+  } = useImageUploader(currentUser, storage);
 
   // Daily Limit 檢查
   useEffect(() => {

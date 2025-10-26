@@ -1,12 +1,12 @@
 import { useState, useCallback } from "react";
-// 引入 Resizer 庫
+// 引入 Resizer 庫 (需要確保已安裝: npm install react-image-file-resizer)
 import Resizer from "react-image-file-resizer";
+// 🚨 關鍵修改：導入 Firebase Storage 瀏覽器 SDK
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, setDoc } from "firebase/firestore"; // 如果你需要寫入 Firestore 評論數據
 
-// 不再需要 firebase/storage 的瀏覽器 SDK，因為上傳作業已轉移到後端 API
-// import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-
-// Next.js App Router API Route 的路徑
-const UPLOAD_API_ENDPOINT = "/api/upload-review-image";
+// 🚨 移除不再需要的 API 終點
+// const UPLOAD_API_ENDPOINT = "/api/upload-review-image";
 
 // 輔助函式：使用 Resizer 在瀏覽器端將 File 轉換為 WebP Blob
 const resizeAndConvertToWebP = (imageFile) => {
@@ -19,10 +19,10 @@ const resizeAndConvertToWebP = (imageFile) => {
 
     Resizer.imageFileResizer(
       imageFile, // 原始檔案 (File 或 Blob)
-      1024, // 最大寬度 (與你後端 Sharp 設置相同)
+      1024, // 最大寬度
       1024, // 最大高度
       "WEBP", // 輸出格式
-      80, // 品質 (與你後端 Sharp 設置相同)
+      80, // 品質
       0, // 旋轉
       (uri) => {
         // uri 是一個 Blob 物件
@@ -38,18 +38,19 @@ const resizeAndConvertToWebP = (imageFile) => {
   });
 };
 
-const useImageUploader = (currentUser) => {
+// 🚨 關鍵修改：Hook 應能接收 Firebase Storage 實例
+const useImageUploader = (currentUser, storage) => {
   const [uploadedImages, setUploadedImages] = useState([]);
   const [imageUploadStatus, setImageUploadStatus] = useState("idle"); // idle, uploading, success, error
 
   const handleImageUpload = useCallback(
     (e) => {
       const files = Array.from(e.target.files);
-      // 保持只篩選 'image/jpeg' 的邏輯，但後端可以處理多種格式的轉換。
+      // 擴展支持常見格式
       const newImages = files
         .filter(
           (file) => file.type === "image/jpeg" || file.type === "image/png"
-        ) // 擴展支持常見格式
+        )
         .slice(0, 5 - uploadedImages.length);
 
       const newImagePreviews = newImages.map((file) => ({
@@ -75,12 +76,15 @@ const useImageUploader = (currentUser) => {
   }, []);
 
   /**
-   * 將圖片數據發送到 Next.js API Route 進行 Firebase 儲存。
-   * (Sharp 轉換已轉移到前端 Resizer)
+   * 🚨 關鍵修改：直接在前端 Hook 中處理圖片轉換和 Firebase Storage 上傳
    */
   const uploadImagesToFirebase = useCallback(
     async (restaurantId, visitCount) => {
-      if (!currentUser || uploadedImages.length === 0) return [];
+      // 確保有 storage 實例和用戶 ID
+      if (!currentUser || uploadedImages.length === 0 || !storage) {
+        if (!storage) console.error("Firebase Storage 實例丟失！");
+        return [];
+      }
 
       setImageUploadStatus("uploading");
 
@@ -90,6 +94,7 @@ const useImageUploader = (currentUser) => {
             // ⭐ 步驟 1: 前端轉換為 WebP Blob
             let fileToUpload = image.file;
             let finalFileName = image.file.name;
+            const userId = currentUser.uid;
 
             try {
               const webpBlob = await resizeAndConvertToWebP(image.file);
@@ -98,62 +103,57 @@ const useImageUploader = (currentUser) => {
               // 替換副檔名為 .webp
               finalFileName = finalFileName.replace(/\.[^/.]+$/, "") + ".webp";
             } catch (error) {
-              // 如果轉換失敗，則退回到上傳原始檔案，並在控制台警告
+              // 轉換失敗，退回到原始檔案
               console.warn(
                 `圖片 ${image.file.name} 轉換為 WebP 失敗，將上傳原始檔案。錯誤:`,
                 error
               );
-              // 注意：如果上傳原始檔案，後端 route.js 必須移除 sharp 相關邏輯，否則仍會 500
               fileToUpload = image.file;
               finalFileName = image.file.name;
             }
 
-            // ⭐ 步驟 2: 構建 FormData 並上傳
-            const formData = new FormData();
+            // ⭐ 步驟 2: 上傳到 Firebase Storage (取代原來的 API 呼叫)
 
-            // 1. 附上圖片 Blob/File，現在使用轉換後的檔案和新的名稱
-            // 'image' 必須匹配後端 Route Handler
-            formData.append("image", fileToUpload, finalFileName);
+            // 構建 Storage 路徑
+            const visitCountFolder = String(visitCount).padStart(3, "0");
+            const storagePath = `public/users/${userId}/reviews/${restaurantId}/${visitCountFolder}/${finalFileName}`;
 
-            // 2. 附上必要的元數據 (作為字串)
-            formData.append("userId", currentUser.uid);
-            formData.append("restaurantId", restaurantId);
-            formData.append("visitCount", String(visitCount));
-            formData.append("description", image.description);
+            const imageRef = ref(storage, storagePath);
 
-            // 3. 呼叫 Next.js API Route
-            const response = await fetch(UPLOAD_API_ENDPOINT, {
-              method: "POST",
-              body: formData,
+            // 上傳 Blob
+            const snapshot = await uploadBytes(imageRef, fileToUpload, {
+              // 根據轉換結果設定 Content-Type
+              contentType:
+                fileToUpload.type ||
+                (fileToUpload instanceof Blob && fileToUpload.size > 0
+                  ? "image/webp"
+                  : image.file.type),
             });
 
-            if (!response.ok) {
-              // 從回應中獲取錯誤訊息
-              const errorData = await response.json();
-              throw new Error(
-                `上傳 API 失敗: ${response.status} - ${
-                  errorData.message || "未知錯誤"
-                }`
-              );
-            }
+            // 獲取下載 URL
+            const publicUrl = await getDownloadURL(snapshot.ref);
 
-            // 預期後端 API 返回 WebP 圖片的 URL
-            const result = await response.json();
+            // 步驟 3: 返回結果給調用者
 
-            // 返回包含 WebP URL 和描述的物件
-            return { url: result.url, description: image.description };
+            // 返回包含 URL 和描述的物件
+            return {
+              url: publicUrl,
+              description: image.description,
+              fileName: finalFileName, // 返回檔案名稱，可能在儲存到 Firestore 時有用
+            };
           })
         );
 
         setImageUploadStatus("success");
         return urls;
       } catch (error) {
-        console.error("上傳圖片失敗:", error);
+        console.error("圖片上傳到 Firebase Storage 失敗:", error);
         setImageUploadStatus("error");
-        throw error;
+        // 拋出一個更具體的錯誤
+        throw new Error(`上傳圖片失敗: ${error.message}`);
       }
     },
-    [uploadedImages, currentUser]
+    [uploadedImages, currentUser, storage] // 🚨 確保 storage 在依賴列表中
   );
 
   const resetImages = useCallback(() => {
