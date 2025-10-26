@@ -25,6 +25,10 @@ export async function POST(request) {
       uploadedImageUrls,
       userId,
       username,
+      // 【✅ 修正 1: 新增接收餐廳名稱與小寫英文名稱】
+      restaurantName,
+      restaurantNameLowercaseEn,
+      // 【修正 1 結束】
     } = body;
 
     // 1. 基本欄位驗證
@@ -115,6 +119,7 @@ export async function POST(request) {
         averageRating: newAverageRating, // 儲存四捨五入後的數值
       });
 
+      // 【✅ 修正 2: 在 review 文件中加入餐廳名稱相關欄位】
       transaction.set(reviewRef, {
         userId,
         username,
@@ -131,7 +136,11 @@ export async function POST(request) {
         createdAt: FieldValue.serverTimestamp(),
         status: "published",
         visitCount,
+        // 新增欄位
+        restaurantName: restaurantName, // 儲存中/英名稱物件
+        restaurantNameLowercaseEn: restaurantNameLowercaseEn, // 儲存小寫英文名稱
       });
+      // 【修正 2 結束】
 
       // 更新：將新創建的 reviewId 加入用戶的 publishedReviews 陣列
       transaction.update(userRef, {

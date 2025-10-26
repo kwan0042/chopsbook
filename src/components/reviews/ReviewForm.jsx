@@ -1,4 +1,3 @@
-// src/components/reviews/ReviewForm.js
 "use client";
 
 import React, {
@@ -52,7 +51,8 @@ const ReviewForm = ({
   initialDraftData,
   initialRestaurants,
 }) => {
-  const { db, currentUser, appId, saveReviewDraft,storage } = useContext(AuthContext);
+  const { db, currentUser, appId, saveReviewDraft, storage } =
+    useContext(AuthContext);
   const router = useRouter();
 
   const hasCheckedDailyLimit = useRef(false);
@@ -69,20 +69,31 @@ const ReviewForm = ({
 
   const [selectedRestaurant, setSelectedRestaurant] = useState(() => {
     if (initialDraftData) {
-      return (
-        (initialRestaurants &&
-          initialRestaurants.find(
-            (r) => r.id === initialDraftData.restaurantId
-          )) || {
+      // 檢查 initialDraftData 是否包含 name_lowercase_en 或其他新欄位
+      const initialRestaurantData = (initialRestaurants &&
+        initialRestaurants.find(
+          (r) => r.id === initialDraftData.restaurantId
+        )) ||
+        // 從草稿中提取餐廳資訊，如果沒有 initialRestaurants (表示沒有搜尋結果，通常發生在直接從 URL 進入但沒有提供餐廳資料的情況)
+        (initialDraftData.restaurantName && {
+          id: initialDraftData.restaurantId,
+          restaurantName: initialDraftData.restaurantName, // 這裡 now 是一個物件
+          name_lowercase_en: initialDraftData.name_lowercase_en || "", // 確保有這個欄位
+        }) || {
+          // 如果 initialDraftData.restaurantName 是一個字串 (舊草稿格式)
           id: initialDraftData.restaurantId,
           restaurantName: { "zh-TW": initialDraftData.restaurantName },
-        }
-      );
+          name_lowercase_en: "",
+        };
+
+      return initialRestaurantData;
     }
     if (restaurantIdFromUrl && restaurantNameFromUrl) {
+      // 從 URL 創建的臨時餐廳對象，必須包含 ID 和 name
       return {
         id: restaurantIdFromUrl,
         restaurantName: { "zh-TW": restaurantNameFromUrl },
+        name_lowercase_en: "", // URL 傳入的沒有小寫英文名
       };
     }
     return null;
@@ -528,11 +539,11 @@ const ReviewForm = ({
     }
     setSubmitting(true);
     try {
+      // 【✅ 修正 7: 儲存草稿時，將完整的 restaurantName 和 name_lowercase_en 加入】
       const draftData = {
         restaurantId: selectedRestaurant.id,
-        restaurantName:
-          selectedRestaurant.restaurantName?.["zh-TW"] ||
-          selectedRestaurant.restaurantName?.en,
+        restaurantName: selectedRestaurant.restaurantName, // 儲存整個物件
+        name_lowercase_en: selectedRestaurant.name_lowercase_en || "", // 儲存小寫英文名
         reviewTitle,
         reviewContent,
         overallRating,
@@ -544,6 +555,8 @@ const ReviewForm = ({
           (dish) => dish.trim() !== ""
         ),
       };
+      // 【修正 7 結束】
+
       const newDraftId = await saveReviewDraft(draftData, draftId);
       router.replace(`/user/${currentUser.uid}/review-draft`);
     } catch (error) {
@@ -610,7 +623,7 @@ const ReviewForm = ({
         visitCount
       );
 
-      // 3. 提交 Review (這是 API 呼叫，不計入 Firestore 讀取)
+      // 【✅ 修正 8: 提交 Review 時，加入 restaurantName 和 name_lowercase_en】
       const response = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -629,8 +642,12 @@ const ReviewForm = ({
           uploadedImageUrls,
           userId: currentUser.uid,
           username: username,
+          // 新增欄位
+          restaurantName: selectedRestaurant.restaurantName, // 完整的名稱物件
+          restaurantNameLowercaseEn: selectedRestaurant.name_lowercase_en || "", // 小寫英文名稱
         }),
       });
+      // 【修正 8 結束】
 
       const data = await response.json();
       if (data.isLimitReached) {
