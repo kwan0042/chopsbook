@@ -86,6 +86,23 @@ const RestaurantContent = () => {
 
   const [controller, setController] = useState(null);
 
+  // ⭐️ 新增邏輯：控制背景頁面滾動 ⭐️
+  useEffect(() => {
+    if (isFilterModalOpen) {
+      // 禁用背景頁面滾動
+      document.body.style.overflow = "hidden";
+    } else {
+      // 啟用背景頁面滾動
+      document.body.style.overflow = "unset";
+    }
+
+    // 清理函式：確保元件卸載或狀態變更時，滾動會恢復
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isFilterModalOpen]);
+  // ------------------------------------
+
   // --- 核心資料獲取函式 (保持不變) ---
   const fetchRestaurants = async (anchorIdToUse = null, abortSignal) => {
     console.log("Starting to fetch restaurants...");
@@ -386,7 +403,7 @@ const RestaurantContent = () => {
 
       {/* ⚡️ 修正 3: 手機版 FilterSidebar 的自訂 Modal 實作 (從左側滑入/滑出) ⚡️ */}
       <div
-        className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300
+        className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300 h-[100dvh]
           ${isFilterModalOpen ? "opacity-100 visible" : "opacity-0 invisible"}`}
       >
         {/* 1. 背景遮罩 (Fade-in/out) */}
@@ -397,11 +414,10 @@ const RestaurantContent = () => {
 
         {/* 2. 側邊欄內容 (Slide-in/out) */}
         <div
-          // ⚡️ 修正: 定位從 right-0 改為 left-0 ⚡️
+          // 定位保持不變
           className={`absolute left-0 top-0 h-full w-full sm:w-80 max-w-[80%] 
-            bg-white shadow-2xl overflow-y-auto transform transition-transform duration-300 ease-out`}
+            bg-white shadow-2xl  transform transition-transform duration-300 ease-out overflow-y-auto`}
           style={{
-            // ⚡️ 修正: transform 從 translateX(100%) 改為 translateX(-100%) ⚡️
             transform: isFilterModalOpen
               ? "translateX(0)"
               : "translateX(-100%)",
@@ -409,21 +425,15 @@ const RestaurantContent = () => {
           // 阻止點擊側邊欄內容時關閉 Modal
           onClick={(e) => e.stopPropagation()}
         >
-          {/* ⚡️ 修正 2: 關閉按鈕定位改為左上角 (sticky top-4 left-4) ⚡️ */}
-          <button
-            onClick={() => setIsFilterModalOpen(false)}
-            className="sticky top-4 left-4 z-10 p-2 text-gray-600 hover:text-gray-900 transition-colors bg-white rounded-full shadow-md m-4"
-            aria-label="關閉篩選側邊欄"
-          >
-            <FontAwesomeIcon icon={faTimes} className="text-xl" />
-          </button>
+          {/* ❌ 移除原有的關閉按鈕，現在它將由 FilterSidebar 內部處理 ❌ */}
 
           {/* 重新渲染 FilterSidebar，現在它成為移動端的 Modal 內容 */}
           <FilterSidebar
             initialFilters={appliedFilters}
             onApplyFilters={handleApplyFilters}
             onResetFilters={handleResetFilters}
-            // 由於關閉按鈕在外部，我們不需要在 FilterSidebar 內部處理關閉邏輯
+            // ⭐️ 新增 prop: 將關閉 Modal 的動作傳遞給 FilterSidebar ⭐️
+            onCloseModal={() => setIsFilterModalOpen(false)}
           />
         </div>
       </div>

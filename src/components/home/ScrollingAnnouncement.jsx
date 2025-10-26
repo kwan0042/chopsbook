@@ -72,24 +72,7 @@ const ScrollingAnnouncement = ({ announcements }) => {
         {/* 公告文字 */}
         <h3 className="text-base font-semibold text-gray-900">最新公告</h3>
 
-        {/* 箭頭指示 (如果內容多於兩條，才顯示滾動提示) */}
-        {isScrollable && (
-          <svg
-            className="w-4 h-4 text-indigo-400 ml-auto"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            {/* 向下箭頭 */}
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M19 9l-7 7-7-7"
-            ></path>
-          </svg>
-        )}
+        
       </div>
 
       {/* 內容區域 - 固定高度，保證只顯示兩行 */}

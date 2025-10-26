@@ -5,9 +5,11 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCalendarAlt,
   faClock,
-  faChevronDown,
-  faArrowRight, // 引入用於下拉選單的圖標
+  // 引入用於下拉選單的圖標 (已從這裡移除)
 } from "@fortawesome/free-solid-svg-icons";
+
+// ⚡️ 修正 1: 確保所有圖標都被正確導入並用於正確的組件
+import { IconCaretUpFilled, IconCaretDownFilled } from "@tabler/icons-react";
 
 // 處理多選框的元件，例如菜系、設施等
 const CheckboxesFilter = ({ title, options, selected, onToggle }) => (
@@ -74,7 +76,11 @@ const SelectDropdownFilter = ({
   disabled = false,
   allowClear = false,
 }) => {
-  const effectiveValue = selectedValue || "";
+  // ⚡️ 修正 2: 確保 selectedValue 始終是字串，以避免 React 警告
+  const effectiveValue =
+    selectedValue === null || selectedValue === undefined
+      ? ""
+      : String(selectedValue);
 
   // 處理 options 格式，確保 options 具備 label/value 結構
   const normalizedOptions = options.map((option) =>
@@ -92,7 +98,7 @@ const SelectDropdownFilter = ({
       <div className="relative">
         <select
           id={title}
-          value={effectiveValue}
+          value={effectiveValue} // ⚡️ 使用安全的字串值
           onChange={(e) => onSelect(e.target.value)}
           disabled={disabled}
           className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 appearance-none bg-white pr-8 
@@ -106,10 +112,8 @@ const SelectDropdownFilter = ({
             </option>
           ))}
         </select>
-        <FontAwesomeIcon
-          icon={faChevronDown}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-        />
+        {/* ⚡️ 修正 3: 將 FontAwesomeIcon 替換為正確導入的 IconCaretDownFilled 元件 */}
+        <IconCaretDownFilled className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none w-5 h-5" />
       </div>
     </div>
   );
@@ -195,8 +199,8 @@ const DateTimeFilter = ({ localFilters, handleFilterChange }) => {
             onClick={() => setCurrentMonth(new Date(year, month + 1))}
             className="text-gray-600 hover:text-blue-600"
           >
-            {/* ⚡️ 修正：使用 faArrowRight 圖標 */}
-            <FontAwesomeIcon icon={faArrowRight} />
+            {/* ⚡️ 修正 4: 將 FontAwesomeIcon 替換為正確導入的 IconCaretUpFilled 元件 */}
+            <IconCaretUpFilled className="w-5 h-5" />
           </button>
         </div>
         <div className="grid grid-cols-7 text-center text-xs text-gray-500 mb-2">

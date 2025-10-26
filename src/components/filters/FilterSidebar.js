@@ -8,9 +8,9 @@ import React, {
   useContext,
 } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { IconCaretUpFilled, IconCaretDownFilled } from "@tabler/icons-react";
 import {
-  faChevronUp,
-  faChevronDown,
+ 
   faTimesCircle,
   faArrowLeft,
 } from "@fortawesome/free-solid-svg-icons";
@@ -35,6 +35,7 @@ import {
 } from "./FilterComponents";
 
 import { AuthContext } from "@/lib/auth-context"; // 假設路徑正確
+import FilterGroup from "../filters/FilterGroup";
 
 // ⚡️ 重新引入修正後的輔助函數：解析座位數選項
 const parseSeatingCapacityOptions = (options) => {
@@ -55,30 +56,13 @@ const parseSeatingCapacityOptions = (options) => {
     .filter(Boolean);
 };
 
-// 輔助組件：篩選器群組 (保持不變)
-const FilterGroup = ({ title, isCollapsed, onToggle, children }) => {
-  return (
-    <div className="border-b pb-4 border-gray-200">
-      <div
-        className="flex justify-between items-center cursor-pointer p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-        onClick={onToggle}
-      >
-        <h4 className="text-base font-semibold text-gray-800">{title}</h4>
-        <FontAwesomeIcon
-          icon={isCollapsed ? faChevronDown : faChevronUp}
-          className="text-gray-500 transition-transform duration-200"
-        />
-      </div>
-      {!isCollapsed && <div className="mt-3">{children}</div>}
-    </div>
-  );
-};
+
 
 const FilterSidebar = ({
   initialFilters = {},
   onApplyFilters,
   onResetFilters,
-  onClose,
+  onCloseModal,
 }) => {
   // ⚡️ 狀態初始化：將 category 和 subCategory 轉換為單一字串
   const initialCategory = Array.isArray(initialFilters.category)
@@ -393,14 +377,14 @@ const FilterSidebar = ({
     });
 
     onApplyFilters(newFilters);
-    if (onClose) onClose();
+    if (onCloseModal) onCloseModal();
   }, [
     localFilters,
     avgSpending,
     showFavoritesOnly,
     currentUser,
     onApplyFilters,
-    onClose,
+    onCloseModal,
   ]);
 
   const handleReset = useCallback(() => {
@@ -410,8 +394,8 @@ const FilterSidebar = ({
     setExpandedCategory(null);
     setShowCityError(false);
     onResetFilters();
-    if (onClose) onClose();
-  }, [onResetFilters, onClose]);
+    if (onCloseModal) onCloseModal();
+  }, [onResetFilters, onCloseModal]);
 
   const displayRestaurantTypes = restaurantTypeOptions;
   const displayReservationModes = reservationModeOptions;
@@ -457,16 +441,18 @@ const FilterSidebar = ({
 
   return (
     <div className="relative bg-white p-6 rounded-2xl w-full flex flex-col h-full">
-      <h3 className="text-xl font-bold text-gray-900 mb-6">篩選餐廳</h3>
-      {onClose && (
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
-          aria-label="Close filters"
-        >
-          <FontAwesomeIcon icon={faTimesCircle} size="lg" />
-        </button>
-      )}
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-xl font-bold text-gray-900 md:mb-6">篩選餐廳</h3>
+        {onCloseModal && (
+          <button
+            onClick={onCloseModal}
+            className="text-gray-500 hover:text-gray-700 transition-colors p-1"
+            aria-label="Close filters"
+          >
+            <FontAwesomeIcon icon={faTimesCircle} size="lg" />
+          </button>
+        )}
+      </div>
       <div
         className={`absolute inset-x-0 h-[50px] pointer-events-none bg-gradient-to-b from-white to-white/0 z-10 transition-opacity duration-300 ${
           showTopMask ? "opacity-100" : "opacity-0"
@@ -538,7 +524,7 @@ const FilterSidebar = ({
                     ))}
                   </select>
                   <FontAwesomeIcon
-                    icon={faChevronDown}
+                    icon={IconCaretDownFilled}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
                   />
                 </div>
@@ -571,7 +557,7 @@ const FilterSidebar = ({
                     ))}
                   </select>
                   <FontAwesomeIcon
-                    icon={faChevronDown}
+                    icon={IconCaretDownFilled}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
                   />
                 </div>
@@ -774,7 +760,6 @@ const FilterSidebar = ({
             }
           >
             <SelectDropdownFilter
-              title="餐廳類型"
               placeholder="請選擇餐廳類型"
               options={displayRestaurantTypes}
               selectedValue={localFilters.restaurantType}
@@ -789,7 +774,6 @@ const FilterSidebar = ({
           >
             <div className="space-y-4">
               <div className="flex justify-between items-center text-sm font-medium text-gray-700">
-                <span>人均消費</span>
                 <span>
                   {avgSpending === 0
                     ? "不限"

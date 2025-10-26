@@ -31,15 +31,27 @@ const getFilePathFromUrl = (url) => {
       return parts.join("/");
     }
 
-    const urlObj = new URL(url);
-    const path = urlObj.pathname;
+    // 情況 3: 處理標準 Firebase 下載 URL 格式 (https://firebasestorage.googleapis.com/v0/b/bucket/o/path?token=...)
+    // 🚨 修正：直接從原始 URL 字串提取，更可靠
+    if (url.includes("firebasestorage.googleapis.com/v0/b/")) {
+      const pathSplit = url.split("/o/");
+      if (pathSplit.length < 2) return null;
 
-    // 取得 Bucket 名稱，用於精準替換
-    const bucketName = bucket.name; // 從 firebase-admin 的 bucket 物件中獲取 Bucket 名稱
+      const pathWithQuery = pathSplit[1];
+      // 移除查詢參數 (例如 ?alt=media&token=...)
+      const encodedPath = pathWithQuery.split("?")[0];
+
+      // 返回解碼後的路徑
+      return decodeURIComponent(encodedPath);
+    }
 
     // 情況 2: 處理 GCS 公開 URL 格式 (https://storage.googleapis.com/bucket/path/to/file)
-    if (urlObj.hostname.includes("storage.googleapis.com")) {
-      // 🚨 最精確的修正：移除 /<bucket-name>/，剩下的就是檔案路徑
+    // 由於我們在上面處理了 firebasestorage 格式，這裡的邏輯保持不變 (用於處理您最初的 GCS 格式)
+    if (url.includes("storage.googleapis.com/")) {
+      const urlObj = new URL(url);
+      const path = urlObj.pathname;
+      const bucketName = bucket.name; // 從 firebase-admin 的 bucket 物件中獲取 Bucket 名稱
+
       const bucketPrefix = `/${bucketName}/`;
 
       if (path.startsWith(bucketPrefix)) {
@@ -47,25 +59,12 @@ const getFilePathFromUrl = (url) => {
         const filePath = path.substring(bucketPrefix.length);
         return decodeURIComponent(filePath);
       }
-
-      // 如果路徑不以 bucket-name 開頭，則可能是某種邊緣情況，讓它進入預設邏輯
-      return null;
-    }
-
-    // 情況 3: 處理標準 Firebase 下載 URL 格式 (https://firebasestorage.googleapis.com/v0/b/bucket/o/path?token=...)
-    if (urlObj.hostname.includes("firebasestorage.googleapis.com")) {
-      // 路徑部分通常在 '/o/' 之後
-      const pathSegment = path.split("/o/")[1];
-      if (!pathSegment) return null;
-
-      // 移除查詢參數並解碼（例如將 %2F 轉回 /）
-      const encodedPath = pathSegment.split("?")[0];
-      return decodeURIComponent(encodedPath);
     }
 
     // 如果是未知格式
     return null;
   } catch (e) {
+    // 如果 new URL(url) 失敗，或者其他解析錯誤
     return null;
   }
 };

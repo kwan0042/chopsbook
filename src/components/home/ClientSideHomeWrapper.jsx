@@ -13,12 +13,12 @@ import InteractivePollSection from "./InteractivePollSection.jsx";
 import RandomPickerSection from "./RandomPickerSection.jsx";
 import WeeklyRankingsSection from "./WeeklyRankingsSection.jsx";
 
-// 💡 修改：將 UpdateAnnouncement 導入為 ScrollingAnnouncement
+// 導入公告相關 Client Component
 import ScrollingAnnouncement from "@/components/home/ScrollingAnnouncement.jsx";
 import AnnouncementModal from "@/components/home/AnnouncementModal.jsx";
 
 // ====================================================================
-// 💡 JSDOC: 定義公告數據結構
+// 💡 JSDOC: 定義公告數據結構 (保留，因為 Hook 也要使用)
 /**
  * @typedef {Object} AnnouncementData
  * @property {number} id
@@ -29,7 +29,7 @@ import AnnouncementModal from "@/components/home/AnnouncementModal.jsx";
  * @property {React.ReactNode} [details]
  */
 
-// 💡 所有的公告數據列表 (取代 LATEST_UPDATE_DATA)
+// 💡 所有的公告數據列表 (移入 Hook 內部)
 /** @type {AnnouncementData[]} */
 const ANNOUNCEMENTS_LIST = [
   {
@@ -60,7 +60,7 @@ const ANNOUNCEMENTS_LIST = [
       </div>
     ),
   },
-  
+
   {
     id: 104,
     title: "📢 隱私政策更新 (已於 10/25 生效)",
@@ -74,12 +74,37 @@ const ANNOUNCEMENTS_LIST = [
   },
 ];
 
-// 構造用於 ScrollingAnnouncement 的緊湊型數據 (text + onClick)
-const compactAnnouncements = ANNOUNCEMENTS_LIST.map((announcement) => ({
-  text: announcement.title, // 只顯示標題
-  // 點擊時，將完整的公告數據傳給 handleOpenAnnouncementModal
-  onClick: () => handleOpenAnnouncementModal(announcement),
-}));
+// 💡 提取所有公告邏輯到自定義 Hook
+const useAnnouncements = () => {
+  // 💡 公告 Modal 狀態
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+
+  // 💡 處理公告 Modal 開啟/關閉
+  /** @param {AnnouncementData} data */
+  const handleOpenAnnouncementModal = useCallback((data) => {
+    setSelectedAnnouncement(data);
+  }, []);
+
+  const handleCloseAnnouncementModal = useCallback(() => {
+    setSelectedAnnouncement(null);
+  }, []);
+
+  // 構造用於 ScrollingAnnouncement 的緊湊型數據 (text + onClick)
+  // 此處使用 useCallback 確保 compactAnnouncements 只有在依賴項 (handleOpenAnnouncementModal) 變化時才重新創建，但因為 handleOpenAnnouncementModal 已經被 useCallback 包裹且依賴為空，所以這裡可以只使用普通的 map。
+  const compactAnnouncements = ANNOUNCEMENTS_LIST.map((announcement) => ({
+    text: announcement.title, // 只顯示標題
+    // 點擊時，將完整的公告數據傳給 handleOpenAnnouncementModal
+    onClick: () => handleOpenAnnouncementModal(announcement),
+  }));
+
+  return {
+    selectedAnnouncement,
+    compactAnnouncements,
+    handleOpenAnnouncementModal, // 雖然在 Wrapper 中沒直接用到，但 Hook 內有依賴
+    handleCloseAnnouncementModal,
+  };
+};
+
 // ====================================================================
 
 /**
@@ -90,11 +115,15 @@ const ClientSideHomeWrapper = ({ side }) => {
     useContext(AuthContext);
   const router = useRouter();
 
+  // 💡 使用新的 Hook
+  const {
+    selectedAnnouncement,
+    compactAnnouncements,
+    handleCloseAnnouncementModal,
+  } = useAnnouncements();
+
   const isGlobalLogic = side === "left";
   const [showFilterModal, setShowFilterModal] = useState(false);
-
-  // 💡 公告 Modal 狀態
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
 
   const handleShowFilterModal = useCallback(() => {
     setShowFilterModal(true);
@@ -102,16 +131,6 @@ const ClientSideHomeWrapper = ({ side }) => {
 
   const handleCloseFilterModal = useCallback(() => {
     setShowFilterModal(false);
-  }, []);
-
-  // 💡 處理公告 Modal 開啟/關閉
-  /** @param {AnnouncementData} data */
-  const handleOpenAnnouncementModal = useCallback((data) => {
-    setSelectedAnnouncement(data);
-  }, []);
-
-  const handleCloseAnnouncementModal = useCallback(() => {
-    setSelectedAnnouncement(null);
   }, []);
 
   const handleApplyFilters = useCallback(
@@ -132,7 +151,7 @@ const ClientSideHomeWrapper = ({ side }) => {
     // 渲染左側欄的 Client Component
     return (
       <>
-        {/* 💡 B1. 使用新的 ScrollingAnnouncement，並傳入緊湊數據 */}
+        {/* 💡 B1. 使用 Hook 提供的緊湊數據 */}
         <ScrollingAnnouncement announcements={compactAnnouncements} />
 
         {/* A. 個人化推薦 (PersonalizedSection) - 登入後顯示 */}
@@ -157,7 +176,7 @@ const ClientSideHomeWrapper = ({ side }) => {
           />
         )}
 
-        {/* 💡 新增：公告詳情 Modal (只在左側欄渲染一次) */}
+        {/* 💡 新增：公告詳情 Modal (使用 Hook 提供的狀態和關閉函數) */}
         <AnnouncementModal
           isVisible={!!selectedAnnouncement}
           onClose={handleCloseAnnouncementModal}

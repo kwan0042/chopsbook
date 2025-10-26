@@ -158,7 +158,7 @@ export default function UserProfileLayout({ children, params }) {
 
   return (
     <div className=" h-fit bg-cbbg p-4 sm:p-6 lg:p-8 flex flex-col items-center font-inter ">
-      <div className="w-full px-20 relative ">
+      <div className="w-full md:px-20 relative ">
         <UserProfileHeader
           currentUser={profileUser}
           profilePhoto={profilePhoto}

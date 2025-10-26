@@ -9,7 +9,10 @@ import React, {
 } from "react";
 import { AuthContext } from "@/lib/auth-context";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChevronUp, faChevronDown } from "@fortawesome/free-solid-svg-icons";
+import {
+  faTimesCircle,
+  faArrowLeft, // ⚡️ 處理複雜菜單導航
+} from "@fortawesome/free-solid-svg-icons";
 
 // 導入新的扁平化菜系選項
 import {
@@ -22,6 +25,7 @@ import {
   provinceOptions,
   citiesByProvince,
   seatingCapacityOptions,
+  SUB_CATEGORY_MAP, // ⚡️ 處理複雜菜單邏輯所需
 } from "../../data/restaurant-options";
 import {
   CheckboxesFilter,
@@ -87,7 +91,7 @@ const FilterModal = ({
 
   const [isTimeAndPartyCollapsed, setIsTimeAndPartyCollapsed] = useState(true);
   const [isRegionCollapsed, setIsRegionCollapsed] = useState(true);
-  // ⚡️ 修正：將菜系篩選合併到一個折疊狀態
+  // ⚡️ 菜系狀態
   const [isCuisineCollapsed, setIsCuisineCollapsed] = useState(true);
   const [isRestaurantTypeCollapsed, setIsRestaurantTypeCollapsed] =
     useState(true);
@@ -102,33 +106,80 @@ const FilterModal = ({
     useState(true);
   const [isFacilitiesCollapsed, setIsFacilitiesCollapsed] = useState(true);
 
-  // ⚡️ 移除：不再需要獨立的 isCategoryCollapsed 和 isSubCategoryCollapsed
-  // const [isCategoryCollapsed, setIsCategoryCollapsed] = useState(true);
-  // const [isSubCategoryCollapsed, setIsSubCategoryCollapsed] = useState(true);
+  // ⚡️ 複雜菜系狀態和 Ref
+  const [expandedCategory, setExpandedCategory] = useState(null);
+  const [cuisineContainerHeight, setCuisineContainerHeight] = useState("auto"); // ⚡️ 修正：預設為 auto
+  const subCategoryRef = useRef(null);
+  const categoryRef = useRef(null);
 
   const initialFiltersJsonRef = useRef(JSON.stringify(initialFilters));
 
-  // 載入初始篩選條件 (保持不變)
+  // 載入初始篩選條件 (已調整，以處理 category/subCategory 的單值)
   useEffect(() => {
     const currentFiltersJson = JSON.stringify(initialFilters);
+    const hasInitialFilters =
+      Object.keys(initialFilters).length > 0 || initialFiltersJsonRef.current;
 
-    if (isOpen && currentFiltersJson !== initialFiltersJsonRef.current) {
-      setLocalFilters(initialFilters || {});
-      setAvgSpending(initialFilters.maxAvgSpending || 0);
-      setShowFavoritesOnly(!!initialFilters.favoriteRestaurantIds);
+    if (isOpen && hasInitialFilters) {
+      // 確保 category 和 subCategory 作為單一字串被設置
+      const initialCategory = Array.isArray(initialFilters.category)
+        ? initialFilters.category[0] || ""
+        : initialFilters.category || "";
+      const initialSubCategory = Array.isArray(initialFilters.subCategory)
+        ? initialFilters.subCategory[0] || ""
+        : initialFilters.subCategory || "";
 
-      initialFiltersJsonRef.current = currentFiltersJson;
+      const newLocalFilters = {
+        ...initialFilters,
+        category: initialCategory,
+        subCategory: initialSubCategory,
+      };
+
+      if (currentFiltersJson !== initialFiltersJsonRef.current) {
+        setLocalFilters(newLocalFilters);
+        setAvgSpending(initialFilters.maxAvgSpending || 0);
+        setShowFavoritesOnly(!!initialFilters.favoriteRestaurantIds);
+        initialFiltersJsonRef.current = currentFiltersJson;
+      } else if (Object.keys(localFilters).length === 0) {
+        setLocalFilters(newLocalFilters);
+        setAvgSpending(initialFilters.maxAvgSpending || 0);
+        setShowFavoritesOnly(!!initialFilters.favoriteRestaurantIds);
+      }
     } else if (
+      !hasInitialFilters &&
       isOpen &&
-      localFilters &&
-      Object.keys(localFilters).length === 0 &&
-      Object.keys(initialFilters).length > 0
+      Object.keys(localFilters).length > 0
     ) {
-      setLocalFilters(initialFilters || {});
-      setAvgSpending(initialFilters.maxAvgSpending || 0);
-      setShowFavoritesOnly(!!initialFilters.favoriteRestaurantIds);
+      // 模態框打開，但初始篩選條件為空，重設 localFilters
+      setLocalFilters({});
+      setAvgSpending(0);
+      setShowFavoritesOnly(false);
     }
   }, [isOpen, initialFilters]);
+
+  // ⚡️ 複雜菜系 useEffect (計算高度)
+  useEffect(() => {
+    if (!isCuisineCollapsed) {
+      if (expandedCategory && subCategoryRef.current) {
+        // 如果展開了子菜系，計算子菜系面板的高度
+        const height = subCategoryRef.current.offsetHeight + 20; // + 額外空間
+        setCuisineContainerHeight(`${height}px`);
+      } else if (categoryRef.current) {
+        // 否則，計算主菜系列表的高度
+        setCuisineContainerHeight(`${categoryRef.current.offsetHeight}px`);
+      } else {
+        setCuisineContainerHeight("auto"); // 避免內容未載入時的高度問題
+      }
+    } else {
+      setCuisineContainerHeight("0px");
+    }
+    // 當 expandedCategory 改變時，需要重新計算高度
+  }, [
+    expandedCategory,
+    localFilters.category,
+    localFilters.subCategory,
+    isCuisineCollapsed,
+  ]);
 
   const cities = localFilters.province
     ? citiesByProvince[localFilters.province] || []
@@ -159,14 +210,12 @@ const FilterModal = ({
           }
         }
 
-        // 處理單選下拉列表和單選按鈕的清空邏輯
-        // 包含 restaurantType, businessHours, category, subCategory
+        // ⚡️ 移除 category, subCategory 的處理，交給 handleCuisineSelectChange
+
+        // 處理單選下拉列表和單選按鈕的清空邏輯 (保持不變)
+        // 包含 restaurantType, businessHours
         const isDefaultSelect =
-          (key === "restaurantType" ||
-            key === "category" ||
-            key === "subCategory" ||
-            key === "businessHours") &&
-          value === "";
+          (key === "restaurantType" || key === "businessHours") && value === "";
 
         if (
           value === "" ||
@@ -187,7 +236,63 @@ const FilterModal = ({
     [cities]
   );
 
-  // 處理多選篩選器的通用函數 (用於 reservationModes, paymentMethods, facilities...) (保持不變)
+  // ⚡️ 引入複雜菜系邏輯函數：handleCuisineSelectChange (同 FilterSidebar)
+  const handleCuisineSelectChange = useCallback(
+    (key, value, isCategory = false) => {
+      setLocalFilters((prevFilters) => {
+        const nextFilters = { ...prevFilters };
+
+        if (isCategory) {
+          if (prevFilters.category === value) {
+            nextFilters.category = "";
+            nextFilters.subCategory = "";
+          } else {
+            nextFilters.category = value;
+            nextFilters.subCategory = "";
+          }
+          setExpandedCategory(null);
+        } else {
+          if (prevFilters.subCategory === value) {
+            nextFilters.subCategory = "";
+          } else {
+            nextFilters.subCategory = value;
+          }
+        }
+
+        // 確保 category 或 subCategory 的空值被刪除 (HandleApply 中會再次檢查)
+        if (nextFilters.category === "") delete nextFilters.category;
+        if (nextFilters.subCategory === "") delete nextFilters.subCategory;
+
+        return nextFilters;
+      });
+    },
+    []
+  );
+
+  // ⚡️ 引入複雜菜系邏輯函數：isCategorySelected (同 FilterSidebar)
+  const isCategorySelected = useCallback(
+    (category) => localFilters.category === category,
+    [localFilters.category]
+  );
+
+  // ⚡️ 引入複雜菜系邏輯函數：isSubCategoryPartiallySelected (同 FilterSidebar)
+  const isSubCategoryPartiallySelected = useCallback(
+    (category) => {
+      if (!localFilters.subCategory) return false;
+
+      const subTypes = SUB_CATEGORY_MAP[category] || [];
+
+      const isSubSelectedInThisCategory = subTypes.includes(
+        localFilters.subCategory
+      );
+      const isCategoryActive = isCategorySelected(category);
+
+      return isSubSelectedInThisCategory && !isCategoryActive;
+    },
+    [localFilters.subCategory, isCategorySelected]
+  );
+
+  // 處理多選篩選器的通用函數 (保持不變)
   const handleMultiSelectFilterChange = useCallback((key, value) => {
     setLocalFilters((prevFilters) => {
       const currentValues = prevFilters[key] || [];
@@ -223,7 +328,15 @@ const FilterModal = ({
       delete newFilters.favoriteRestaurantIds;
     }
 
-    // ⚡️ 核心修正：只對 Reservation Modes, Payment Methods, Facilities 進行陣列化處理
+    // ⚡️ 確保菜系單選邏輯的結果正確 (同 FilterSidebar 的清理邏輯)
+    if (newFilters.category === "") {
+      delete newFilters.category;
+    }
+    if (newFilters.subCategory === "") {
+      delete newFilters.subCategory;
+    }
+
+    // 核心修正：只對 Reservation Modes, Payment Methods, Facilities 進行陣列化處理
     const multiSelectKeys = [
       "reservationModes",
       "paymentMethods",
@@ -243,20 +356,17 @@ const FilterModal = ({
     Object.keys(newFilters).forEach((key) => {
       const value = newFilters[key];
 
-      // 檢查是否為預設的下拉列表值 (category, subCategory, restaurantType 預設值為 "")
+      // 檢查是否為預設的下拉列表值 (restaurantType, businessHours 預設值為 "")
       const isDefaultSelect =
-        (key === "restaurantType" ||
-          key === "category" ||
-          key === "subCategory" ||
-          key === "businessHours") &&
-        value === "";
+        (key === "restaurantType" || key === "businessHours") && value === "";
 
-      // 處理地區下拉選單的預設值（字串陣列的第一個元素）
+      // 處理地區下拉選單的預設值
       const isProvinceDefault =
         key === "province" && value === provinceOptions[0];
       const isCityDefault =
         key === "city" &&
         localFilters.province &&
+        citiesByProvince[localFilters.province]?.[0] &&
         value === citiesByProvince[localFilters.province]?.[0];
 
       if (
@@ -282,6 +392,7 @@ const FilterModal = ({
     setLocalFilters({});
     setAvgSpending(0);
     setShowFavoritesOnly(false);
+    setExpandedCategory(null); // ⚡️ 重置菜系展開狀態
     initialFiltersJsonRef.current = JSON.stringify({});
 
     if (typeof onResetFilters === "function") {
@@ -308,294 +419,441 @@ const FilterModal = ({
   ];
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 h-[100vh]">
-      <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-4xl relative overflow-y-auto max-h-[90vh]">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-3xl font-light leading-none"
-          aria-label="關閉篩選器"
-        >
-          &times;
-        </button>
-        <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">
-          篩選餐廳
-        </h2>
-
-        <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
-          {/* 預計用餐詳情 (保持不變) */}
-          <FilterGroup
-            title="預計用餐詳情"
-            isCollapsed={isTimeAndPartyCollapsed}
-            onToggle={() =>
-              setIsTimeAndPartyCollapsed(!isTimeAndPartyCollapsed)
-            }
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50 h-[100dvh]">
+      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-4xl relative flex flex-col h-[90vh] mb:overflow-y-auto mb:max-h-[90vh]">
+        <div className="flex justify-between items-center border-b-2 pb-2 mb-2">
+          <h2 className="text-2xl font-bold text-center text-gray-800 ">
+            篩選餐廳
+          </h2>
+          <button
+            onClick={onClose}
+            className=" text-gray-500 hover:text-gray-700 text-3xl font-light "
+            aria-label="關閉篩選器"
           >
-            <div className="space-y-4">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="showFavoritesOnly"
-                  checked={showFavoritesOnly}
-                  onChange={(e) => setShowFavoritesOnly(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+            <FontAwesomeIcon icon={faTimesCircle} size="sm" />
+          </button>
+        </div>
+        <div className="sm:flex-grow overflow-y-auto overflow-x-hidden pt-0">
+          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6 px-1">
+            {/* 預計用餐詳情 (保持不變) */}
+            <FilterGroup
+              title="預計用餐詳情"
+              isCollapsed={isTimeAndPartyCollapsed}
+              onToggle={() =>
+                setIsTimeAndPartyCollapsed(!isTimeAndPartyCollapsed)
+              }
+            >
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="showFavoritesOnly"
+                    checked={showFavoritesOnly}
+                    onChange={(e) => setShowFavoritesOnly(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <label
+                    htmlFor="showFavoritesOnly"
+                    className="ml-2 text-sm text-gray-700"
+                  >
+                    只顯示我的收藏餐廳
+                  </label>
+                </div>
+                <DateTimeFilter
+                  localFilters={localFilters}
+                  handleFilterChange={handleFilterChange}
                 />
-                <label
-                  htmlFor="showFavoritesOnly"
-                  className="ml-2 text-sm text-gray-700"
-                >
-                  只顯示我的收藏餐廳
-                </label>
               </div>
-              <DateTimeFilter
-                localFilters={localFilters}
-                handleFilterChange={handleFilterChange}
-              />
-            </div>
-          </FilterGroup>
+            </FilterGroup>
 
-          {/* 地區篩選 (保持不變) */}
-          <FilterGroup
-            title="地區"
-            isCollapsed={isRegionCollapsed}
-            onToggle={() => setIsRegionCollapsed(!isRegionCollapsed)}
-          >
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="province"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  省份
-                </label>
-                <select
-                  id="province"
-                  value={localFilters.province || displayProvinces[0]}
-                  onChange={(e) =>
-                    handleFilterChange("province", e.target.value)
-                  }
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {displayProvinces.map((province) => (
-                    <option key={province} value={province}>
-                      {province}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {localFilters.province && cities.length > 0 && (
+            {/* 地區篩選 (保持不變) */}
+            <FilterGroup
+              title="地區"
+              isCollapsed={isRegionCollapsed}
+              onToggle={() => setIsRegionCollapsed(!isRegionCollapsed)}
+            >
+              <div className="space-y-4">
                 <div>
                   <label
-                    htmlFor="city"
+                    htmlFor="province"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    城市
+                    省份
                   </label>
                   <select
-                    id="city"
-                    value={localFilters.city || cities[0]}
-                    onChange={(e) => handleFilterChange("city", e.target.value)}
+                    id="province"
+                    value={localFilters.province || displayProvinces[0]}
+                    onChange={(e) =>
+                      handleFilterChange("province", e.target.value)
+                    }
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                   >
-                    {cities.map((city) => (
-                      <option key={city} value={city}>
-                        {city}
+                    {displayProvinces.map((province) => (
+                      <option key={province} value={province}>
+                        {province}
                       </option>
                     ))}
                   </select>
                 </div>
-              )}
-            </div>
-          </FilterGroup>
-
-          {/* 餐廳類型 - 單選下拉列表 (保持不變) */}
-          <FilterGroup
-            title="餐廳類型"
-            isCollapsed={isRestaurantTypeCollapsed}
-            onToggle={() =>
-              setIsRestaurantTypeCollapsed(!isRestaurantTypeCollapsed)
-            }
-          >
-            <SelectDropdownFilter
-              title="餐廳類型"
-              placeholder="請選擇餐廳類型"
-              options={displayRestaurantTypes}
-              selectedValue={localFilters.restaurantType}
-              onSelect={(value) => handleFilterChange("restaurantType", value)}
-            />
-          </FilterGroup>
-
-          {/* -------------------- ⚡️ 菜系類別 (主菜系/細分特色) - 合併為單一滑動面板 -------------------- */}
-          <FilterGroup
-            title="菜系類別"
-            isCollapsed={isCuisineCollapsed}
-            onToggle={() => setIsCuisineCollapsed(!isCuisineCollapsed)}
-          >
-            <div className="space-y-4">
-              {/* 主菜系 (Category) */}
-              <SelectDropdownFilter
-                title="category"
-                placeholder="請選擇主菜系"
-                options={categoryOptions}
-                selectedValue={localFilters.category}
-                onSelect={(value) => handleFilterChange("category", value)}
-              />
-              {/* 細分菜系/特色餐飲 (SubCategory) */}
-              <SelectDropdownFilter
-                title="subCategory"
-                placeholder="請選擇細分菜系"
-                options={subcategoryOptions}
-                selectedValue={localFilters.subCategory}
-                onSelect={(value) => handleFilterChange("subCategory", value)}
-              />
-            </div>
-          </FilterGroup>
-          {/* ---------------------------------------------------------------------- */}
-
-          {/* 人均價錢 (保持不變) */}
-          <FilterGroup
-            title="人均價錢"
-            isCollapsed={isAvgSpendingCollapsed}
-            onToggle={() => setIsAvgSpendingCollapsed(!isAvgSpendingCollapsed)}
-          >
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-sm font-medium text-gray-700">
-                <span>人均消費</span>
-                <span>
-                  {avgSpending === 0
-                    ? "不限"
-                    : avgSpending === 200
-                    ? "$200+"
-                    : `<$${avgSpending}`}
-                </span>
+                {localFilters.province && cities.length > 0 && (
+                  <div>
+                    <label
+                      htmlFor="city"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      城市
+                    </label>
+                    <select
+                      id="city"
+                      value={localFilters.city || cities[0]}
+                      onChange={(e) =>
+                        handleFilterChange("city", e.target.value)
+                      }
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      {cities.map((city) => (
+                        <option key={city} value={city}>
+                          {city}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
-              <input
-                type="range"
-                min="0"
-                max="200"
-                value={avgSpending}
-                onChange={(e) => setAvgSpending(parseInt(e.target.value, 10))}
-                className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                拖曳滑動條以選擇人均消費。
-              </p>
-            </div>
-          </FilterGroup>
+            </FilterGroup>
 
-          {/* 座位數 (保持不變) */}
-          <FilterGroup
-            title="座位數"
-            isCollapsed={isSeatingCapacityCollapsed}
-            onToggle={() =>
-              setIsSeatingCapacityCollapsed(!isSeatingCapacityCollapsed)
-            }
-          >
-            <RadioGroupFilter
-              title="seatingCapacity"
-              options={[
-                ...parsedSeatingCapacities,
-                { label: "不限", value: "any" },
-              ]}
-              selectedValue={
-                localFilters.minSeatingCapacity
-                  ? `${localFilters.minSeatingCapacity}-${localFilters.maxSeatingCapacity}`
-                  : "any"
+            {/* 餐廳類型 - 單選下拉列表 (保持不變) */}
+            <FilterGroup
+              title="餐廳類型"
+              isCollapsed={isRestaurantTypeCollapsed}
+              onToggle={() =>
+                setIsRestaurantTypeCollapsed(!isRestaurantTypeCollapsed)
               }
-              onSelect={(value) => {
-                if (value === "any") {
-                  handleFilterChange("minSeatingCapacity", undefined);
-                  handleFilterChange("maxSeatingCapacity", undefined);
-                } else {
-                  // 解析 value 的格式 (e.g., "1-20" 或 "51+")
-                  const selectedOption = parsedSeatingCapacities.find(
-                    (opt) => opt.value === value
-                  );
-                  if (selectedOption) {
-                    handleFilterChange(
-                      "minSeatingCapacity",
-                      selectedOption.min
-                    );
-                    handleFilterChange(
-                      "maxSeatingCapacity",
-                      selectedOption.max
-                    );
-                  }
+            >
+              <SelectDropdownFilter
+                placeholder="請選擇餐廳類型"
+                options={displayRestaurantTypes}
+                selectedValue={localFilters.restaurantType || ""}
+                onSelect={(value) =>
+                  handleFilterChange("restaurantType", value)
                 }
+              />
+            </FilterGroup>
+
+            {/* -------------------- ⚡️ 菜系類別 (主菜系/細分特色) - 複雜滑動面板邏輯 -------------------- */}
+            <FilterGroup
+              title="菜系類別"
+              isCollapsed={isCuisineCollapsed}
+              onToggle={() => {
+                setIsCuisineCollapsed(!isCuisineCollapsed);
+                setExpandedCategory(null); // 折疊時關閉子菜單
               }}
-              valueKey="value"
-              labelKey="label"
-            />
-          </FilterGroup>
+            >
+              {/* ⚡️ 修正：使用相對定位容器，並控制高度 */}
+              <div
+                className="relative transition-all duration-300 ease-in-out overflow-hidden"
+                style={{
+                  height: isCuisineCollapsed ? "0px" : cuisineContainerHeight,
+                  // 設定一個 max-height，防止高度計算錯誤時內容溢出模態框
+                  maxHeight: isCuisineCollapsed ? "0px" : "400px",
+                }}
+              >
+                <div
+                  ref={categoryRef}
+                  // ⚡️ 修正：將菜單列表定位為容器內部的絕對定位，並使用轉換來滑動
+                  className={`absolute w-full top-0 left-0 p-1 transition-transform duration-300 ease-in-out ${
+                    expandedCategory ? "translate-x-[-100%]" : "translate-x-0"
+                  }`}
+                >
+                  <div className={`space-y-2 text-sm w-full`}>
+                    {categoryOptions.map((category) => {
+                      const subTypes = SUB_CATEGORY_MAP[category];
+                      const hasSubTypes = subTypes && subTypes.length > 0;
+                      const isSelected = isCategorySelected(category);
+                      const isPartial =
+                        isSubCategoryPartiallySelected(category);
 
-          {/* 營業狀態 (保持不變) */}
-          <FilterGroup
-            title="營業狀態"
-            isCollapsed={isBusinessHoursCollapsed}
-            onToggle={() =>
-              setIsBusinessHoursCollapsed(!isBusinessHoursCollapsed)
-            }
-          >
-            <RadioGroupFilter
-              title="businessHours"
-              options={businessHoursOptions}
-              selectedValue={localFilters.businessHours || ""}
-              onSelect={(value) => handleFilterChange("businessHours", value)}
-              valueKey="value"
-              labelKey="label"
-            />
-          </FilterGroup>
+                      return (
+                        <div
+                          key={category}
+                          className="flex items-center justify-between group"
+                        >
+                          <div className="flex items-center flex-grow">
+                            <input
+                              type="radio"
+                              id={`cuisine-category-modal-${category}`}
+                              name="category-group-modal"
+                              checked={isSelected}
+                              onChange={() =>
+                                handleCuisineSelectChange(
+                                  "category",
+                                  category,
+                                  true
+                                )
+                              }
+                              className={`h-4 w-4 rounded-full text-blue-600 border-gray-300 focus:ring-blue-500`}
+                            />
+                            <label
+                              htmlFor={`cuisine-category-modal-${category}`}
+                              className={`ml-2 text-gray-700 cursor-pointer`}
+                            >
+                              {category}
+                              {isPartial && " (細分選中)"}
+                            </label>
+                          </div>
 
-          {/* 訂座模式 (保持不變) */}
-          <FilterGroup
-            title="訂座模式"
-            isCollapsed={isReservationModesCollapsed}
-            onToggle={() =>
-              setIsReservationModesCollapsed(!isReservationModesCollapsed)
-            }
-          >
-            <CheckboxesFilter
-              title="reservation"
-              options={displayReservationModes}
-              selected={localFilters.reservationModes || []}
-              onToggle={(value) =>
-                handleMultiSelectFilterChange("reservationModes", value)
+                          {hasSubTypes && (
+                            <button
+                              onClick={() => setExpandedCategory(category)}
+                              className="text-blue-500 hover:text-blue-700 text-xs py-1 px-2 rounded transition-colors duration-150"
+                            >
+                              更多 &rarr;
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {/* 增加一個清除主菜系的選項 */}
+                    <div className="flex items-center pt-2 border-t border-gray-100 mt-2">
+                      <input
+                        type="radio"
+                        id="cuisine-category-clear-modal"
+                        name="category-group-modal"
+                        checked={
+                          !localFilters.category && !localFilters.subCategory
+                        }
+                        onChange={() =>
+                          handleCuisineSelectChange("category", "", true)
+                        }
+                        className={`h-4 w-4 rounded-full text-blue-600 border-gray-300 focus:ring-blue-500`}
+                      />
+                      <label
+                        htmlFor="cuisine-category-clear-modal"
+                        className={`ml-2 text-gray-700 cursor-pointer font-semibold`}
+                      >
+                        不限菜系
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 子菜系滑動面板 */}
+                <div
+                  ref={subCategoryRef}
+                  // ⚡️ 修正：定位為容器內部的絕對定位，並使用轉換來滑動
+                  className={`absolute  text-sm top-0 left-0 h-fit bg-white transition-transform duration-300 ease-in-out z-20 w-10vw border-gray-200`}
+                  style={{
+                    transform: expandedCategory
+                      ? "translateX(0)"
+                      : "translateX(100%)",
+                  }}
+                >
+                  {expandedCategory && (
+                    <div className="p-1">
+                      <div className="flex items-center justify-start pb-3 border-b border-gray-100 mb-2">
+                        <button
+                          onClick={() => setExpandedCategory(null)}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-semibold transition-colors duration-150 flex items-center"
+                        >
+                          <FontAwesomeIcon
+                            icon={faArrowLeft}
+                            className="mr-2 text-xs"
+                          />
+                          返回 {expandedCategory}
+                        </button>
+                      </div>
+                      <div className="space-y-2 pb-2">
+                        {/* 增加一個清除細分菜系的選項 */}
+
+                        {(SUB_CATEGORY_MAP[expandedCategory] || []).map(
+                          (subType) => {
+                            const isSelected =
+                              localFilters.subCategory === subType;
+                            return (
+                              <div key={subType} className="flex items-center">
+                                <input
+                                  type="radio"
+                                  id={`cuisine-subType-modal-${subType}`}
+                                  name="subCategory-group-modal"
+                                  checked={isSelected}
+                                  onChange={() =>
+                                    handleCuisineSelectChange(
+                                      "subCategory",
+                                      subType,
+                                      false
+                                    )
+                                  }
+                                  className="h-4 w-4 text-blue-600 border-gray-300 rounded-full focus:ring-blue-500"
+                                />
+                                <label
+                                  htmlFor={`cuisine-subType-modal-${subType}`}
+                                  className="ml-2 text-gray-700 cursor-pointer"
+                                >
+                                  {subType}
+                                </label>
+                              </div>
+                            );
+                          }
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </FilterGroup>
+            {/* ---------------------------------------------------------------------- */}
+
+            {/* 人均價錢 (保持不變) */}
+            <FilterGroup
+              title="人均價錢"
+              isCollapsed={isAvgSpendingCollapsed}
+              onToggle={() =>
+                setIsAvgSpendingCollapsed(!isAvgSpendingCollapsed)
               }
-            />
-          </FilterGroup>
+            >
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-sm font-medium text-gray-700">
+                  <span>人均消費</span>
+                  <span>
+                    {avgSpending === 0
+                      ? "不限"
+                      : avgSpending === 200
+                      ? "$200+"
+                      : `<$${avgSpending}`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="200"
+                  value={avgSpending}
+                  onChange={(e) => setAvgSpending(parseInt(e.target.value, 10))}
+                  className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  拖曳滑動條以選擇人均消費。
+                </p>
+              </div>
+            </FilterGroup>
 
-          {/* 付款方式 (保持不變) */}
-          <FilterGroup
-            title="付款方式"
-            isCollapsed={isPaymentMethodsCollapsed}
-            onToggle={() =>
-              setIsPaymentMethodsCollapsed(!isPaymentMethodsCollapsed)
-            }
-          >
-            <CheckboxesFilter
-              title="payment"
-              options={displayPaymentMethods}
-              selected={localFilters.paymentMethods || []}
-              onToggle={(value) =>
-                handleMultiSelectFilterChange("paymentMethods", value)
+            {/* 座位數 (保持不變) */}
+            <FilterGroup
+              title="座位數"
+              isCollapsed={isSeatingCapacityCollapsed}
+              onToggle={() =>
+                setIsSeatingCapacityCollapsed(!isSeatingCapacityCollapsed)
               }
-            />
-          </FilterGroup>
+            >
+              <RadioGroupFilter
+                title="seatingCapacity"
+                options={[
+                  ...parsedSeatingCapacities,
+                  { label: "不限", value: "any" },
+                ]}
+                selectedValue={
+                  // 將 min/max 轉換回 value 字串，若沒有則使用 "any"
+                  localFilters.minSeatingCapacity
+                    ? parsedSeatingCapacities.find(
+                        (opt) => opt.min === localFilters.minSeatingCapacity
+                      )?.value || "any"
+                    : "any"
+                }
+                onSelect={(value) => {
+                  if (value === "any") {
+                    handleFilterChange("minSeatingCapacity", undefined);
+                    handleFilterChange("maxSeatingCapacity", undefined);
+                  } else {
+                    // 解析 value 的格式 (e.g., "1-20" 或 "51+")
+                    const selectedOption = parsedSeatingCapacities.find(
+                      (opt) => opt.value === value
+                    );
+                    if (selectedOption) {
+                      handleFilterChange(
+                        "minSeatingCapacity",
+                        selectedOption.min
+                      );
+                      handleFilterChange(
+                        "maxSeatingCapacity",
+                        selectedOption.max
+                      );
+                    }
+                  }
+                }}
+                valueKey="value"
+                labelKey="label"
+              />
+            </FilterGroup>
 
-          {/* 設施/服務 (保持不變) */}
-          <FilterGroup
-            title="設施/服務"
-            isCollapsed={isFacilitiesCollapsed}
-            onToggle={() => setIsFacilitiesCollapsed(!isFacilitiesCollapsed)}
-          >
-            <CheckboxesFilter
-              title="facility"
-              options={displayFacilities}
-              selected={localFilters.facilities || []}
-              onToggle={(value) =>
-                handleMultiSelectFilterChange("facilities", value)
+            {/* 營業狀態 (保持不變) */}
+            <FilterGroup
+              title="營業狀態"
+              isCollapsed={isBusinessHoursCollapsed}
+              onToggle={() =>
+                setIsBusinessHoursCollapsed(!isBusinessHoursCollapsed)
               }
-            />
-          </FilterGroup>
+            >
+              <RadioGroupFilter
+                title="businessHours"
+                options={businessHoursOptions}
+                selectedValue={localFilters.businessHours || ""}
+                onSelect={(value) => handleFilterChange("businessHours", value)}
+                valueKey="value"
+                labelKey="label"
+              />
+            </FilterGroup>
+
+            {/* 訂座模式 (保持不變) */}
+            <FilterGroup
+              title="訂座模式"
+              isCollapsed={isReservationModesCollapsed}
+              onToggle={() =>
+                setIsReservationModesCollapsed(!isReservationModesCollapsed)
+              }
+            >
+              <CheckboxesFilter
+                title="reservation"
+                options={displayReservationModes}
+                selected={localFilters.reservationModes || []}
+                onToggle={(value) =>
+                  handleMultiSelectFilterChange("reservationModes", value)
+                }
+              />
+            </FilterGroup>
+
+            {/* 付款方式 (保持不變) */}
+            <FilterGroup
+              title="付款方式"
+              isCollapsed={isPaymentMethodsCollapsed}
+              onToggle={() =>
+                setIsPaymentMethodsCollapsed(!isPaymentMethodsCollapsed)
+              }
+            >
+              <CheckboxesFilter
+                title="payment"
+                options={displayPaymentMethods}
+                selected={localFilters.paymentMethods || []}
+                onToggle={(value) =>
+                  handleMultiSelectFilterChange("paymentMethods", value)
+                }
+              />
+            </FilterGroup>
+
+            {/* 設施/服務 (保持不變) */}
+            <FilterGroup
+              title="設施/服務"
+              isCollapsed={isFacilitiesCollapsed}
+              onToggle={() => setIsFacilitiesCollapsed(!isFacilitiesCollapsed)}
+            >
+              <CheckboxesFilter
+                title="facility"
+                options={displayFacilities}
+                selected={localFilters.facilities || []}
+                onToggle={(value) =>
+                  handleMultiSelectFilterChange("facilities", value)
+                }
+              />
+            </FilterGroup>
+          </div>
         </div>
 
         <div className="flex justify-between mt-8 space-x-4">
