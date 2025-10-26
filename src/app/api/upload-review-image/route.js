@@ -1,11 +1,12 @@
 // app/api/upload-review-image/route.js
 
-import sharp from "sharp";
+// 🚨 移除 sharp 引入
+// import sharp from "sharp";
 import { bucket } from "@/lib/firebase-admin"; // ⚠️ 請確保路徑正確
 import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 /**
- * 處理圖片上傳、Sharp 轉換為 WebP 並儲存到 Firebase Storage。
+ * 處理圖片上傳（不進行任何轉換或優化）並儲存到 Firebase Storage。
  * @param {Request} request Next.js App Router 的標準 Request 物件
  */
 export async function POST(request) {
@@ -33,34 +34,38 @@ export async function POST(request) {
       );
     }
 
-    // 2. 將 Web API File/Blob 轉換為 Sharp 需要的 Node.js Buffer
+    // 2. 將 Web API File/Blob 轉換為 Node.js Buffer
     // 透過 arrayBuffer() 取得底層緩衝區
     const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
 
-    // 3. Sharp 轉換
-    const webpBuffer = await sharp(imageBuffer)
-      // 最佳化: 限制最大尺寸為 1024x1024 像素，保持比例
-      .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 80 }) // 轉換為 WebP，設定質量為 80
-      .toBuffer();
+    // 取得 MIME Type 和檔案名稱
+    const originalMimeType = imageFile.type || "image/jpeg"; // 嘗試獲取 Mime Type
+    const originalFileName = imageFile.name || `upload-temp.jpeg`;
+
+    // 3. 🚨 移除 Sharp 轉換步驟。現在 imageBuffer 就是要上傳的內容。
 
     // 4. 準備檔案名和路徑
-    const originalFileName = imageFile.name || `upload-temp.jpeg`;
     const baseName =
       originalFileName.substring(0, originalFileName.lastIndexOf(".")) ||
       originalFileName;
+
+    // 從檔案名稱獲取副檔名（如果存在）
+    const originalExtension = originalFileName.split(".").pop() || "jpeg";
+
     // 加上時間戳確保檔案名唯一
-    const webpFileName = `${baseName}-${Date.now()}.webp`;
+    const finalFileName = `${baseName}-${Date.now()}.${originalExtension}`;
 
     const visitCountFolder = String(visitCount).padStart(3, "0");
-    const filePath = `public/users/${userId}/reviews/${restaurantId}/${visitCountFolder}/${webpFileName}`;
+    // 檔案路徑使用最終的檔案名稱
+    const filePath = `public/users/${userId}/reviews/${restaurantId}/${visitCountFolder}/${finalFileName}`;
 
-    // 5. 上傳 WebP 緩衝區到 Firebase Storage
+    // 5. 上傳原始圖片的緩衝區到 Firebase Storage
     const file = bucket.file(filePath);
 
-    await file.save(webpBuffer, {
+    await file.save(imageBuffer, {
+      // 🚨 直接上傳原始的 imageBuffer
       metadata: {
-        contentType: "image/webp",
+        contentType: originalMimeType, // ⚠️ 使用原始的 MIME Type
       },
       public: true, // 假設需要公開訪問權限
     });
@@ -72,7 +77,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         url: publicUrl,
-        fileName: webpFileName,
+        fileName: finalFileName,
       },
       { status: 200 }
     );
