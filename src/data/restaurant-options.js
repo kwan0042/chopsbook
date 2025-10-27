@@ -95,7 +95,7 @@ export const restaurantTypeOptions = [
   "湯水/燉品",
   "煲仔飯",
   "街頭小食",
-  "一般餐廳",
+  
 
   // II. 日式特色場所 (Japanese Specific)
   "壽司/刺身專門店",

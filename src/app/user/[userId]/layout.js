@@ -174,8 +174,8 @@ export default function UserProfileLayout({ children, params }) {
 
         <div className="mt-2 ">
           <div className="flex flex-col md:flex-row gap-8">
-            <div className="md:w-1/4 flex-shrink-0 mt-5">
-              <div className="h-19 pt-4">{/* Expbar */}</div>
+            <div className="md:w-1/4 flex-shrink-0 md:mt-5">
+              <div className="md:h-19 pt-4">{/* Expbar */}</div>
               {isMyProfile && <PersonalControls userId={userId} />}
               <div className="mb-4">
                 <div className="bg-white rounded-xl shadow-xl sticky top-8 p-6">

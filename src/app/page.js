@@ -61,7 +61,7 @@ export const metadata = {
     description:
       "探索多倫多熱門餐廳與菜式，查看真實用戶評論與精選照片，找到最適合自己的美食，分享餐廳體驗與心得。",
     images: ["/images/og-homepage.png"],
-    creator: "@ChopsBookOfficial",
+    creator: "@ChopsBook",
   },
   robots: {
     index: true,

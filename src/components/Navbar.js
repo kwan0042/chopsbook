@@ -148,7 +148,7 @@ const Navbar = ({ onShowFilterModal, onSearch }) => {
             </div>
 
             <h1 className="text-base font-bold text-yellow-500 hover:text-yellow-400 pr-3 transition duration-200">
-              ChopsBook
+              ChopsBook <a className="text-xs">Bata</a>
             </h1>
           </button>
 

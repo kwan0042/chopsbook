@@ -4,6 +4,13 @@ import AppLayout from "@/components/AppLayout"; // ✅ 引入新的 AppLayout
 import Script from "next/script";
 import "./globals.css";
 
+if (process.env.NODE_ENV === "production") {
+  console.log = () => {};
+  console.debug = () => {};
+  console.info = () => {};
+  console.warn = () => {};
+}
+
 export const metadata = {
   icons: {
     icon: "/chopsbook_icon.ico",
