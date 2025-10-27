@@ -323,7 +323,7 @@ export default function RestaurantReviewsPage() {
                 </div>
                 <div className="my-3 w-full h-0.5 bg-orange-200 rounded-full"></div>
                 {/* 修正 'gip-4' 為 'gap-4' 並加入圖片分頁邏輯 */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <h1 className="text-gray-700 leading-relaxed mb-2 mt-0 text-lg font-bold">
                       {review.reviewTitle}
@@ -336,9 +336,9 @@ export default function RestaurantReviewsPage() {
                   {/* 圖片區域 */}
                   {review.uploadedImageUrls &&
                     review.uploadedImageUrls.length > 0 && (
-                      <div className="mx-2 p-4 relative">
+                      <div className="mx-2 md:p-4 relative">
                         {/* 圖片網格，強制為 2x2 佈局 */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-1 md:gap-4">
                           {displayedImages.map((image, index) => (
                             <div
                               key={index}

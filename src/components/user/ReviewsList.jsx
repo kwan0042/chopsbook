@@ -142,7 +142,7 @@ export default function ReviewsList({ publishedReviews }) {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
               {/* 顯示餐廳名稱，使用 Link 元件 */}
               <Link
-                href={`/restaurant/${review.restaurantId}/reviews`}
+                href={`/restaurants/${review.restaurantId}/reviews`}
                 className="text-xl font-bold text-gray-800 hover:underline mb-2 sm:mb-0"
               >
                 {restaurantName}
@@ -244,7 +244,7 @@ export default function ReviewsList({ publishedReviews }) {
               </div>
             </div>
             <div className="my-3 w-full h-0.5 bg-orange-200 rounded-full"></div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <h1 className="text-gray-700 leading-relaxed mb-2 mt-0 text-lg font-bold">
                   {review.reviewTitle}
@@ -256,7 +256,7 @@ export default function ReviewsList({ publishedReviews }) {
               </div>
               {review.uploadedImageUrls &&
                 review.uploadedImageUrls.length > 0 && (
-                  <div className="mx-2 p-4 relative">
+                  <div className="mx-2 md:p-4 relative">
                     <div className="grid grid-cols-2 gap-4">
                       {displayedImages.map((image, index) => (
                         <div
