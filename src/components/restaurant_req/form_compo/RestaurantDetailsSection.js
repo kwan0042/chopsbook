@@ -78,18 +78,7 @@ const RestaurantDetailsSection = ({
               id="noChineseName"
               name="noChineseName"
               checked={formData.noChineseName || false}
-              onChange={(e) => {
-                const isChecked = e.target.checked;
-                // 🎯 關鍵修改 2: 使用專用的 handleNoChineseNameChange 處理 Checkbox 狀態
-                handleNoChineseNameChange(e);
-
-                // 保持清除中文名稱的邏輯 (這部分是正確的)
-                if (isChecked) {
-                  handleChange({
-                    target: { name: "restaurantName.zh-TW", value: "" },
-                  });
-                }
-              }}
+              onChange={handleNoChineseNameChange}
               className="form-checkbox h-4 w-4 text-blue-600 rounded"
             />
             <label

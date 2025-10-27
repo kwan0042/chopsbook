@@ -115,11 +115,47 @@ const RestaurantForm = ({
   };
 
   const handleNoChineseNameChange = (e) => {
-  // Logic to handle the absence of a Chinese name,
-  // typically by updating a boolean state or field in formData.
-  const isChecked = e.target.checked;
-  handleChange({ target: { name: "noChineseName", value: isChecked } });
-};
+    const isChecked = e.target.checked;
+
+    // 1. 更新 noChineseName 狀態 (布林值)
+    // 🎯 修正：傳遞 type="checkbox" 和 checked 屬性，以正確觸發父組件的專門邏輯
+    handleChange({
+      target: {
+        name: "noChineseName",
+        type: "checkbox", // <--- 關鍵新增
+        checked: isChecked, // <--- 關鍵修改
+        value: isChecked,
+      },
+    });
+
+    // 2. 移除原有的第二次 handleChange (清空中文名)，
+    //    因為這個連動邏輯現在已轉移到父組件 (AddRestaurantPage.js) 的 handleChange 中執行。
+
+    // 3. 執行錯誤清除連動邏輯 (保留並簡化，因為 setErrors 是這個組件的本地狀態)
+    if (isChecked) {
+      setErrors((prevErrors) => {
+        // 確保 errors 是正確的扁平結構
+        const newErrors = { ...prevErrors };
+
+        // 移除扁平化後的錯誤 (例如: "restaurantName.zh-TW")
+        delete newErrors["restaurantName.zh-TW"];
+
+        // 移除嵌套的錯誤 (如果父組件傳入的 initialErrors 是嵌套結構)
+        if (newErrors.restaurantName?.["zh-TW"]) {
+          const newRestaurantNameErrors = { ...newErrors.restaurantName };
+          delete newRestaurantNameErrors["zh-TW"];
+
+          // 如果 restaurantName 錯誤物件清空了，則移除頂層 key
+          if (Object.keys(newRestaurantNameErrors).length === 0) {
+            delete newErrors.restaurantName;
+          } else {
+            newErrors.restaurantName = newRestaurantNameErrors;
+          }
+        }
+        return newErrors;
+      });
+    }
+  };
 
   // ===========================================
   // 圖片預覽邏輯 (最終修正版 - 嚴格遵守 Update 模式不顯示舊圖)

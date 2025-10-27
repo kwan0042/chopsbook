@@ -62,9 +62,9 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     fullAddress: "",
     phone: "",
     website: "",
-    category: "", 
-    subCategory: "", 
-    restaurantType: [], 
+    category: "",
+    subCategory: "",
+    restaurantType: [],
     avgSpending: "",
     facadePhotoUrls: [],
     seatingCapacity: "",
@@ -77,9 +77,9 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     closedDates: "",
     isHolidayOpen: false,
     holidayHours: "",
-    reservationModes: [], 
+    reservationModes: [],
     paymentMethods: [],
-    facilitiesServices: [], 
+    facilitiesServices: [],
     otherInfo: "",
     isManager: false,
     contactName: "",
@@ -111,14 +111,24 @@ const AddRestaurantPage = ({ onBackToHome }) => {
 
     if (name === "noChineseName") {
       setFormData((prev) => {
-        const newFormData = { ...prev, [name]: checked };
-        if (checked) {
-          newFormData.restaurantName = {
+        // 確保使用 checked（布林值）來更新 noChineseName 狀態
+        const isChecked = checked; 
+        let newRestaurantName = prev.restaurantName;
+        
+        // 執行連動邏輯：如果勾選 (true)，清空中文名稱
+        if (isChecked) {
+          newRestaurantName = {
             ...prev.restaurantName,
-            ["zh-TW"]: "",
+            "zh-TW": "", // 清空中文名
           };
         }
-        return newFormData;
+
+        // 返回更新後的狀態，同時更新 noChineseName 和 restaurantName.zh-TW
+        return { 
+          ...prev, 
+          [name]: isChecked, // 核心：正確設置 Checkbox 狀態
+          restaurantName: newRestaurantName,
+        };
       });
     }
     // 處理 category 和 subCategory 的單一字串更新 (現在它們是單獨的欄位)
@@ -194,7 +204,6 @@ const AddRestaurantPage = ({ onBackToHome }) => {
     delete dataToSubmit.tempSelectedFile;
     delete dataToSubmit.originalFacadePhotoUrls;
 
-    
     if (dataToSubmit.reservationMode) {
       // 如果舊的單數欄位存在，轉換並移除
       dataToSubmit.reservationModes = Array.isArray(
@@ -257,8 +266,7 @@ const AddRestaurantPage = ({ onBackToHome }) => {
         }
       );
       setModalMessage(
-        "謝謝你使用ChopsBook，\n" +
-        "ChopsBook已經收到你的新增餐廳申請"
+        "謝謝你使用ChopsBook，\n" + "ChopsBook已經收到你的新增餐廳申請"
       );
       setModalType("success");
       setFormData(initialFormData); // 清空表單
