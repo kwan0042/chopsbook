@@ -4,7 +4,7 @@ import AppLayout from "@/components/AppLayout"; // ✅ 引入新的 AppLayout
 import Script from "next/script";
 import "./globals.css";
 
-if (process.env.NODE_ENV === "production") {
+if (process.env.NEXT_PUBLIC_ENV === "production") {
   console.log = () => {};
   console.debug = () => {};
   console.info = () => {};

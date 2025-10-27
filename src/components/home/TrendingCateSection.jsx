@@ -37,7 +37,7 @@ const TrendingCateSection = () => {
     },
     {
       display: "韓式炸雞",
-      name: "韓式炸雞 (Korean Fried Chicken)",
+      name: "韓式炸雞",
       filterKey: "restaurantType",
       imageUrl: "/img/restType/kChicken.webp",
     },

@@ -1,5 +1,4 @@
-// src/app/page.js
-// 預設為 Server Component (SSR)，專注於 SEO 和靜態內容。
+
 
 import React from "react";
 // Server Component / 靜態內容區塊
@@ -37,7 +36,9 @@ export const metadata = {
       url: "https://www.chopsbook.com",
     },
   ],
-  metadataBase: new URL("https://chopsbook.com"),
+  
+  metadataBase: new URL("https://www.chopsbook.com"),
+
   openGraph: {
     title: "ChopsBook - 多倫多餐廳食評交流平台",
     description:
@@ -48,10 +49,10 @@ export const metadata = {
     locale: "zh_TW",
     images: [
       {
-        url: "/images/og-homepage.png",
+        url: "https://www.chopsbook.com/og-homepage.png",
         width: 1200,
         height: 630,
-        alt: "ChopsBook 多倫多首頁預覽圖",
+        alt: "ChopsBook 首頁預覽圖",
       },
     ],
   },
@@ -60,7 +61,7 @@ export const metadata = {
     title: "ChopsBook - 多倫多餐廳食評交流平台",
     description:
       "探索多倫多熱門餐廳與菜式，查看真實用戶評論與精選照片，找到最適合自己的美食，分享餐廳體驗與心得。",
-    images: ["/images/og-homepage.png"],
+    images: ["https://www.chopsbook.com/og-homepage.png"],
     creator: "@ChopsBook",
   },
   robots: {
@@ -81,6 +82,9 @@ export const metadata = {
       "zh-TW": "https://www.chopsbook.com",
       en: "https://www.chopsbook.com/en",
     },
+  },
+  other: {
+    "fb:app_id": "1456638822254063", // 👈 你 Facebook App ID 放呢度
   },
 };
 // ------------------------------------

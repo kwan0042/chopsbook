@@ -47,7 +47,7 @@ const HeroSection = () => {
       description: "一齊建立多倫多美食地圖。",
       buttonText: "立即註冊會員",
       buttonLink: "/sign-up",
-      imageUrl: "/demo/home/slide3.jpg",
+      imageUrl: "/demo/home/slide1.jpg",
     },
   ];
 
