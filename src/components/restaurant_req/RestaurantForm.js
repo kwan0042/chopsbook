@@ -114,6 +114,13 @@ const RestaurantForm = ({
     });
   };
 
+  const handleNoChineseNameChange = (e) => {
+  // Logic to handle the absence of a Chinese name,
+  // typically by updating a boolean state or field in formData.
+  const isChecked = e.target.checked;
+  handleChange({ target: { name: "noChineseName", value: isChecked } });
+};
+
   // ===========================================
   // 圖片預覽邏輯 (最終修正版 - 嚴格遵守 Update 模式不顯示舊圖)
   // ===========================================
@@ -456,6 +463,7 @@ const RestaurantForm = ({
         errors={errors} // 傳遞扁平 errors
         handleCheckboxChange={handleCheckboxChange}
         handleNameEnChange={handleNameEnChange}
+        handleNoChineseNameChange={handleNoChineseNameChange}
         handleProvinceChange={handleProvinceChange}
         handleCuisineCategoryChange={handleCuisineCategoryChange}
         handleSubCuisineChange={handleSubCuisineChange}

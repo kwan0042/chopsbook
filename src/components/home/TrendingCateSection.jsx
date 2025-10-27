@@ -175,7 +175,7 @@ const TrendingCateSection = () => {
             flex overflow-x-scroll scroll-smooth
             md:grid md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 
             gap-3 md:gap-4 
-            pl-4 pr-4 md:px-0 
+            px-4 md:px-0 
             scrollbar-hide 
             md:overflow-x-visible md:flex-wrap
           "

@@ -103,7 +103,7 @@ const TrendingTopicsSection = () => {
         </div>
       ) : (
         // 【修改點 3】：核心佈局修改：手機版 flex 橫向滾動，網頁版 grid-cols-4
-        <div className="flex overflow-x-scroll md:grid md:grid-cols-4 gap-3 md:gap-6 max-w-screen-xl mx-auto pl-4 pr-4 md:px-0 scrollbar-hide">
+        <div className="flex overflow-x-scroll md:grid md:grid-cols-4 gap-3 md:gap-6 max-w-screen-xl mx-auto px-4 md:px-0 scrollbar-hide">
           {blogs.length > 0 ? (
             blogs.map((blog) => (
               <Link key={blog.id} href={`/blogs/${blog.id}`} passHref>

@@ -331,7 +331,7 @@ const PromotionsSection = () => {
 
       <div className="relative max-w-screen-xl mx-auto">
         {/* 1. 【手機版容器】：只在 <md 顯示 (md:hidden)。保持橫向滾動。 */}
-        <div className="flex overflow-x-scroll gap-3 pl-4 pr-4 scrollbar-hide md:hidden ">
+        <div className="flex overflow-x-scroll gap-3 px-4 scrollbar-hide md:hidden ">
           {promotions.map((promo) => (
             <PromotionCard key={promo.promoId} promo={promo} />
           ))}

@@ -50,7 +50,7 @@ const ScrollingAnnouncement = ({ announcements }) => {
   }, [totalItems, isScrollable]);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-3 border border-gray-100">
+    <div className="bg-white rounded-xl shadow-lg mx-4 md:mx-0 p-3 border border-gray-100">
       {/* 標題行：門鈴圖標 + 公告文字 */}
       <div className="flex items-center mb-2 pb-1 border-b border-gray-100">
         {/* 門鈴圖標 🔔 */}
@@ -71,8 +71,6 @@ const ScrollingAnnouncement = ({ announcements }) => {
 
         {/* 公告文字 */}
         <h3 className="text-base font-semibold text-gray-900">最新公告</h3>
-
-        
       </div>
 
       {/* 內容區域 - 固定高度，保證只顯示兩行 */}

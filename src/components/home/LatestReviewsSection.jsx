@@ -120,7 +120,7 @@ const LatestReviewsSection = () => {
   }, [db, appId, loadingUser]);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center text-center">
+    <div className="bg-white rounded-xl shadow-lg mx-3 md:mx-0 p-4 md:p-6 flex flex-col items-center text-center">
       <h3 className="text-xl font-semibold text-gray-900 mb-3">最新食評</h3>
       <p className="text-gray-600 mb-4">看看大家最近都在吃什麼。</p>
 
@@ -136,7 +136,9 @@ const LatestReviewsSection = () => {
               className="block p-3 bg-orange-100 rounded-lg text-orange-800 text-sm cursor-pointer transition-shadow duration-200 hover:shadow-md hover:bg-orange-200"
             >
               <p className="font-bold text-left">{review.restaurantName}</p>
-              <p className="mt-1 text-left text-gray-700">{review.reviewTitle}</p>
+              <p className="mt-1 text-left text-gray-700">
+                {review.reviewTitle}
+              </p>
               <div className="mt-2 flex items-center justify-between">
                 {renderStars(review.overallRating)}
                 <p

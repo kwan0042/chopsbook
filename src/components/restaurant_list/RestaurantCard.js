@@ -10,6 +10,7 @@ import { faBookmark as faSolidBookmark } from "@fortawesome/free-solid-svg-icons
 import { faBookmark as faRegularBookmark } from "@fortawesome/free-regular-svg-icons";
 import { faComment, faShare } from "@fortawesome/free-solid-svg-icons";
 import { useRouter } from "next/navigation";
+import GoogleMapLink from "@/components/maps/GoogleMapLink";
 
 // 導入自定義 Hook
 import useRestaurantStatus from "@/hooks/useRestaurantStatus";
@@ -156,7 +157,7 @@ const RestaurantCard = ({
         {/* === 圖片與詳細資訊區域 (手機 flex-row / 網頁 md:flex-row) === */}
         <div
           className={`flex w-full ${
-            isGridView ? "flex-col" : "flex-row items-start"
+            isGridView ? "flex-col" : "flex-row items-start truncate"
           }`}
         >
           {/* 圖片區域 - 點擊導航 */}
@@ -176,10 +177,6 @@ const RestaurantCard = ({
                   "餐廳圖片"
                 }
                 className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = `https://placehold.co/${placeholderSize}/CCCCCC/333333?text=圖片`;
-                }}
               />
             </div>
           </Link>
@@ -187,7 +184,7 @@ const RestaurantCard = ({
           {/* 詳細資訊區域 (包含網格和網頁列表的標題/評分) */}
           <div
             className={`${
-              isGridView ? "p-6 h-60" : "flex-grow text-left md:py-1"
+              isGridView ? "p-6 h-60" : "flex-grow text-left md:py-1 w-full"
             }`}
           >
             {/* 餐廳名稱 - 點擊導航 (網格視圖 & 網頁列表視圖才顯示) */}
@@ -304,20 +301,23 @@ const RestaurantCard = ({
             )}
             {/* 共通詳細資訊 (手機版和網頁版都顯示) */}
             <p
-              className={`text-gray-700 mb-1 text-wrap ${
-                isGridView ? "text-sm" : "text-sm"
-              }`}
+              className="text-gray-700 mb-1 text-sm truncate block w-full"
+              style={{ minWidth: 0 }}
             >
               {restaurant.fullAddress || "N/A"}
             </p>
 
             <p
               className={`text-gray-700 mb-1 text-wrap ${
-                isGridView ? "text-sm" : "text-sm"
+                isGridView ? "text-sm" : "text-sm "
               }`}
             >
               {restaurant.city || "N/A"}
             </p>
+            <GoogleMapLink
+              name={restaurant.name_lowercase_en}
+              address={restaurant.fullAddress}
+            />
             <p
               className={`text-gray-700 mb-1 text-wrap ${
                 isGridView ? "text-sm" : "text-sm"
