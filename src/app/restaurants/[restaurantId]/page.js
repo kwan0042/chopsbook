@@ -39,7 +39,7 @@ export async function generateMetadata({ params }) {
     const restaurantName = getRestaurantName(restaurant);
     const description =
       restaurant.introduction ||
-      `${restaurantName} 是一間很棒的餐廳。快來查看菜單、優惠和最新評論！`;
+      `${restaurantName}是一間${restaurant.category}的餐廳。快來查看菜單、優惠和最新評論！`;
 
     return {
       title: `${restaurantName} - 餐廳概覽`,

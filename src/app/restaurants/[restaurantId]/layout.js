@@ -427,18 +427,24 @@ export default function RestaurantDetailLayout({ children }) {
     <RestaurantContext.Provider value={{ restaurant }}>
       <div className="flex flex-col font-inter mb-6">
         {/* 🚨 行動裝置 (md: 以下) 浮動按鈕與 Drawer 區塊 🚨 */}
-        <div className="md:hidden sticky top-[116px] z-40 w-full bg-gray-700">
+        <div className="md:hidden sticky top-[117px] z-40 w-full bg-gray-700">
           <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 ">
-            <div className="flex justify-between items-center w-full ">
+            <div className="flex justify-between items-center w-full my-2">
               {/* 浮動按鈕：左側中央定位，文字直寫 (flex-col) 保持不變 */}
               <button
+                onClick={handleCheckInClick}
+                className="bg-yellow-200 text-gray-900 hover:bg-blue-600  text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
+                type="button"
+              >
+                到訪
+              </button>
+
+              <button
                 onClick={() => setIsInfoModalOpen(true)}
-                className="inline-flex items-center justify-center p-2 text-sm font-medium  rounded-lg shadow-md group bg-gradient-to-br  transition-colors duration-200 w-fit h-fit"
+                className="bg-yellow-200 text-gray-900 hover:bg-blue-600  text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
                 aria-label="查看餐廳詳細資訊"
               >
-                <span className="relative px-3 py-1 transition-all ease-in duration-75  bg-white dark:bg-gray-900 rounded-lg group-hover:bg-transparent  group-hover:dark:bg-transparent text-gray-900 dark:text-white font-bold  flex items-center space-x-2">
-                  <IconFileDots stroke={2} />
-                </span>
+                <span className="">餐廳詳細資訊</span>
               </button>
             </div>
           </div>
@@ -493,7 +499,7 @@ export default function RestaurantDetailLayout({ children }) {
         </div>
         {/* 🚨 行動裝置區塊結束 🚨 */}
         <div className="flex flex-col min-h-screen bg-cbbg">
-          <div className="flex-grow py-8 px-4 sm:px-6 lg:px-8 ">
+          <div className="flex-grow py-4 md:py-8 px-4 sm:px-6 lg:px-8 ">
             <div className=" mx-auto bg-white shadow-xl rounded-xl overflow-hidden">
               {/* 🚨 關鍵結構變更：將頂部資訊、基本資訊和標籤放在一個父容器中，並與圖片並排 */}
 
@@ -551,14 +557,14 @@ export default function RestaurantDetailLayout({ children }) {
 
                       <button
                         onClick={handleToggleFavorite}
-                        className="py-2 bg-transparent border-none text-yellow-500 hover:scale-110 transition duration-200"
+                        className="md:py-2 bg-transparent border-none text-yellow-500 hover:scale-110 transition duration-200"
                         aria-label={isFavorited ? "取消收藏" : "收藏餐廳"}
                       >
                         <FontAwesomeIcon
                           icon={
                             isFavorited ? faSolidBookmark : faRegularBookmark
                           }
-                          className="text-3xl"
+                          className="text-3xl "
                         />
                       </button>
                     </div>
@@ -581,7 +587,10 @@ export default function RestaurantDetailLayout({ children }) {
                           className="mr-2 text-gray-500"
                         />
                         {/* 使用 cuisineDisplay 確保是字串 */}
-                        {cuisineDisplay}
+                        <b>菜系: </b>
+                        {restaurant.category} | <b>子菜系: </b>
+                        {restaurant.subCategory} | <b>類型: </b>
+                        {restaurant.restaurantType}
                         {restaurant.rTags?.length > 0 &&
                           ` | ${restaurant.rTags.join(", ")}`}
                       </p>

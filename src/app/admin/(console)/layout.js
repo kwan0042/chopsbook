@@ -89,8 +89,8 @@ export default function AdminLayout({ children }) {
     <div className="min-h-screen bg-cbbg p-4 font-inter">
       <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 lg:p-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-center justify-between mb-8 pb-4 border-b border-gray-200">
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-4 sm:mb-0">
+        <div className="flex md:flex-col sm:flex-row items-center justify-between mb-8 pb-4 border-b border-gray-200">
+          <h1 className="text-2xl font-extrabold text-gray-900 md:mb-4 ">
             管理員控制台
           </h1>
           <button
