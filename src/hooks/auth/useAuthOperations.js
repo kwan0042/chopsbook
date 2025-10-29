@@ -41,13 +41,51 @@ export const useAuthOperations = (
         if (!isValidEmail(identifier)) {
           throw new Error("無效的登入識別符格式 (應為電子郵件)。");
         }
-        return await signInWithEmailAndPassword(auth, identifier, password);
+
+        // 1. 執行登入
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          identifier,
+          password
+        );
+        const user = userCredential.user;
+
+        // 2. [保持]：檢查電子郵件是否已驗證
+        if (!user.emailVerified) {
+          // 如果未驗證，立即登出用戶，並拋出錯誤
+          await signOut(auth);
+
+          // 拋出一個自定義錯誤，以便在調用處區分
+          throw new Error("Email not verified.");
+        }
+
+        // 3. 如果已驗證，則返回憑證
+        return userCredential;
       } catch (error) {
-        console.error("useAuthOperations: 登入失敗:", error);
+        // console.error("useAuthOperations: 登入失敗:", error);
+
+        // 處理我們自己拋出的未驗證錯誤
+        if (error.message === "Email not verified.") {
+          throw error;
+        }
+
+        // 處理 Firebase 登入錯誤並翻譯
+        let errorMessage = "登入失敗，請檢查電子郵件和密碼。";
+        if (
+          error.code === "auth/user-not-found" ||
+          error.code === "auth/wrong-password" ||
+          error.code === "auth/invalid-credential" // 增加對 auth/invalid-credential 的處理
+        ) {
+          errorMessage = "登入失敗：電子郵件或密碼不正確。";
+        } else if (error.code === "auth/invalid-email") {
+          errorMessage = "登入失敗：電子郵件格式無效。";
+        }
+
+        setModalMessage(errorMessage, "error");
         throw error;
       }
     },
-    [auth]
+    [auth, setModalMessage] // 依賴中新增 setModalMessage
   );
 
   const signup = useCallback(
@@ -65,9 +103,14 @@ export const useAuthOperations = (
           email,
           password
         );
-        await sendEmailVerification(userCredential.user);
-        const user = userCredential.user;
 
+        // 1. 發送驗證信
+        await sendEmailVerification(userCredential.user);
+        // const user = userCredential.user; // 在此不再需要
+
+        // 🚀 [移除]: 為了將 Firestore 文件的創建延遲到 Email 驗證完成後，
+        // 🚀         這裡移除 publicData 和 privateData 的 setDoc 邏輯。
+        /*
         // 公開資料
         const userDocRef = doc(db, `artifacts/${appId}/users/${user.uid}`);
         const defaultUsername = email.split("@")[0];
@@ -99,6 +142,7 @@ export const useAuthOperations = (
 
         await setDoc(userDocRef, publicData);
         await setDoc(privateDocRef, privateData);
+        */
 
         setModalMessage(
           "註冊成功！請檢查您的電子郵件以完成驗證，然後再次登入。",
@@ -107,6 +151,17 @@ export const useAuthOperations = (
         return userCredential;
       } catch (error) {
         console.error("useAuthOperations: 註冊失敗:", error);
+
+        // [保持]：處理密碼要求錯誤並轉為中文，並調用 setModalMessage
+        if (error.code === "auth/password-does-not-meet-requirements") {
+          const requirements =
+            "密碼強度不足。密碼必須包含一個大寫字母、一個數字等，請檢查並重新輸入。";
+          const chineseError = `註冊失敗：${requirements}`;
+
+          setModalMessage(chineseError, "error");
+          throw new Error(chineseError);
+        }
+
         throw error;
       }
     },
@@ -183,7 +238,8 @@ export const useAuthOperations = (
         await setDoc(userDocRef, publicData);
         await setDoc(privateDocRef, privateData);
       } else {
-        await updateDoc(userDocRef, { lastLogin: currentTime });
+        // [保持]：使用 setDoc with merge: true 避免 No document to update 錯誤
+        await setDoc(userDocRef, { lastLogin: currentTime }, { merge: true });
         await setDoc(privateDocRef, { isGoogleUser: true }, { merge: true });
       }
 
@@ -252,7 +308,8 @@ export const useAuthOperations = (
         await setDoc(userDocRef, publicData);
         await setDoc(privateDocRef, privateData);
       } else {
-        await updateDoc(userDocRef, { lastLogin: currentTime });
+        // [保持]：使用 setDoc with merge: true 避免 No document to update 錯誤
+        await setDoc(userDocRef, { lastLogin: currentTime }, { merge: true });
         await setDoc(privateDocRef, { isFacebookUser: true }, { merge: true });
       }
 

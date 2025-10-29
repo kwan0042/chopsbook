@@ -33,7 +33,7 @@ const UserProfileHeader = ({
 
   const displayPhoto = isGoogleUser
     ? currentUser.pIconUrl
-    : profilePhoto || "/default-avatar.png";
+    : profilePhoto || "/default-avatar.webp";
 
   return (
     <div className="flex flex-col md:flex-row items-center justify-between ">

@@ -3,7 +3,13 @@ import React from "react";
 import Link from "next/link";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { formatDate } from "@/hooks/auth/useUtils";
+import { reviewFields } from "@/lib/translation-data";
+import {
+  faStar,
+  faStarHalfStroke,
+  faArrowRight,
+  faSun,
+} from "@fortawesome/free-solid-svg-icons";
 import {
   faStar as faSolidStar,
   faHeart,
@@ -15,6 +21,15 @@ import {
   IconRosetteNumber2,
   IconRosetteNumber3,
 } from "@tabler/icons-react"; // ✅ 新增：用於收藏排名徽章
+
+import {
+  IconCoffee,
+  IconSunset2,
+  IconMoon,
+  IconBuildingStore,
+  IconMoped,
+  IconPaperBag,
+} from "@tabler/icons-react";
 /**
  * 通用的活動列表組件，可用於顯示食評、收藏、到訪等列表。
  * @param {object} props - 組件屬性
@@ -32,6 +47,49 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
       </div>
     );
   }
+  const renderTimeIcon = (timeValue) => {
+    switch (timeValue) {
+      case "morning":
+        return (
+          <IconCoffee stroke={2} className="h-5 md:h-full text-orange-500" />
+        );
+      case "noon":
+        return (
+          <FontAwesomeIcon
+            icon={faSun}
+            className="h-5 md:text-lg text-yellow-500"
+          />
+        );
+      case "afternoon":
+        return (
+          <IconSunset2 stroke={2} className="h-5 md:h-full text-red-500" />
+        );
+      case "night":
+        return <IconMoon stroke={2} className="h-5 md:h-full text-blue-500" />;
+      default:
+        return null;
+    }
+  };
+
+  const renderServiceTypeIcon = (serviceTypeValue) => {
+    switch (serviceTypeValue) {
+      case "dineIn":
+        return (
+          <IconBuildingStore
+            stroke={2}
+            className="h-5 md:h-full text-gray-600 "
+          />
+        );
+      case "delivery":
+        return <IconMoped stroke={2} className="h-5 md:h-full text-gray-600" />;
+      case "pickUp":
+        return (
+          <IconPaperBag stroke={2} className="h-5 md:h-full text-gray-600" />
+        );
+      default:
+        return null;
+    }
+  };
 
   const renderRatingStars = (averageRating) => {
     return (
@@ -57,7 +115,27 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
       </div>
     );
   };
+  const renderStars = (rating) => {
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 !== 0;
+    const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
 
+    return (
+      <div className="flex items-center text-yellow-400 pr-1">
+        {Array.from({ length: fullStars }, (_, i) => (
+          <FontAwesomeIcon key={`full-${i}`} icon={faStar} />
+        ))}
+        {hasHalfStar && <FontAwesomeIcon key="half" icon={faStarHalfStroke} />}
+        {Array.from({ length: emptyStars }, (_, i) => (
+          <FontAwesomeIcon
+            key={`empty-${i}`}
+            icon={faStar}
+            className="text-gray-300 "
+          />
+        ))}
+      </div>
+    );
+  };
   // ✅ 新增：從 FavRestaurantCard 搬來的渲染函式
   const renderRankBadge = (rank) => {
     const rankIcons = [
@@ -105,36 +183,69 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
 
     switch (type) {
       case "reviews":
+        // ✅ 新增：日期格式化邏輯
+        const reviewDate = item.createdAt ? new Date(item.createdAt) : null;
+        let formattedDate = "";
+        if (reviewDate && !isNaN(reviewDate)) {
+          // 使用 toLocaleDateString 進行本地化格式化
+          formattedDate = reviewDate.toLocaleDateString("zh-TW", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          });
+        } else {
+          formattedDate = "未知日期";
+        }
+        // ✅ 結束新增：日期格式化邏輯
+
         return (
           <Link key={item.id} href={`/review/${item.id}`} className="w-full ">
             <div className="flex flex-col items-start p-4 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full">
-              <div className="flex-grow flex flex-col justify-start w-full">
-                <span className="text-xl font-bold text-gray-800 line-clamp-1">
-                  {item.restaurantName?.["zh-TW"] ||
-                    item.restaurantName?.en ||
-                    `未知餐廳`}
-                </span>
-                <div className="flex flex-col sm:flex-row justify-between w-full items-center">
-                  <div className="flex items-center space-x-2 flex-grow">
-                    <span className="text-sm text-gray-500 whitespace-nowrap">
-                      {formatDate(item.createdAt)}
-                    </span>
+              <div className="flex flex-wrap justify-between items-start sm:flex-nowrap mb-2">
+                <div className="flex flex-wrap items-center space-x-2 min-w-0 sm:flex-nowrap">
+                  <div className="md:flex items-center justify-between w-full whitespace-nowrap sm:w-auto sm:flex-shrink-0 pb-1 mb-1 border-b-2">
+                    <div className="flex items-center">
+                      {/* ⚡️ 修正: 將內層的 Link 替換為 <span>，避免巢狀 <a> 錯誤 */}
+                      <span
+                        className="font-semibold text-gray-800 text-lg hover:text-blue-600 transition duration-150 cursor-pointer"
+                        onClick={(e) => e.stopPropagation()} // 防止點擊用戶名時觸發外部的 Link
+                      >
+                        {item.username}
+                      </span>
+                      <span className="flex items-center my-1 ml-2 ">
+                        {renderStars(item.overallRating)}
+                      </span>
+                    </div>
+                    <div className="md:ml-2">
+                      <span className="text-sm font-bold text-gray-500">
+                        第
+                        <span className="text-orange-400">
+                          {item.visitCount}
+                        </span>
+                        次到訪
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex-shrink-0  sm:mt-0 ml-auto">
-                    <span className="text-sm font-bold text-gray-500 whitespace-nowrap">
-                      第{" "}
-                      <span className="text-orange-400">{item.visitCount}</span>{" "}
-                      次到訪
+
+                  {/* 第二行內容：時段/類型圖示 */}
+                  <div className="flex items-center space-x-2 ml-0 sm:ml-2 mt-1 sm:mt-0 sm:flex-shrink-0">
+                    {renderTimeIcon(item.timeOfDay)}
+                    <span className="text-sm text-gray-600">
+                      {reviewFields.timeOfDay.typeFields[item.timeOfDay]?.zh}
+                    </span>
+                    {renderServiceTypeIcon(item.serviceType)}
+                    <span className="text-sm text-gray-600">
+                      {
+                        reviewFields.serviceType.typeFields[item.serviceType]
+                          ?.zh
+                      }
                     </span>
                   </div>
                 </div>
 
-                <span className="text-base text-gray-900 my-2 line-clamp-1">
-                  {item.reviewTitle}
-                </span>
-                <div className="flex items-center text-black my-2">
-                  <span className="text-sm pr-1">整體評分:</span>
-                  {renderRatingStars(item.overallRating)}
+                {/* 日期保持在右側 */}
+                <div className="flex-shrink-0 mt-2 sm:mt-0">
+                  <span className="text-sm text-gray-500">{formattedDate}</span>
                 </div>
               </div>
             </div>
@@ -161,7 +272,6 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
           </Link>
         );
 
-      
       case "favorites":
         return (
           <div key={item.id} className="relative w-full my-2 group">

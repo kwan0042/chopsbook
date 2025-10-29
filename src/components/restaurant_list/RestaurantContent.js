@@ -345,7 +345,7 @@ const RestaurantContent = () => {
             </div>
           </div>
 
-          <div className="flex-grow pb-8 px-4 sm:px-6 lg:px-8">
+          <div className="flex-grow pb-8 md:px-4 sm:px-6 lg:px-8 ">
             <RestaurantListPage
               filters={appliedFilters}
               currentPage={currentPage}

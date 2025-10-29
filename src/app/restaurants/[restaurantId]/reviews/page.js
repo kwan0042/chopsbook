@@ -293,7 +293,7 @@ export default function RestaurantReviewsPage() {
                     <h3 className="text-sm font-semibold text-gray-700 mb-2">
                       {reviewFields.detailedRatings.zh}
                     </h3>
-                    <div className="grid grid-cols-6 gap-2 text-sm text-gray-600">
+                    <div className="grid grid-cols-2 lg:grid-cols-6 gap-x-4 gap-y-2 text-sm text-gray-600">
                       {Object.entries(review.ratings || {}).map(
                         ([key, value]) => {
                           // 如果 key 是 'drinks' 且值為 0，則不渲染此項目

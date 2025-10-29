@@ -13,7 +13,7 @@ function logFirestoreRead(page, count) {
 }
 
 /**
- * API Route: 獲取餐廳列表，支援多種篩選、搜尋和分頁。
+ * API Route: 獲取收藏餐廳列表 (POST)
  * @description 這個版本專門為前端的收藏列表分頁設計。
  */
 export async function POST(request) {
@@ -51,12 +51,12 @@ export async function POST(request) {
 
       const fetchedRestaurants = [];
       snapshots.forEach((snapshot, index) => {
-        // --- 【Firestore Read 追蹤點 1: 收藏餐廳分組查詢】 ---
+        // --- 【Firestore Read 追蹤點】 ---
         logFirestoreRead(
           `/api/restaurants POST [chunk ${index + 1}/${chunks.length}]`,
           snapshot.size
         );
-        // ---------------------------------------------------
+        // --------------------------------
         snapshot.docs.forEach((doc) => {
           fetchedRestaurants.push({ id: doc.id, ...doc.data() });
         });
@@ -75,7 +75,6 @@ export async function POST(request) {
         restaurants: fetchedRestaurants,
       });
     } else {
-      // ✅ 處理沒有收藏 ID 的情況
       logFirestoreRead(`/api/restaurants POST [empty favorites]`, 0);
       return NextResponse.json({
         success: true,
@@ -84,6 +83,53 @@ export async function POST(request) {
     }
   } catch (error) {
     console.error("API Filter Error:", error);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * API Route: 獲取單一餐廳資料 (GET)
+ * 用於前端 /restaurants/[restaurantId] 頁面。
+ *
+ * Example:
+ * /api/restaurants?restaurantId=abc123
+ */
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const restaurantId = searchParams.get("restaurantId");
+
+    if (!restaurantId) {
+      return NextResponse.json(
+        { success: false, error: "Missing restaurantId parameter" },
+        { status: 400 }
+      );
+    }
+
+    const appId = process.env.FIREBASE_ADMIN_APP_ID;
+    const docRef = db.doc(
+      `artifacts/${appId}/public/data/restaurants/${restaurantId}`
+    );
+    const snapshot = await docRef.get();
+
+    if (!snapshot.exists) {
+      return NextResponse.json(
+        { success: false, error: "Restaurant not found" },
+        { status: 404 }
+      );
+    }
+
+    logFirestoreRead(`/api/restaurants GET [${restaurantId}]`, 1);
+
+    return NextResponse.json({
+      success: true,
+      restaurant: { id: snapshot.id, ...snapshot.data() },
+    });
+  } catch (error) {
+    console.error("API /restaurants GET Error:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

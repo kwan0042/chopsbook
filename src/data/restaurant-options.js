@@ -95,7 +95,6 @@ export const restaurantTypeOptions = [
   "湯水/燉品",
   "煲仔飯",
   "街頭小食",
-  
 
   // II. 日式特色場所 (Japanese Specific)
   "壽司/刺身專門店",
@@ -163,6 +162,7 @@ export const reservationModeOptions = [
 
 export const paymentMethodOptions = [
   "現金",
+  "E-Transfer",
   "信用卡 - AMEX",
   "信用卡 - Mastercard",
   "信用卡 - Visa",
@@ -175,6 +175,7 @@ export const paymentMethodOptions = [
 ];
 
 export const facilitiesServiceOptions = [
+  "外賣App",
   "現金支付折扣",
   "室外座位",
   "電視播放",

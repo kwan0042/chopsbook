@@ -81,8 +81,8 @@ const TrendingTopicsSection = () => {
   );
 
   return (
-    // 【修改點 1】：移除 bg-white，調整邊距、圓角和陰影，確保網頁版有白色背景
-    <section className="pt-4 pb-4 md:pt-8 md:pb-6 px-0 md:px-6 lg:px-8 md:bg-white md:shadow-md rounded-md md:rounded-lg">
+    
+    <section className=" md:pt-8 md:pb-6 px-0 md:px-6 lg:px-8 md:bg-white md:shadow-md rounded-md md:rounded-lg">
       {/* 【核心修改】：將標題和連結放在同一行，並在 md 處切換佈局 */}
       <div className="flex justify-between items-center px-4 md:px-0 mb-4 md:mb-8">
         {/* 標題 (H2) */}

@@ -7,8 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faStar,
   faStarHalfStroke,
-  faChevronDown,
-  faChevronUp,
+  
   faArrowLeft, // 引入左箭頭圖標
   faArrowRight, // 引入右箭頭圖標
   faSun, // 引入太陽圖標
@@ -147,7 +146,7 @@ export default function SingleReviewInteractive({
           {/* 調整：添加 sm:flex-nowrap 以確保在電腦版上不換行，並調整結構 */}
           <div className="flex flex-wrap justify-between items-start sm:flex-nowrap mb-2">
             <div className="flex flex-wrap items-center space-x-2 min-w-0 sm:flex-nowrap">
-              <div className="flex items-center justify-between w-full whitespace-nowrap sm:w-auto sm:flex-shrink-0">
+              <div className="md:flex items-center justify-between w-full whitespace-nowrap sm:w-auto sm:flex-shrink-0 pb-1 mb-1 border-b-2">
                 <div className="flex items-center">
                   <Link
                     href={`/user/${review.userId}`}
@@ -160,7 +159,7 @@ export default function SingleReviewInteractive({
                     <span className="mx-2">{review.overallRating}/5</span>
                   </span>
                 </div>
-                <div className="ml-2">
+                <div className="md:ml-2">
                   <span className="text-sm font-bold text-gray-500">
                     第
                     <span className="text-orange-400">{review.visitCount}</span>

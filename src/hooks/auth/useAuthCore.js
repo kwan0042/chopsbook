@@ -1,4 +1,4 @@
-// src/hooks/auth/useAuthCore.js
+// src/hooks/auth/useAuthCore.js (已修改)
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -14,7 +14,8 @@ import {
   setPersistence,
   browserLocalPersistence,
 } from "firebase/auth";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+// 引入 serverTimestamp 用於創建時的時間戳 (可選, 但推薦用於創建時間)
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 /**
  * 輔助函數：判斷是否應更新 lastLogin
@@ -119,23 +120,97 @@ export const useAuthCore = (setGlobalModalMessage) => {
                 `artifacts/${projectAppId}/users/${user.uid}/privateData/${user.uid}`
               );
 
-              const [userDocSnap, privateDocSnap] = await Promise.all([
+              // 🚀 [修改]: 只有在用戶已驗證或不是 Email/Password 登入時，才嘗試讀取 Firestore 文件
+              let userDocSnap, privateDocSnap;
+
+              // 檢查是否是 Email/Password 且尚未驗證
+              const isUnverifiedEmailUser =
+                user.providerData.some((p) => p.providerId === "password") &&
+                !user.emailVerified;
+
+              if (isUnverifiedEmailUser) {
+                // 如果是 Email/Password 且未驗證，則跳過所有 Firestore 操作，只設置基本 user 對象
+                console.log(
+                  `[useAuthCore] Email 未驗證 (${user.email})，跳過 Firestore 讀寫。`
+                );
+                setCurrentUser(user);
+                setLoadingUser(false);
+                setAuthReady(true);
+                return;
+              }
+
+              // 對於已驗證的 Email/Password 用戶或第三方/匿名用戶，嘗試讀取文件
+              [userDocSnap, privateDocSnap] = await Promise.all([
                 getDoc(userDocRef),
                 getDoc(privateDocRef),
               ]);
 
-              const publicData = userDocSnap.exists() ? userDocSnap.data() : {};
-              const privateData = privateDocSnap.exists()
+              let publicData = userDocSnap.exists() ? userDocSnap.data() : {};
+              let privateData = privateDocSnap.exists()
                 ? privateDocSnap.data()
                 : {};
 
-              // 檢查是否需要更新 lastLogin
-              const needsLastLoginUpdate = shouldUpdateLastLogin(
-                publicData.lastLogin,
-                24
-              );
+              // 🚀 [新增創建邏輯]: 檢查文件是否存在，如果不存在，且用戶已通過某種方式驗證/登入 (非 Email 註冊流程不適用此判斷)
+              if (!userDocSnap.exists()) {
+                const currentTime = new Date().toISOString();
+                const defaultUsername =
+                  user.displayName || user.email?.split("@")[0] || "User";
 
-              const newLastLogin = new Date().toISOString();
+                // 首次創建/初始化公開資料
+                publicData = {
+                  username: defaultUsername,
+                  rank: "7",
+                  publishedReviews: [],
+                  favoriteRestaurants: [],
+                  isRestaurantOwner: false,
+                  lastLogin: currentTime,
+                };
+
+                // 首次創建/初始化私人資料
+                privateData = {
+                  email: user.email || null,
+                  createdAt: currentTime,
+                  isAdmin: false,
+                  isSuperAdmin: false,
+                  phoneNumber: user.phoneNumber || null,
+                  isGoogleUser: user.providerData.some(
+                    (p) => p.providerId === "google.com"
+                  ),
+                  isFacebookUser: user.providerData.some(
+                    (p) => p.providerId === "facebook.com"
+                  ),
+                };
+
+                // 創建 Firestore 文件 (使用 setDoc 確保文件創建)
+                await setDoc(userDocRef, publicData);
+                await setDoc(privateDocRef, privateData);
+                console.log(
+                  `[useAuthCore] 首次登入且已驗證，已創建用戶資料: ${user.uid}`
+                );
+
+                // 因為剛剛創建了文件，所以 lastLogin 已經是 currentTime，不需要額外更新
+                publicData.lastLogin = currentTime;
+              } else {
+                // 檢查是否需要更新 lastLogin (如果文件已存在)
+                const needsLastLoginUpdate = shouldUpdateLastLogin(
+                  publicData.lastLogin,
+                  24
+                );
+                const newLastLogin = new Date().toISOString();
+
+                // **只有在超過 24 小時後才執行寫入操作**
+                if (needsLastLoginUpdate) {
+                  // [保持]: 這裡更新 lastLogin
+                  await setDoc(
+                    userDocRef,
+                    {
+                      lastLogin: newLastLogin,
+                    },
+                    { merge: true }
+                  );
+                  publicData.lastLogin = newLastLogin; // 更新本地狀態
+                }
+              }
 
               // 構建合併後的資料
               const mergedData = {
@@ -145,27 +220,19 @@ export const useAuthCore = (setGlobalModalMessage) => {
                   publicData.username ||
                   user.displayName ||
                   (privateData.email ? privateData.email.split("@")[0] : ""),
-                lastLogin: needsLastLoginUpdate
-                  ? newLastLogin
-                  : publicData.lastLogin, // 使用新的或原有的 lastLogin
+                lastLogin: publicData.lastLogin, // 使用上面已經確定的 lastLogin
               };
-
-              // **只有在超過 24 小時後才執行寫入操作**
-              if (needsLastLoginUpdate) {
-                await updateDoc(userDocRef, {
-                  lastLogin: newLastLogin,
-                });
-              }
 
               const userWithProfile = { ...user, ...mergedData };
               setCurrentUser(userWithProfile);
             } catch (dbError) {
+              // 如果權限錯誤發生在這裡，通常是 Firestore Security Rules 設置不允許讀取
               console.error("從 Firestore 獲取或創建用戶資料失敗:", dbError);
               setGlobalModalMessage(
                 `用戶資料處理失敗: ${dbError.message}`,
                 "error"
               );
-              setCurrentUser(user);
+              setCurrentUser(user); // 確保即使資料庫出錯，用戶仍能登入
             }
           } else {
             setCurrentUser(null);

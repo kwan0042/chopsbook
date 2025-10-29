@@ -127,10 +127,10 @@ const RestaurantCard = ({
   return (
     <div className={`relative ${isGridView ? "w-full" : "w-full my-2"}`}>
       <div
-        className={`bg-white shadow-lg overflow-hidden h-fit ${
+        className={`bg-white md:shadow-lg overflow-hidden h-fit ${
           isGridView
             ? "hover:scale-105 rounded-xl transform transition duration-300 ease-in-out" // 網格視圖不變
-            : "flex flex-col rounded-xl p-3 border border-gray-200 hover:shadow-md md:flex-row md:items-start" // 列表視圖：手機 (flex-col) / 網頁 (md:flex-row)
+            : "flex flex-col md:rounded-xl p-3 border border-gray-200 hover:shadow-md md:flex-row md:items-start" // 列表視圖：手機 (flex-col) / 網頁 (md:flex-row)
         }`}
       >
         {/* === 手機列表視圖專用：餐廳名稱 + 評分/評論 (頂部獨立一行) === */}
@@ -157,16 +157,16 @@ const RestaurantCard = ({
         {/* === 圖片與詳細資訊區域 (手機 flex-row / 網頁 md:flex-row) === */}
         <div
           className={`flex w-full ${
-            isGridView ? "flex-col" : "flex-row items-start truncate"
+            isGridView ? "flex-col" : "flex-row items-start "
           }`}
         >
           {/* 圖片區域 - 點擊導航 */}
           <Link href={`/restaurants/${restaurant.id}`} passHref>
             <div
-              className={`relative flex-shrink-0 rounded-lg overflow-hidden ${
+              className={`relative flex-shrink-0 md:rounded-lg overflow-hidden ${
                 isGridView
                   ? "w-full h-48"
-                  : "w-[170px] h-48 mr-3 md:w-[150px] md:h-48 md:mr-4 lg:w-[350px] lg:h-[200px]" // 手機列表縮小 w-[120px] h-32
+                  : "w-[140px] h-45 mr-3 md:w-[150px] md:h-48 md:mr-4 lg:w-[350px] lg:h-[200px]" // 手機列表縮小 w-[120px] h-32
               }`}
             >
               <img
@@ -184,7 +184,7 @@ const RestaurantCard = ({
           {/* 詳細資訊區域 (包含網格和網頁列表的標題/評分) */}
           <div
             className={`${
-              isGridView ? "p-6 h-60" : "flex-grow text-left md:py-1 w-full"
+              isGridView ? "p-6 h-60" : "flex-grow text-left md:py-1 w-full min-w-0"
             }`}
           >
             {/* 餐廳名稱 - 點擊導航 (網格視圖 & 網頁列表視圖才顯示) */}

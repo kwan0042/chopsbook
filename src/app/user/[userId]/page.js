@@ -232,7 +232,7 @@ export default function UserReviewsPage({ params }) {
               key: "city",
               label: "居住城市",
               value: profileUser?.city,
-              placeholder: "例如：香港",
+              placeholder: "例如：Markham/萬錦 ",
             },
             {
               key: "favoriteCuisine",

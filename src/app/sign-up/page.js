@@ -1,4 +1,4 @@
-// src/app/register/page.js
+// 假設此文件路徑為 src/app/sign-up/page.js
 "use client";
 
 import React, { useContext, useState, useCallback } from "react";
@@ -19,6 +19,7 @@ export default function RegisterPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isRestaurantOwner, setIsRestaurantOwner] = useState(false);
   const [ownedRest, setOwnedRest] = useState("");
+  const [restEmail, setRestEmail] = useState("");
   const [localLoading, setLocalLoading] = useState(false);
   const [localMessage, setLocalMessage] = useState("");
 
@@ -34,15 +35,18 @@ export default function RegisterPage() {
           password,
           phoneNumber,
           isRestaurantOwner,
-          ownedRest
+          ownedRest,
+          restEmail
         );
-        setLocalMessage("註冊成功！正在導向登入頁面...");
-        // 延遲導航，讓用戶看到成功訊息
-        setTimeout(() => {
-          router.push("/login");
-        }, 1500);
+
+        // 🚀 關鍵修改 1: 註冊成功後，跳轉到 /login，並傳遞 email
+        const encodedEmail = encodeURIComponent(email);
+        router.push(`/login?registeredEmail=${encodedEmail}`);
+        
       } catch (error) {
         let errorMessage = "註冊失敗，請稍後再試。";
+
+        // 優先處理 Firebase 錯誤碼，提供中文描述
         if (error.code === "auth/email-already-in-use") {
           errorMessage = "此電子郵件已被使用。請使用其他電子郵件或嘗試登入。";
         } else if (error.code === "auth/weak-password") {
@@ -51,13 +55,25 @@ export default function RegisterPage() {
           errorMessage = "無效的電子郵件格式。請輸入有效的電子郵件。";
         } else if (error.code === "auth/too-many-requests") {
           errorMessage = "嘗試次數過多。請稍後再試。";
+        } else if (error.message) {
+          errorMessage = error.message;
         }
+
         setLocalMessage(errorMessage);
       } finally {
         setLocalLoading(false);
       }
     },
-    [email, password, phoneNumber, isRestaurantOwner, ownedRest, signup, router]
+    [
+      email,
+      password,
+      phoneNumber,
+      isRestaurantOwner,
+      ownedRest,
+      restEmail,
+      signup,
+      router,
+    ]
   );
 
   const handleGoogleSignup = useCallback(async () => {
@@ -65,11 +81,9 @@ export default function RegisterPage() {
     setLocalMessage("");
     try {
       await signupWithGoogle();
-      setLocalMessage("Google 註冊/登入成功！正在導向首頁...");
       // 成功後導航到首頁
-      setTimeout(() => {
-        router.push("/");
-      }, 1500);
+      router.push("/");
+      
     } catch (error) {
       let errorMessage = "Google 註冊/登入失敗，請稍後再試。";
       if (error.code === "auth/popup-closed-by-user") {
@@ -172,7 +186,7 @@ export default function RegisterPage() {
                 htmlFor="restaurantName"
                 className="block text-sm font-medium text-gray-700"
               >
-                餐廳名稱
+                餐廳名稱 <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -181,6 +195,26 @@ export default function RegisterPage() {
                 value={ownedRest}
                 onChange={(e) => setOwnedRest(e.target.value)}
                 placeholder="輸入餐廳名稱"
+                disabled={loadingUser || localLoading}
+                required={isRestaurantOwner}
+              />
+            </div>
+          )}
+          {isRestaurantOwner && (
+            <div className="relative">
+              <label
+                htmlFor="restaurantEmail"
+                className="block text-sm font-medium text-gray-700"
+              >
+                餐廳聯絡電郵 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                id="restaurantEmail"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                value={restEmail}
+                onChange={(e) => setRestEmail(e.target.value)}
+                placeholder="餐廳/公司聯絡電郵"
                 disabled={loadingUser || localLoading}
                 required={isRestaurantOwner}
               />

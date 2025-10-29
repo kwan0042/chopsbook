@@ -261,7 +261,7 @@ const RestaurantListPage = ({
   return (
     <div className="h-full flex flex-col">
       {/* ... (頂部標題和清除按鈕邏輯不變) ... */}
-      <div className="flex justify-between items-center mb-2">
+      <div className="flex justify-between items-center md:mb-2 ">
         <h2 className="text-xl px-3 font-bold text-gray-800">
           {hasFiltersOrSearch ? "搜尋/篩選結果" : "所有餐廳"}
         </h2>

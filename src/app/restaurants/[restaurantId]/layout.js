@@ -425,238 +425,23 @@ export default function RestaurantDetailLayout({ children }) {
 
   return (
     <RestaurantContext.Provider value={{ restaurant }}>
-      <div className="flex flex-col min-h-screen bg-cbbg">
-        <div className="flex-grow py-8 px-4 sm:px-6 lg:px-8 ">
-          <div className=" mx-auto bg-white shadow-xl rounded-xl overflow-hidden">
-            {/* 🚨 關鍵結構變更：將頂部資訊、基本資訊和標籤放在一個父容器中，並與圖片並排 */}
-            <div className="flex flex-col md:flex-row border-b border-gray-200 pr-3 ">
-              {/* 門面照片區塊 (左側 25% / w-1/4) */}
-              <div className="md:w-1/5 w-full p-4 flex-shrink-0  ">
-                <div className="relative w-full h-50">
-                  {" "}
-                  {/* 👈 設定高度 + relative */}
-                  <Image
-                    src={facadePhotoUrl || "/img/error/imgError_tw.webp"}
-                    alt={`${getRestaurantName(restaurant)} 門面照片`}
-                    fill
-                    className="object-cover rounded-lg shadow-md"
-                    unoptimized
-                  />
-                </div>
-              </div>
-
-              {/* 資訊區塊 (右側 75% / w-3/4) - 包含名稱、評分、菜系、標籤 */}
-              <div className="md:w-4/5 w-full flex flex-col ">
-                {/* 頂部名稱和收藏按鈕 */}
-                <div className="flex items-center justify-between py-4 mx-6 border-b-2 pb-2">
-                  <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">
-                    {getRestaurantName(restaurant)}
-                  </h1>
-                  <div className="flex justify-center items-center gap-2 overflow-ellipsis whitespace-nowrap">
-                    <button
-                      onClick={handleCheckInClick}
-                      className="bg-cbbg text-rose-500 hover:bg-blue-600 hover:text-cbbg text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
-                      type="button"
-                    >
-                      到訪
-                    </button>
-                    <button
-                      onClick={handleShareClick}
-                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
-                      type="button"
-                      aria-label="分享"
-                    >
-                      <FontAwesomeIcon icon={faShare} />
-                    </button>
-                    {isShareModalOpen && (
-                      <ShareModal
-                        isOpen={isShareModalOpen}
-                        onClose={() => setIsShareModalOpen(false)}
-                        restaurantName={
-                          restaurant.restaurantName?.["zh-TW"] ||
-                          restaurant.restaurantName?.en ||
-                          "未知餐廳"
-                        }
-                        shareUrl={restaurantLink}
-                      />
-                    )}
-
-                    <button
-                      onClick={handleToggleFavorite}
-                      className="py-2 bg-transparent border-none text-yellow-500 hover:scale-110 transition duration-200"
-                      aria-label={isFavorited ? "取消收藏" : "收藏餐廳"}
-                    >
-                      <FontAwesomeIcon
-                        icon={isFavorited ? faSolidBookmark : faRegularBookmark}
-                        className="text-3xl"
-                      />
-                    </button>
-                  </div>
-                </div>
-
-                {/* 餐廳基本資訊 */}
-                <div className="p-6 pt-2 grid grid-cols-1 md:grid-cols-2  text-gray-700">
-                  <div>
-                    {renderRatingStars(restaurant.averageRating)}
-                    <p className="mt-2 text-base">
-                      <FontAwesomeIcon
-                        icon={faMapMarkerAlt}
-                        className="mr-2 text-gray-500"
-                      />
-                      {restaurant.fullAddress || "N/A"}
-                    </p>
-                    <p className="mt-1 text-base">
-                      <FontAwesomeIcon
-                        icon={faUtensils}
-                        className="mr-2 text-gray-500"
-                      />
-                      {/* 使用 cuisineDisplay 確保是字串 */}
-                      {cuisineDisplay}
-                      {restaurant.rTags?.length > 0 &&
-                        ` | ${restaurant.rTags.join(", ")}`}
-                    </p>
-                  </div>
-                  <div className="md:text-right">
-                    <p className="text-base">
-                      <FontAwesomeIcon
-                        icon={faWallet}
-                        className="mr-2 text-gray-500"
-                      />
-                      人均:{" "}
-                      {restaurant.avgSpending
-                        ? `$${restaurant.avgSpending}`
-                        : "N/A"}
-                    </p>
-                    <p className="mt-1 text-base">
-                      <FontAwesomeIcon
-                        icon={faClock}
-                        className="mr-2 text-gray-500"
-                      />
-                      <span className={`font-bold ${operatingStatusColor}`}>
-                        {operatingStatus}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* 標籤 (Tags) */}
-                {restaurant.rTags && restaurant.rTags.length > 0 && (
-                  <div className="p-6 pt-2 flex flex-wrap gap-2">
-                    {restaurant.rTags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full flex items-center"
-                      >
-                        <FontAwesomeIcon icon={faTag} className="mr-1" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            {/* 🚨 結構變更結束 */}
-
-            {/* 導航標籤 (保持不變) */}
-            <div className="flex justify-around p-4 bg-gray-100 border-b border-gray-200">
-              <Link
-                href={`/restaurants/${restaurantId}`}
-                className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
-                ${
-                  pathname === `/restaurants/${restaurantId}`
-                    ? "text-blue-600 border-b-2 border-blue-600"
-                    : "text-gray-600 hover:text-blue-500"
-                }`}
+      <div className="flex flex-col font-inter mb-6">
+        {/* 🚨 行動裝置 (md: 以下) 浮動按鈕與 Drawer 區塊 🚨 */}
+        <div className="md:hidden sticky top-[116px] z-40 w-full bg-gray-700">
+          <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 ">
+            <div className="flex justify-between items-center w-full ">
+              {/* 浮動按鈕：左側中央定位，文字直寫 (flex-col) 保持不變 */}
+              <button
+                onClick={() => setIsInfoModalOpen(true)}
+                className="inline-flex items-center justify-center p-2 text-sm font-medium  rounded-lg shadow-md group bg-gradient-to-br  transition-colors duration-200 w-fit h-fit"
+                aria-label="查看餐廳詳細資訊"
               >
-                總覽
-              </Link>
-              <Link
-                href={`/restaurants/${restaurantId}/menu`}
-                className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
-                ${
-                  pathname === `/restaurants/${restaurantId}/menu`
-                    ? "text-blue-600 border-b-2 border-blue-600"
-                    : "text-gray-600 hover:text-blue-500"
-                }`}
-              >
-                菜單
-              </Link>
-              <Link
-                href={`/restaurants/${restaurantId}/reviews`}
-                className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
-                ${
-                  pathname === `/restaurants/${restaurantId}/reviews`
-                    ? "text-blue-600 border-b-2 border-blue-600"
-                    : "text-gray-600 hover:text-blue-500"
-                }`}
-              >
-                評論
-              </Link>
-              <Link
-                href={`/restaurants/${restaurantId}/photos`}
-                className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
-                ${
-                  pathname === `/restaurants/${restaurantId}/photos`
-                    ? "text-blue-600 border-b-2 border-blue-600"
-                    : "text-gray-600 hover:text-blue-500"
-                }`}
-              >
-                照片
-              </Link>
-
-              <Link
-                href={`/restaurants/${restaurantId}/map`}
-                className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
-                ${
-                  pathname === `/restaurants/${restaurantId}/map`
-                    ? "text-blue-600 border-b-2 border-blue-600"
-                    : "text-gray-600 hover:text-blue-500"
-                }`}
-              >
-                地圖
-              </Link>
-            </div>
-            <div className="p-6">
-              <div className="flex flex-col md:flex-row mt-4 gap-4">
-                <div className="flex-1">{children}</div>
-
-                {/* 桌面版側欄：添加 hidden md:block 確保手機上隱藏 */}
-                <div className="hidden md:block md:w-1/3 flex-shrink-0">
-                  <div className="bg-white rounded-xl shadow-xl sticky top-8">
-                    <RestaurantInfoPanel
-                      restaurant={restaurant}
-                      formatBusinessHours={formatBusinessHours}
-                    />
-                  </div>
-                </div>
-              </div>
+                <span className="relative px-3 py-1 transition-all ease-in duration-75  bg-white dark:bg-gray-900 rounded-lg group-hover:bg-transparent  group-hover:dark:bg-transparent text-gray-900 dark:text-white font-bold  flex items-center space-x-2">
+                  <IconFileDots stroke={2} />
+                </span>
+              </button>
             </div>
           </div>
-        </div>
-
-        {/* 🚨 行動裝置 (md: 以下) 浮動按鈕與 Drawer 區塊 🚨 */}
-        <div className="md:hidden">
-          {/* 浮動按鈕：左側中央定位，文字直寫 (flex-col) 保持不變 */}
-          <button
-            onClick={() => setIsInfoModalOpen(true)}
-            className="fixed top-4/5  transform -translate-y-1/2 
-              inline-flex items-center justify-center p-0.5 z-40
-             overflow-hidden text-sm font-medium rounded-sm shadow-lg
-             group bg-gradient-to-br from-red-200 via-red-300 to-yellow-200 
-             
-             transition-colors duration-200 w-12 h-fit"
-            aria-label="查看餐廳詳細資訊"
-          >
-            <span
-              className="relative px-2 py-2 transition-all ease-in duration-75 
-               bg-white dark:bg-gray-900 rounded-sm group-hover:bg-transparent 
-               group-hover:dark:bg-transparent
-               text-gray-900 dark:text-white font-bold 
-               flex flex-col items-center justify-center space-y-1 w-full h-fit"
-            >
-              <IconFileDots stroke={2} />
-            </span>
-          </button>
 
           {/* 💡 MUI Drawer 元件實現滑出滑入效果 (從左到右滑出) */}
           <Drawer
@@ -707,6 +492,218 @@ export default function RestaurantDetailLayout({ children }) {
           </Drawer>
         </div>
         {/* 🚨 行動裝置區塊結束 🚨 */}
+        <div className="flex flex-col min-h-screen bg-cbbg">
+          <div className="flex-grow py-8 px-4 sm:px-6 lg:px-8 ">
+            <div className=" mx-auto bg-white shadow-xl rounded-xl overflow-hidden">
+              {/* 🚨 關鍵結構變更：將頂部資訊、基本資訊和標籤放在一個父容器中，並與圖片並排 */}
+
+              <div className="flex flex-col md:flex-row border-b border-gray-200 md:pr-3 ">
+                {/* 門面照片區塊 (左側 25% / w-1/4) */}
+                <div className="md:w-1/5 w-full p-4 flex-shrink-0  ">
+                  <div className="relative w-full h-50">
+                    {" "}
+                    {/* 👈 設定高度 + relative */}
+                    <Image
+                      src={facadePhotoUrl || "/img/error/imgError_tw.webp"}
+                      alt={`${getRestaurantName(restaurant)} 門面照片`}
+                      fill
+                      className="object-cover rounded-lg shadow-md"
+                      unoptimized
+                    />
+                  </div>
+                </div>
+
+                {/* 資訊區塊 (右側 75% / w-3/4) - 包含名稱、評分、菜系、標籤 */}
+                <div className="md:w-4/5 w-full flex flex-col ">
+                  {/* 頂部名稱和收藏按鈕 */}
+                  <div className="flex items-center justify-between py-4 mx-6 border-b-2 pb-2">
+                    <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">
+                      {getRestaurantName(restaurant)}
+                    </h1>
+                    <div className="flex justify-center items-center gap-2 overflow-ellipsis whitespace-nowrap">
+                      <button
+                        onClick={handleCheckInClick}
+                        className="bg-cbbg text-rose-500 hover:bg-blue-600 hover:text-cbbg text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
+                        type="button"
+                      >
+                        到訪
+                      </button>
+                      <button
+                        onClick={handleShareClick}
+                        className="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
+                        type="button"
+                        aria-label="分享"
+                      >
+                        <FontAwesomeIcon icon={faShare} />
+                      </button>
+                      {isShareModalOpen && (
+                        <ShareModal
+                          isOpen={isShareModalOpen}
+                          onClose={() => setIsShareModalOpen(false)}
+                          restaurantName={
+                            restaurant.restaurantName?.["zh-TW"] ||
+                            restaurant.restaurantName?.en ||
+                            "未知餐廳"
+                          }
+                          shareUrl={restaurantLink}
+                        />
+                      )}
+
+                      <button
+                        onClick={handleToggleFavorite}
+                        className="py-2 bg-transparent border-none text-yellow-500 hover:scale-110 transition duration-200"
+                        aria-label={isFavorited ? "取消收藏" : "收藏餐廳"}
+                      >
+                        <FontAwesomeIcon
+                          icon={
+                            isFavorited ? faSolidBookmark : faRegularBookmark
+                          }
+                          className="text-3xl"
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 餐廳基本資訊 */}
+                  <div className="p-6 pt-2 grid grid-cols-1 md:grid-cols-2  text-gray-700">
+                    <div>
+                      {renderRatingStars(restaurant.averageRating)}
+                      <p className="mt-2 text-base">
+                        <FontAwesomeIcon
+                          icon={faMapMarkerAlt}
+                          className="mr-2 text-gray-500"
+                        />
+                        {restaurant.fullAddress || "N/A"}
+                      </p>
+                      <p className="mt-1 text-base">
+                        <FontAwesomeIcon
+                          icon={faUtensils}
+                          className="mr-2 text-gray-500"
+                        />
+                        {/* 使用 cuisineDisplay 確保是字串 */}
+                        {cuisineDisplay}
+                        {restaurant.rTags?.length > 0 &&
+                          ` | ${restaurant.rTags.join(", ")}`}
+                      </p>
+                    </div>
+                    <div className="md:text-right">
+                      <p className="text-base">
+                        <FontAwesomeIcon
+                          icon={faWallet}
+                          className="mr-2 text-gray-500"
+                        />
+                        人均:{" "}
+                        {restaurant.avgSpending
+                          ? `$${restaurant.avgSpending}`
+                          : "N/A"}
+                      </p>
+                      <p className="mt-1 text-base">
+                        <FontAwesomeIcon
+                          icon={faClock}
+                          className="mr-2 text-gray-500"
+                        />
+                        <span className={`font-bold ${operatingStatusColor}`}>
+                          {operatingStatus}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 標籤 (Tags) */}
+                  {restaurant.rTags && restaurant.rTags.length > 0 && (
+                    <div className="p-6 pt-2 flex flex-wrap gap-2">
+                      {restaurant.rTags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full flex items-center"
+                        >
+                          <FontAwesomeIcon icon={faTag} className="mr-1" />
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* 🚨 結構變更結束 */}
+
+              {/* 導航標籤 (保持不變) */}
+              <div className="flex justify-around p-4 bg-gray-100 border-b border-gray-200">
+                <Link
+                  href={`/restaurants/${restaurantId}`}
+                  className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
+                ${
+                  pathname === `/restaurants/${restaurantId}`
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-600 hover:text-blue-500"
+                }`}
+                >
+                  總覽
+                </Link>
+                <Link
+                  href={`/restaurants/${restaurantId}/menu`}
+                  className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
+                ${
+                  pathname === `/restaurants/${restaurantId}/menu`
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-600 hover:text-blue-500"
+                }`}
+                >
+                  菜單
+                </Link>
+                <Link
+                  href={`/restaurants/${restaurantId}/reviews`}
+                  className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
+                ${
+                  pathname === `/restaurants/${restaurantId}/reviews`
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-600 hover:text-blue-500"
+                }`}
+                >
+                  評論
+                </Link>
+                <Link
+                  href={`/restaurants/${restaurantId}/photos`}
+                  className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
+                ${
+                  pathname === `/restaurants/${restaurantId}/photos`
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-600 hover:text-blue-500"
+                }`}
+                >
+                  照片
+                </Link>
+
+                <Link
+                  href={`/restaurants/${restaurantId}/map`}
+                  className={`py-2 px-4 text-base font-medium transition-colors duration-200 ease-in-out
+                ${
+                  pathname === `/restaurants/${restaurantId}/map`
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-600 hover:text-blue-500"
+                }`}
+                >
+                  地圖
+                </Link>
+              </div>
+              <div className="p-6">
+                <div className="flex flex-col md:flex-row mt-4 gap-4">
+                  <div className="flex-1">{children}</div>
+
+                  {/* 桌面版側欄：添加 hidden md:block 確保手機上隱藏 */}
+                  <div className="hidden md:block md:w-1/3 flex-shrink-0">
+                    <div className="bg-white rounded-xl shadow-xl sticky top-8">
+                      <RestaurantInfoPanel
+                        restaurant={restaurant}
+                        formatBusinessHours={formatBusinessHours}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </RestaurantContext.Provider>
   );
