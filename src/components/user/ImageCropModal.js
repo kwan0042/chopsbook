@@ -1,4 +1,4 @@
-// src/components/personal/ImageCropModal.js
+// src/components/user/ImageCropModal.js
 import React, { useState, useCallback } from "react";
 import Cropper from "react-easy-crop";
 import Resizer from "react-image-file-resizer";

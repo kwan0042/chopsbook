@@ -1,4 +1,4 @@
-// src/components/personal/UserStatsCard.js
+// src/components/user/UserStatsCard.js
 "use client";
 
 import React from "react";
@@ -30,7 +30,7 @@ const UserStatsCard = ({ stats }) => {
   return (
     <div className="bg-gray-50 rounded-lg p-6 shadow-sm">
       <h3 className="text-base font-semibold text-gray-800 mb-4">用戶數據</h3>
-      <div className="space-y-4">
+      <div className="grid grid-cols-2 md:block items-center justify-end">
         <div className="flex items-center space-x-3 text-gray-700">
           <FontAwesomeIcon icon={faStar} className="text-yellow-500 w-5 h-5" />
           <p className="font-medium">

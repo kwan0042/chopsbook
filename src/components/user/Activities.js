@@ -244,7 +244,7 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
         return (
           <Link
             key={item.id}
-            href={`/review/${item.id}`}
+            href={`/restaurants/${item.restaurantId}/reviews/${item.id}`}
             className="w-full flex-shrink-0 md:flex-1 min-w-0"
           >
             <div className="flex flex-col items-start p-4 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full">

@@ -1,4 +1,4 @@
-// src/components/personal/ProfileSection.js
+// src/components/user/ProfileSection.js
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -77,7 +77,7 @@ const ProfileSection = ({
     if (field.isTextArea) {
       return (
         <div key={field.key} className="flex-1">
-          <p className="text-gray-500 text-sm font-medium mb-1">
+          <p className="text-gray-500 text-sm font-medium mb-1 whitespace-pre-wrap">
             {field.label}
           </p>
           {isEditing ? (
@@ -85,10 +85,12 @@ const ProfileSection = ({
               value={inputValues[field.key]}
               onChange={(e) => handleInputChange(field.key, e.target.value)}
               placeholder={field.placeholder}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition-colors h-32 resize-none"
+              // 確保文字換行 (whitespace-normal)
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition-colors h-32 resize-none break-words whitespace-normal"
             />
           ) : (
-            <p className="text-gray-600 whitespace-pre-wrap">
+            // 閱讀模式下也要確保文字換行
+            <p className="text-gray-600 whitespace-pre-wrap break-words">
               {inputValues[field.key] || "-"}
             </p>
           )}
@@ -136,12 +138,21 @@ const ProfileSection = ({
         )}
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* 主欄位 (個人簡介) */}
-        <div className="md:w-3/4">{mainField && renderField(mainField)}</div>
+      <div className="flex flex-row gap-2 w-full">
+        {/* 主欄位 (個人簡介) 
+          - flex-1: 允許它壓縮並佔據剩餘空間 (滿足 "可壓縮")
+          - min-w-0: 關鍵，確保它不會因為內容導致溢出 (滿足 "flex-row不要溢出父") 
+        */}
+        <div className="flex-1 min-w-0 md:w-3/4">
+          {mainField && renderField(mainField)}
+        </div>
 
-        {/* 側邊欄位 (職業、口味、居住城市) */}
-        <div className="md:w-1/4 space-y-4">{sideFields.map(renderField)}</div>
+        {/* 側邊欄位 (職業、口味、居住城市) 
+          - flex-shrink-0: 不壓縮 (滿足 "側邊欄位不壓縮")
+        */}
+        <div className="space-y-4 flex-shrink-0 md:w-1/4 mx-2">
+          {sideFields.map(renderField)}
+        </div>
       </div>
     </div>
   );

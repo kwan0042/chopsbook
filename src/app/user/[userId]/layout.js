@@ -173,17 +173,14 @@ export default function UserProfileLayout({ children, params }) {
         />
 
         <div className="mt-2 ">
-          <div className="flex flex-col md:flex-row gap-8">
+          <div className="flex flex-col md:flex-row md:gap-8">
             <div className="md:w-1/4 flex-shrink-0 md:mt-5">
               <div className="md:h-19 pt-4">{/* Expbar */}</div>
               {isMyProfile && <PersonalControls userId={userId} />}
               <div className="mb-4">
-                <div className="bg-white rounded-xl shadow-xl sticky top-8 p-6">
-                  <h2 className="text-xl font-bold text-gray-800 mb-4">
-                    用戶數據
-                  </h2>
+                
                   <UserStatsCard stats={userStats} />
-                </div>
+                
               </div>
             </div>
 

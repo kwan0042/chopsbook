@@ -1,4 +1,4 @@
-// src/components/personal/UserProfileHeader.js
+// src/components/user/UserProfileHeader.js
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
