@@ -207,7 +207,7 @@ export default function UserReviewsPage({ params }) {
     profileUser?.city;
 
   return (
-    <div className="space-y-8 flex-grow">
+    <div className="space-y-8 flex-grow max-w-screen">
       {/* 整合後的個人檔案區塊 */}
       {(isMyProfile || hasProfileContent) && (
         <ProfileSection

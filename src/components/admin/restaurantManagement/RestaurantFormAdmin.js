@@ -228,7 +228,7 @@ const RestaurantFormAdmin = ({
     : "";
 
   return (
-    <form onSubmit={localHandleSubmit} className="space-y-8 p-6 bg-white ">
+    <form onSubmit={localHandleSubmit} className="space-y-8 p-2 bg-white ">
       {" "}
       <input
         type="file"

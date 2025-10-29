@@ -1,5 +1,5 @@
 // src/components/user/Activities.js
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -9,6 +9,8 @@ import {
   faStarHalfStroke,
   faArrowRight,
   faSun,
+  faArrowLeft, // ✅ 新增：用於圖片導航
+  faTimes, // ✅ 新增：用於圖片彈窗
 } from "@fortawesome/free-solid-svg-icons";
 import {
   faStar as faSolidStar,
@@ -30,6 +32,11 @@ import {
   IconMoped,
   IconPaperBag,
 } from "@tabler/icons-react";
+import Image from "next/image"; // 🚨 修正: 移除重複的 {} 包裹，避免錯誤
+
+// ✅ 新增：每頁顯示的圖片數量
+const IMAGES_PER_PAGE = 3;
+
 /**
  * 通用的活動列表組件，可用於顯示食評、收藏、到訪等列表。
  * @param {object} props - 組件屬性
@@ -40,6 +47,8 @@ import {
  * @param {string} props.type - 列表類型 (e.g., 'reviews', 'favorites', 'likes', 'checkIns')
  */
 const Activities = ({ title, items, loading, noDataMessage, type }) => {
+  const [currentImagePages, setCurrentImagePages] = useState({});
+  const [selectedImage, setSelectedImage] = useState(null);
   if (loading) {
     return (
       <div className="flex justify-center items-center py-8">
@@ -47,6 +56,30 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
       </div>
     );
   }
+
+  // ✅ 新增：導航至下一頁圖片
+  const goToNextImagePage = (reviewId, totalImages) => {
+    setCurrentImagePages((prev) => {
+      const currentPage = prev[reviewId] || 0;
+      const maxPage = Math.ceil(totalImages / IMAGES_PER_PAGE) - 1;
+      return {
+        ...prev,
+        [reviewId]: Math.min(currentPage + 1, maxPage),
+      };
+    });
+  };
+
+  // ✅ 新增：導航至上一頁圖片
+  const goToPrevImagePage = (reviewId) => {
+    setCurrentImagePages((prev) => {
+      const currentPage = prev[reviewId] || 0;
+      return {
+        ...prev,
+        [reviewId]: Math.max(currentPage - 1, 0),
+      };
+    });
+  };
+
   const renderTimeIcon = (timeValue) => {
     switch (timeValue) {
       case "morning":
@@ -185,6 +218,16 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
       case "reviews":
         // ✅ 新增：日期格式化邏輯
         const reviewDate = item.createdAt ? new Date(item.createdAt) : null;
+        const currentImagePage = currentImagePages[item.id] || 0;
+        const startIndex = currentImagePage * IMAGES_PER_PAGE;
+        const endIndex = startIndex + IMAGES_PER_PAGE;
+        const displayedImages = item.uploadedImageUrls
+          ? item.uploadedImageUrls.slice(startIndex, endIndex)
+          : [];
+        // 🚨 修正: 變數名稱從 review 改為 item
+        const totalImagePages = item.uploadedImageUrls
+          ? Math.ceil(item.uploadedImageUrls.length / IMAGES_PER_PAGE)
+          : 0;
         let formattedDate = "";
         if (reviewDate && !isNaN(reviewDate)) {
           // 使用 toLocaleDateString 進行本地化格式化
@@ -199,24 +242,32 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
         // ✅ 結束新增：日期格式化邏輯
 
         return (
-          <Link key={item.id} href={`/review/${item.id}`} className="w-full ">
+          <Link
+            key={item.id}
+            href={`/review/${item.id}`}
+            className="w-full flex-shrink-0 md:flex-1 min-w-0"
+          >
             <div className="flex flex-col items-start p-4 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full">
-              <div className="flex flex-wrap justify-between items-start sm:flex-nowrap mb-2">
-                <div className="flex flex-wrap items-center space-x-2 min-w-0 sm:flex-nowrap">
-                  <div className="md:flex items-center justify-between w-full whitespace-nowrap sm:w-auto sm:flex-shrink-0 pb-1 mb-1 border-b-2">
-                    <div className="flex items-center">
+              <div className="flex flex-wrap md:block justify-between items-start sm:flex-nowrap mb-2 w-full">
+                <div className="flex flex-wrap md:block items-center  min-w-0 sm:flex-nowrap">
+                  <div className=" items-center justify-between w-full break-words sm:w-auto sm:flex-shrink-0  ">
+                    <div className="flex items-center mb-1">
                       {/* ⚡️ 修正: 將內層的 Link 替換為 <span>，避免巢狀 <a> 錯誤 */}
                       <span
                         className="font-semibold text-gray-800 text-lg hover:text-blue-600 transition duration-150 cursor-pointer"
                         onClick={(e) => e.stopPropagation()} // 防止點擊用戶名時觸發外部的 Link
                       >
-                        {item.username}
-                      </span>
-                      <span className="flex items-center my-1 ml-2 ">
-                        {renderStars(item.overallRating)}
+                        {item.restaurantName?.["zh-TW"] ||
+                          item.restaurantName?.en ||
+                          item.restaurantName || // 兼容如果 restaurantName 是純字串的情況
+                          `未知餐廳`}
                       </span>
                     </div>
-                    <div className="md:ml-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="flex items-center ">
+                        {renderStars(item.overallRating)}
+                      </span>
+
                       <span className="text-sm font-bold text-gray-500">
                         第
                         <span className="text-orange-400">
@@ -228,25 +279,110 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
                   </div>
 
                   {/* 第二行內容：時段/類型圖示 */}
-                  <div className="flex items-center space-x-2 ml-0 sm:ml-2 mt-1 sm:mt-0 sm:flex-shrink-0">
-                    {renderTimeIcon(item.timeOfDay)}
-                    <span className="text-sm text-gray-600">
-                      {reviewFields.timeOfDay.typeFields[item.timeOfDay]?.zh}
-                    </span>
-                    {renderServiceTypeIcon(item.serviceType)}
-                    <span className="text-sm text-gray-600">
-                      {
-                        reviewFields.serviceType.typeFields[item.serviceType]
-                          ?.zh
-                      }
-                    </span>
+                  <div className="flex items-center justify-between space-x-2  pb-1 mb-1  sm:flex-shrink-0 border-b-2">
+                    <div className="flex items-center gap-x-1">
+                      {renderTimeIcon(item.timeOfDay)}
+                      <span className="text-sm text-gray-600">
+                        {reviewFields.timeOfDay.typeFields[item.timeOfDay]?.zh}
+                      </span>
+                      {renderServiceTypeIcon(item.serviceType)}
+                      <span className="text-sm text-gray-600">
+                        {
+                          reviewFields.serviceType.typeFields[item.serviceType]
+                            ?.zh
+                        }
+                      </span>
+                    </div>
+                    <div className="flex-shrink-0 ">
+                      <span className="text-xs text-gray-500">
+                        {formattedDate}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 {/* 日期保持在右側 */}
-                <div className="flex-shrink-0 mt-2 sm:mt-0">
-                  <span className="text-sm text-gray-500">{formattedDate}</span>
+
+                <div className="mb-2 w-full">
+                  {/* ✅ 新增：食評標題 */}
+                  <p className="text-base font-bold text-gray-700 line-clamp-2 mt-2">
+                    {item.reviewTitle}
+                  </p>
                 </div>
+                {item.uploadedImageUrls &&
+                  item.uploadedImageUrls.length > 0 && (
+                    <div className="md:p-0 relative w-full md:w-auto ">
+                      {/* 圖片網格，強制為 2x2 佈局 */}
+                      <div className="grid grid-cols-3 gap-1 md:gap-4 pb-3 border-b-2 ">
+                        {displayedImages.map((image, index) => (
+                          <div
+                            key={index}
+                            className="relative w-full aspect-square overflow-hidden rounded-lg shadow-sm cursor-pointer"
+                            onClick={(e) => {
+                              e.preventDefault(); // 🚨 新增：防止點擊圖片時觸發外部 Link
+                              e.stopPropagation(); // 🚨 新增：防止點擊圖片時觸發外部 Link
+                              setSelectedImage(image);
+                            }}
+                          >
+                            {/* 🚨 修正: 確保 Image 元件導入正確 */}
+                            <Image
+                              src={image.url}
+                              alt={`${reviewFields.uploadedImageUrls} ${
+                                index + startIndex + 1
+                              }`}
+                              fill
+                              sizes="(max-width: 640px) 50vw, 25vw"
+                              className="object-cover"
+                              unoptimized={
+                                process.env.NODE_ENV === "development"
+                              }
+                            />
+                            {/* 顯示圖片描述 */}
+                            {image.description && (
+                              <div className="absolute bottom-0 left-0 w-full bg-black bg-opacity-50 text-white text-xs p-1 text-center truncate">
+                                {image.description}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* 導航按鈕和頁碼 */}
+                      {totalImagePages > 1 && (
+                        <div className="flex items-center justify-between mt-4">
+                          <button
+                            // 🚨 修正: 傳入 item.id
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              goToPrevImagePage(item.id);
+                            }}
+                            disabled={currentImagePage === 0}
+                            className="p-2 bg-white rounded-full shadow-md text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <FontAwesomeIcon icon={faArrowLeft} />
+                          </button>
+                          <span className="text-sm text-gray-500">
+                            頁面 {currentImagePage + 1} / {totalImagePages}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              goToNextImagePage(
+                                item.id,
+                                item.uploadedImageUrls.length
+                              );
+                            }}
+                            disabled={currentImagePage === totalImagePages - 1}
+                            className="p-2 bg-white rounded-full shadow-md text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <FontAwesomeIcon icon={faArrowRight} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
               </div>
             </div>
           </Link>
@@ -254,7 +390,11 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
 
       case "mostLiked":
         return (
-          <Link key={item.id} href={`/review/${item.id}`} className="w-full">
+          <Link
+            key={item.id}
+            href={`/review/${item.id}`}
+            className=" flex-shrink-0 md:flex-1 min-w-0"
+          >
             <div className="flex flex-col items-start p-4 bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full">
               <div className="flex-grow flex flex-col justify-start">
                 <span className="font-semibold text-gray-900 mb-1 line-clamp-1">
@@ -274,7 +414,10 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
 
       case "favorites":
         return (
-          <div key={item.id} className="relative w-full my-2 group">
+          <div
+            key={item.id}
+            className="relative  my-2 group flex-shrink-0 md:flex-1 min-w-0"
+          >
             <Link href={`/restaurants/${item.id}`} passHref>
               <div className="bg-white shadow-lg overflow-hidden transform transition duration-300 ease-in-out cursor-pointer h-fit flex flex-row items-stretch rounded-xl border border-gray-200 hover:shadow-md">
                 {renderRankBadge(index)}
@@ -332,7 +475,7 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
   const favoritesLayout = type === "favorites"; // 新增：用於收藏列表
 
   return (
-    <section className="bg-white p-6 rounded-lg shadow-sm">
+    <section className="bg-white p-6 rounded-lg shadow-sm min-w-0">
       <h2 className="text-lg font-bold text-gray-800 mb-4">{title}</h2>
       {items.length > 0 ? (
         <div
@@ -340,7 +483,7 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
             gridLayout
               ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
               : flexLayout
-              ? "flex flex-col md:flex-row gap-6 space-y-4 md:space-y-0"
+              ? "flex flex-col md:flex-row gap-6 space-y-4 md:space-y-0 w-full"
               : favoritesLayout
               ? "space-y-3" // ⚡️ 收藏列表使用 space-y 保持垂直間距
               : "space-y-4"
@@ -352,6 +495,40 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
         </div>
       ) : (
         <p className="text-gray-500">{noDataMessage}</p>
+      )}
+
+      {/* ✅ 新增：圖片彈窗邏輯 */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div
+            className="relative max-w-full max-h-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute top-4 right-4 text-white text-2xl hover:text-gray-300 transition-colors"
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+            <Image
+              src={selectedImage.url}
+              alt={selectedImage.description || "放大圖片"}
+              width={800}
+              height={600}
+              className="rounded-lg shadow-lg"
+              style={{ objectFit: "contain", maxHeight: "80vh" }}
+              unoptimized={process.env.NODE_ENV === "development"}
+            />
+            {selectedImage.description && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black bg-opacity-50 text-white text-sm p-2 rounded-lg">
+                {selectedImage.description}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </section>
   );

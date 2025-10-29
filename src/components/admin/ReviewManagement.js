@@ -374,7 +374,7 @@ const ReviewManagement = () => {
           <thead className="bg-gray-50 sticky top-0 z-[5]">
             <tr>
               {/* ID 寬度 10% */}
-              <th className="w-[10%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
+              <th className="w-[10%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate ">
                 ID
               </th>
               {/* 🎯 核心修正 13: 調整欄位寬度 */}

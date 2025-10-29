@@ -32,7 +32,7 @@ export default function AdminRestaurantsPage() {
 
   // 如果是管理員，則渲染 RestaurantManagement 組件
   return (
-    <div className="min-h-screen font-inter">
+    <div className="min-h-auto font-inter">
       <RestaurantManagement />
     </div>
   );

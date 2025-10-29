@@ -363,7 +363,7 @@ const NewRestaurantModal = ({
           ✅ 調整：將 max-w-5xl 移到這裡，並確保內容能滾動 */}
       <div className="bg-white rounded-lg shadow-xl relative w-full max-w-5xl mt-12 mb-12">
         {/* ✅ 調整：移除 min-h-[500px] 和 max-h-[90vh]，讓內層表單控制內容高度和滾動 */}
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           <h3 className="text-xl font-semibold text-gray-800 mb-6 border-b pb-3">
             新增餐廳資訊 (Admin)
           </h3>

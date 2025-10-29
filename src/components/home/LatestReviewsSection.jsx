@@ -129,11 +129,14 @@ const LatestReviewsSection = () => {
       ) : (
         <div className="w-full space-y-4">
           {reviews.map((review) => (
-            // 1. 外層 Link：導航到評論詳情頁 (保留 Next.js 預取優勢)
-            <Link
+            <div
               key={review.id}
-              href={`/restaurants/${review.restaurantId}/reviews/${review.id}`}
-              className="block p-3 bg-orange-100 rounded-lg text-orange-800 text-sm cursor-pointer transition-shadow duration-200 hover:shadow-md hover:bg-orange-200"
+              className="p-3 bg-orange-100 rounded-lg text-orange-800 text-sm cursor-pointer transition-shadow duration-200 hover:shadow-md hover:bg-orange-200"
+              onClick={() =>
+                router.push(
+                  `/restaurants/${review.restaurantId}/reviews/${review.id}`
+                )
+              }
             >
               <p className="font-bold text-left">{review.restaurantName}</p>
               <p className="mt-1 text-left text-gray-700">
@@ -142,19 +145,16 @@ const LatestReviewsSection = () => {
               <div className="mt-2 flex items-center justify-between">
                 {renderStars(review.overallRating)}
                 <p
-                  // 確保它還是靠右對齊
-                  className=" ml-3 mt-1 block text-right text-xs underline hover:text-indigo-500 transition-colors duration-150 cursor-pointer truncate white-space: nowrap;"
+                  className="ml-3 mt-1 block text-right text-xs underline hover:text-indigo-500 transition-colors duration-150 cursor-pointer truncate"
                   onClick={(e) => {
-                    e.stopPropagation();
-
-                    // 解決了 router 未定義的問題，現在點擊人名會導航到用戶頁
+                    e.stopPropagation(); // 阻止外層 div click
                     router.push(`/user/${review.userId}`);
                   }}
                 >
                   {review.username}
                 </p>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

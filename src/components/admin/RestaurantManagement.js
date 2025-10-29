@@ -14,6 +14,10 @@ import NewRestaurantModal from "@/components/admin/restaurantManagement/NewResta
 import EditRestaurantModal from "@/components/admin/restaurantManagement/EditRestaurantModal.js";
 import { AuthContext } from "@/lib/auth-context";
 
+// 🎯 新增：引入 Tabler Icons
+import { IconFileXFilled } from "@tabler/icons-react";
+import { IconSettingsFilled } from "@tabler/icons-react";
+
 // --- 介面和常數 ---
 const RESTAURANTS_PER_PAGE = 10;
 // 這裡根據您提供的 DB 結構定義所有可編輯的欄位
@@ -245,7 +249,7 @@ const RestaurantManagement = () => {
 
       // 刪除成功後，從列表中移除該餐廳
       setRestaurants((prev) => prev.filter((r) => r.id !== restaurantId));
-      
+
       alert(`餐廳 ${restaurantName} 刪除成功！`);
       // 由於列表數量可能減少，可以考慮重新載入當前頁或讓使用者自己決定
       if (restaurants.length - 1 === 0 && currentPage > 1) {
@@ -266,7 +270,7 @@ const RestaurantManagement = () => {
    */
   const handleEditRestaurant = (restaurantId) => {
     // 🚨 DEBUG 1: 檢查按鈕點擊是否觸發
-    console.log(`[RM Debug 1] Edit button clicked for ID: ${restaurantId}`); 
+    console.log(`[RM Debug 1] Edit button clicked for ID: ${restaurantId}`);
     setEditTargetId(restaurantId);
     setSelectedFile(null); // 確保在開啟新編輯時，清除上次的 selectedFile
   };
@@ -384,7 +388,9 @@ const RestaurantManagement = () => {
       console.log(`[RM Debug 3] Current editTargetId: ${editTargetId}`);
       console.log(`[RM Debug 3] editingRestaurantData found: ${!!data}`);
       if (!data) {
-        console.error(`[RM Debug 3] Data not found for ID: ${editTargetId}. The item might not be in the current 'restaurants' list.`);
+        console.error(
+          `[RM Debug 3] Data not found for ID: ${editTargetId}. The item might not be in the current 'restaurants' list.`
+        );
       }
     }
     return data;
@@ -396,32 +402,37 @@ const RestaurantManagement = () => {
   if (shouldRenderEditModal) {
     console.log(`[RM Debug 4] Modal will render for ID: ${editTargetId}`);
     // 🚨 DEBUG 4b: 檢查傳遞給 Modal 的數據結構
-    console.log(`[RM Debug 4b] Initial Data (data property) keys:`, Object.keys(editingRestaurantData.data || {}));
+    console.log(
+      `[RM Debug 4b] Initial Data (data property) keys:`,
+      Object.keys(editingRestaurantData.data || {})
+    );
   }
-
 
   // --- 渲染 (Render) ---
 
   return (
-    <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200 min-w-full">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6 border-b pb-3">
+    <div className="bg-white rounded-lg shadow-xl p-4 md:p-8 border border-gray-200 min-w-full">
+      <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6 border-b pb-3">
         餐廳管理
       </h2>
 
       {/* 搜尋欄位 + 新增按鈕 */}
-      <form onSubmit={handleSearchSubmit} className="mb-6 flex space-x-4">
+      <form
+        onSubmit={handleSearchSubmit}
+        className="mb-6 flex flex-nowrap items-center space-x-2 md:space-x-4 w-full"
+      >
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="搜尋餐廳名稱 (中/英)"
-          className="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+          className="md:flex-grow min-w-0 p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 "
           disabled={loading || showAddModal || !!editTargetId} // 編輯/新增時禁用
         />
         <button
           type="submit"
           disabled={loading || showAddModal || !!editTargetId}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out disabled:opacity-50"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out disabled:opacity-50 whitespace-nowrap"
         >
           搜尋
         </button>
@@ -430,7 +441,7 @@ const RestaurantManagement = () => {
           type="button"
           onClick={handleAddNewRestaurant}
           disabled={loading || showAddModal || !!editTargetId}
-          className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out disabled:opacity-50"
+          className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out disabled:opacity-50 whitespace-nowrap"
         >
           新增餐廳
         </button>
@@ -455,35 +466,35 @@ const RestaurantManagement = () => {
       )}
 
       {/* 餐廳表格 (精簡化) */}
-      <div className="overflow-x-auto relative shadow-md sm:rounded-lg">
-        {/* 🚨 移除 overflow-x-auto，改為固定寬度表格，強制不橫向滾動 */}
+      {/* 🚨 修正 1：移除父級的 overflow-x-auto，改為 relative */}
+      <div className="relative shadow-md sm:rounded-lg">
+        {/* 🚨 修正 2：保持 w-full table-fixed */}
         <table className="w-full table-fixed divide-y divide-gray-200">
           <thead className="bg-gray-50 sticky top-0 z-[5]">
             <tr>
-              {/* ID 寬度 10% */}
-              <th className="w-[12%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
+              {/* ID 欄位：手機版 hidden，桌面版 w-[12%] */}
+              <th className="w-[13%] px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate hidden md:table-cell">
                 ID
               </th>
-              {/* 🎯 核心修改 2: 處理標題欄位寬度 */}
+              {/* 🎯 餐廳名稱欄位：手機版 w-auto，桌面版 w-[30%] - w-[50%] (讓它自適應，但給予一個最小寬度) */}
               {DISPLAY_FIELDS.map((field) => (
                 <th
                   key={field.key}
-                  // 🚨 根據欄位名稱設定寬度
-                  className={`${
-                    field.key === "combinedRestaurantName"
-                      ? "w-[20%]"
-                      : field.key === "submittedBy"
-                      ? "w-[20%]" // 🎯 核心修改 1: 設置 submittedBy 為 w-[20%]
-                      : "w-[10%]" // 剩下的欄位 (createdAt, updatedAt) 平分剩餘空間 (100-10-30-15 = 45; 45/3=15; 重新計算: 10(ID)+30(名稱)+15(操作)=55; 45/3=15)
-                    // 重新分配：10(ID) + 30(名稱) + 20(SubmittedBy) + 15(updatedAt) + 15(createdAt) = 90. 10% 給操作 (15%太寬)
-                    // 為了避免複雜計算，統一給定一個基於總寬度的百分比，並確保總和不超過 100%
-                  } px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate`}
+                  // 🚨 修正 3：設置寬度，並確保次要欄位在手機上隱藏 (hidden)
+                  className={`
+                    ${
+                      field.key === "combinedRestaurantName"
+                        ? "w-auto md:w-[23%] " // 讓名稱欄位在桌面佔約 45%，手機上 w-auto
+                        : "w-[10%] hidden md:table-cell" // 其他次要欄位在手機上隱藏，桌面版佔 15%
+                    } 
+                    px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate
+                  `}
                 >
                   {field.label}
                 </th>
               ))}
-              {/* 操作寬度 15% */}
-              <th className="w-[12%] px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              {/* 操作寬度：手機版 w-[43%] (100% - 57%) 或 w-[45%], 桌面版 w-[10%] - w-[15%] (確保操作完整) */}
+              <th className="w-[30%] md:w-[15%] px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                 操作
               </th>
             </tr>
@@ -491,8 +502,10 @@ const RestaurantManagement = () => {
           <tbody className="bg-white divide-y divide-gray-200">
             {combinedRestaurants.length === 0 && !loading ? (
               <tr>
+                {/* 🚨 修正 4：colSpan 必須根據顯示的欄位數量來計算 (手機版：名稱 + 操作 = 2 欄) */}
                 <td
-                  colSpan={DISPLAY_FIELDS.length + 2}
+                  // 計算：ID(1) + DISPLAY_FIELDS(4) + 操作(1) = 6。手機版是 Name(1) + 操作(1) = 2
+                  colSpan={2}
                   className="px-6 py-4 text-center text-sm text-gray-500"
                 >
                   {submittedSearchQuery.trim()
@@ -519,7 +532,8 @@ const RestaurantManagement = () => {
                     }
                   >
                     {/* ID */}
-                    <td className="px-3 py-4 text-xs text-gray-500 truncate">
+                    {/* 🚨 修正 5：在手機版隱藏 (hidden) */}
+                    <td className="px-3 py-4 text-xs text-gray-500 truncate hidden md:table-cell">
                       {item.id}
                     </td>
                     {/* 🎯 核心修改 3: 顯示欄位數據 */}
@@ -539,11 +553,15 @@ const RestaurantManagement = () => {
                         return (
                           <td
                             key={field.key}
+                            // 🚨 修正 6：確保手機版不隱藏，並使用 truncate 截斷文字
                             className="px-4 py-2 text-sm text-gray-900"
                             title={combinedTitle} // hover 顯示完整內容
                           >
-                            <div className="font-semibold">{zhName}</div>
-                            <div className="text-xs text-gray-500 mt-1 truncate">
+                            {/* 確保內部 div 繼承 max-w-full，讓 truncate 有效 */}
+                            <div className="font-semibold whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
+                              {zhName}
+                            </div>
+                            <div className="text-gray-600 text-xs whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
                               {enName}
                             </div>
                           </td>
@@ -590,36 +608,46 @@ const RestaurantManagement = () => {
                       return (
                         <td
                           key={field.key}
-                          className="px-4 py-2 text-sm text-gray-900 truncate"
+                          // 🚨 修正 7：在手機版隱藏
+                          className="px-4 py-2 text-sm text-gray-900 truncate hidden md:table-cell"
                           title={displayValue} // hover 顯示完整內容
                         >
                           {displayValue}
                         </td>
                       );
                     })}
-                    {/* 操作按鈕 */}
-                    <td className="px-6 py-4 text-center text-sm font-medium">
+                    {/* 操作按鈕 - 核心修改區域 */}
+                    <td className=" md:px-6 md:py-4 text-center text-sm font-medium whitespace-nowrap">
                       {/* 🎯 編輯按鈕 (開啟 Modal) */}
                       <button
-                        onClick={() => handleEditRestaurant(item.id)} // 🚨 這裡會觸發 DEBUG 1
+                        onClick={() => handleEditRestaurant(item.id)}
                         disabled={
-                          loading || showAddModal || !!editTargetId // 這裡使用 !!editTargetId 禁用所有編輯按鈕
+                          loading || showAddModal || !!editTargetId // 禁用所有編輯按鈕
                         }
-                        className={`py-1 px-3 rounded text-white font-semibold transition duration-150 ${
+                        className={`py-1 px-1 md:px-3 rounded text-white font-semibold transition duration-150 ${
                           isBeingEdited
                             ? "bg-blue-400 cursor-not-allowed"
                             : "bg-blue-600 hover:bg-blue-700"
-                        } disabled:opacity-50`}
+                        }  disabled:opacity-50`}
                       >
-                        編輯
+                        {/* 🎯 核心修改 8a：桌面版顯示文字，手機版隱藏 */}
+                        <span className="hidden md:inline-block">編輯</span>
+                        {/* 🎯 核心修改 8b：手機版顯示圖標，桌面版隱藏 */}
+                        <IconSettingsFilled className="md:hidden" size={16} />
                       </button>
+
                       {/* 🎯 刪除按鈕 */}
                       <button
                         onClick={() => handleDelete(item.id, restaurantName)}
                         disabled={loading || showAddModal || !!editTargetId}
-                        className="ml-2 py-1 px-3 rounded bg-red-600 hover:bg-red-700 text-white font-semibold transition duration-150 disabled:opacity-50"
+                        className="
+                          ml-2 py-1 px-1 md:px-3 rounded bg-red-600 hover:bg-red-700 text-white font-semibold transition duration-150 disabled:opacity-50
+                        "
                       >
-                        刪除
+                        {/* 🎯 核心修改 9a：桌面版顯示文字，手機版隱藏 */}
+                        <span className="hidden md:inline-block">刪除</span>
+                        {/* 🎯 核心修改 9b：手機版顯示圖標，桌面版隱藏 */}
+                        <IconFileXFilled className="md:hidden" size={16} />
                       </button>
                     </td>
                   </tr>
@@ -673,7 +701,7 @@ const RestaurantManagement = () => {
       )}
 
       {/* 🎯 渲染 EditRestaurantModal */}
-      {shouldRenderEditModal && ( // 🚨 使用 shouldRenderEditModal 進行渲染，這是 DEBUG 4 的結果
+      {shouldRenderEditModal && ( // 🚨 使用 shouldRenderEditModal 進行渲染
         <EditRestaurantModal
           RESTAURANT_FIELDS={RESTAURANT_FIELDS} // 傳遞所有欄位定義
           isOpen={!!editTargetId} // 判斷是否開啟

@@ -87,10 +87,10 @@ export default function AdminLayout({ children }) {
   // 🌟 一般情況：完整 Admin Layout
   return (
     <div className="min-h-screen bg-cbbg p-4 font-inter">
-      <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-4 md:p-6 lg:p-8">
         {/* Header */}
-        <div className="flex md:flex-col sm:flex-row items-center justify-between mb-8 pb-4 border-b border-gray-200">
-          <h1 className="text-2xl font-extrabold text-gray-900 md:mb-4 ">
+        <div className="flex sm:flex-row items-center justify-between mb-4 md:mb-8 pb-4 border-b border-gray-200">
+          <h1 className="text-2xl font-extrabold text-gray-900 ">
             管理員控制台
           </h1>
           <button
@@ -114,13 +114,13 @@ export default function AdminLayout({ children }) {
         </div>
 
         {/* User Info */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-sm p-6 mb-8 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-sm p-4 md:p-6 mb-4 md:mb-8 flex sm:flex-row items-center space-x-6">
           <div className="w-16 h-16 bg-blue-200 rounded-full flex items-center justify-center flex-shrink-0 shadow-inner">
             <span className="text-blue-700 font-bold text-2xl">
               {currentUser?.email?.charAt(0).toUpperCase()}
             </span>
           </div>
-          <div className="text-center sm:text-left">
+          <div className="text-left">
             <p className="font-semibold text-xl text-gray-900">
               {currentUser?.email}
             </p>
@@ -129,12 +129,14 @@ export default function AdminLayout({ children }) {
         </div>
 
         {/* Navigation */}
-        <nav className="bg-white rounded-lg shadow-md mb-8 p-2 border border-gray-200">
-          <ul className="flex flex-wrap justify-center sm:justify-start gap-2 sm:gap-4">
+        <nav className="bg-white rounded-lg shadow-md mb-4 md:mb-8 p-2 border border-gray-200 overflow-x-auto md:overflow-x-visible scrollbar-hide">
+          {/* 🎯 UL 修正：flex-nowrap 確保不換行，md:flex-wrap 允許桌面換行。 */}
+          <ul className="flex flex-row flex-nowrap justify-start md:justify-start gap-2 sm:gap-4 md:flex-wrap ">
             <li>
               <Link href="/admin">
                 <button
-                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
+                  // 🎯 按鈕修正：加入 whitespace-nowrap 確保文字橫向顯示且不換行
+                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 whitespace-nowrap ${
                     pathname === "/admin"
                       ? "bg-indigo-600 text-white shadow-md"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -147,7 +149,8 @@ export default function AdminLayout({ children }) {
             <li>
               <Link href="/admin/admin_restaurants">
                 <button
-                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
+                  // 🎯 按鈕修正：加入 whitespace-nowrap 確保文字橫向顯示且不換行
+                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 whitespace-nowrap ${
                     pathname.startsWith("/admin/admin_restaurants")
                       ? "bg-indigo-600 text-white shadow-md"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -160,7 +163,8 @@ export default function AdminLayout({ children }) {
             <li>
               <Link href="/admin/admin_requests">
                 <button
-                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
+                  // 🎯 按鈕修正：加入 whitespace-nowrap 確保文字橫向顯示且不換行
+                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 whitespace-nowrap ${
                     pathname.startsWith("/admin/admin_requests")
                       ? "bg-indigo-600 text-white shadow-md"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -173,7 +177,8 @@ export default function AdminLayout({ children }) {
             <li>
               <Link href="/admin/admin_reviews">
                 <button
-                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
+                  // 🎯 按鈕修正：加入 whitespace-nowrap 確保文字橫向顯示且不換行
+                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 whitespace-nowrap ${
                     pathname.startsWith("/admin/admin_reviews")
                       ? "bg-indigo-600 text-white shadow-md"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -186,7 +191,8 @@ export default function AdminLayout({ children }) {
             <li>
               <Link href="/admin/admin_ratings">
                 <button
-                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
+                  // 🎯 按鈕修正：加入 whitespace-nowrap 確保文字橫向顯示且不換行
+                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 whitespace-nowrap ${
                     pathname.startsWith("/admin/admin_ratings")
                       ? "bg-indigo-600 text-white shadow-md"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -199,8 +205,9 @@ export default function AdminLayout({ children }) {
             <li>
               <Link href="/admin/admin_blogs">
                 <button
-                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
-                    pathname.startsWith("/admin/admin_ratings")
+                  // 🎯 按鈕修正：加入 whitespace-nowrap 確保文字橫向顯示且不換行
+                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 whitespace-nowrap ${
+                    pathname.startsWith("/admin/admin_blogs")
                       ? "bg-indigo-600 text-white shadow-md"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}

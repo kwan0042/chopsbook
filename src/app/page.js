@@ -120,10 +120,11 @@ export default async function HomePageServer() {
             {/* 💡 手機佔 1 欄 (col-span-1)，網頁版佔 4 欄 (md:col-span-4) */}
             <div className="col-span-1 md:col-span-4 grid grid-cols-1 gap-4 my-4 md:my-0">
               <PromotionsSection />
-              <TrendingTopicsSection />
               <div className="hidden md:block">
                 <TrendingCateSection />
               </div>
+              <TrendingTopicsSection />
+              
             </div>
 
             {/* 3. 右側欄位 (只在網頁版顯示) */}
