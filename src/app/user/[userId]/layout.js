@@ -45,7 +45,7 @@ export default function UserProfileLayout({ children, params }) {
   const [profilePhoto, setProfilePhoto] = useState(currentUser?.pIconUrl || "");
 
   const [photoFileToCrop, setPhotoFileToCrop] = useState(null);
-
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!db || !userId) {
@@ -157,54 +157,81 @@ export default function UserProfileLayout({ children, params }) {
   const selectedNav = lastSegment === userId ? "overview" : lastSegment;
 
   return (
-    <div className=" h-fit bg-cbbg p-4 sm:p-6 lg:p-8 flex flex-col items-center font-inter ">
-      <div className="w-full md:px-20 relative ">
-        <UserProfileHeader
-          currentUser={profileUser}
-          profilePhoto={profilePhoto}
-          introText={introText}
-          isEditingIntro={isEditingIntro}
-          setIsEditingIntro={setIsEditingIntro}
-          setIntroText={setIntroText}
-          handleSaveIntro={handleSaveIntro}
-          handleUploadPhoto={handleUploadPhoto}
-          isMyProfile={isMyProfile}
-          stats={userStats}
-        />
+    <>
+      <div className="flex flex-col font-inter mb-6">
+        <div className="md:hidden sticky top-[117px] z-40 w-full bg-gray-700">
+          <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 ">
+            <div className="flex justify-between items-center w-full my-2">
+              {/* 浮動按鈕：左側中央定位，文字直寫 (flex-col) 保持不變 */}
+              <button
+                onClick={() => setIsInfoModalOpen(true)}
+                className="bg-yellow-200 text-gray-900 hover:bg-blue-600  text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
+                type="button"
+              >
+                到訪
+              </button>
 
-        <div className="mt-2 ">
-          <div className="flex flex-col md:flex-row md:gap-8">
-            <div className="md:w-1/4 flex-shrink-0 md:mt-5">
-              <div className="md:h-19 pt-4">{/* Expbar */}</div>
-              {isMyProfile && <PersonalControls userId={userId} />}
-              <div className="mb-4">
-                
-                  <UserStatsCard stats={userStats} />
-                
-              </div>
-            </div>
-
-            <div className="flex-1">
-              <PersonalPageNav
-                selectedNav={selectedNav}
-                setSelectedNav={(nav) => router.push(`/user/${userId}/${nav}`)}
-                isMyProfile={isMyProfile}
-                userId={userId}
-              />
-
-              <div className="mt-8">{children}</div>
+              <button
+                onClick={() => setIsInfoModalOpen(true)}
+                className="bg-yellow-200 text-gray-900 hover:bg-blue-600  text-sm font-bold py-1 px-3 rounded-sm  transition duration-100"
+                aria-label="查看餐廳詳細資訊"
+              >
+                <span className="">餐廳詳細資訊</span>
+              </button>
             </div>
           </div>
         </div>
+        {/* 💡 MUI Drawer 元件實現滑出滑入效果 (從左到右滑出) */}
       </div>
-      <Modal />
-      {photoFileToCrop && (
-        <ImageCropModal
-          photoFile={photoFileToCrop}
-          onClose={() => setPhotoFileToCrop(null)}
-          onImageCropped={handleImageCropped}
-        />
-      )}
-    </div>
+      <div className=" h-fit bg-cbbg p-4 sm:p-6 lg:p-8 flex flex-col items-center font-inter ">
+        <div className="w-full md:px-20 relative ">
+          <UserProfileHeader
+            currentUser={profileUser}
+            profilePhoto={profilePhoto}
+            introText={introText}
+            isEditingIntro={isEditingIntro}
+            setIsEditingIntro={setIsEditingIntro}
+            setIntroText={setIntroText}
+            handleSaveIntro={handleSaveIntro}
+            handleUploadPhoto={handleUploadPhoto}
+            isMyProfile={isMyProfile}
+            stats={userStats}
+          />
+
+          <div className="mt-2 ">
+            <div className="flex flex-col md:flex-row md:gap-8">
+              <div className="md:w-1/4 flex-shrink-0 md:mt-5">
+                <div className="md:h-19 pt-4">{/* Expbar */}</div>
+                {isMyProfile && <PersonalControls userId={userId} />}
+                <div className="mb-4">
+                  <UserStatsCard stats={userStats} />
+                </div>
+              </div>
+
+              <div className="flex-1">
+                <PersonalPageNav
+                  selectedNav={selectedNav}
+                  setSelectedNav={(nav) =>
+                    router.push(`/user/${userId}/${nav}`)
+                  }
+                  isMyProfile={isMyProfile}
+                  userId={userId}
+                />
+
+                <div className="mt-8">{children}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <Modal />
+        {photoFileToCrop && (
+          <ImageCropModal
+            photoFile={photoFileToCrop}
+            onClose={() => setPhotoFileToCrop(null)}
+            onImageCropped={handleImageCropped}
+          />
+        )}
+      </div>
+    </>
   );
 }

@@ -102,15 +102,15 @@ const ShareModal = ({ isOpen, onClose, restaurantName, shareUrl }) => {
                 <FontAwesomeIcon icon={faWhatsapp} size="xl" />
               </a>
 
-              {/* 2. Instagram */}
+              {/* 2. Instagram - 已修改為嘗試直接分享 Story 協議 (僅在App安裝的行動裝置上有效) */}
               <a
-                href={`https://www.instagram.com/?url=${encodeURIComponent(
+                href={`instagram://story/share?link=${encodeURIComponent(
                   shareUrl
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-white bg-[#E1306C] rounded-sm h-12 w-12 flex items-center justify-center hover:opacity-80 transition-opacity"
-                aria-label="分享至 Instagram"
+                aria-label="分享至 Instagram Story"
               >
                 <FontAwesomeIcon icon={faInstagram} size="xl" />
               </a>

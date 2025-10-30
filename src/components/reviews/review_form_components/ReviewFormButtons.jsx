@@ -26,7 +26,7 @@ const ReviewFormButtons = ({
         <div className="w-full">
           <p
             // 條款文字在所有螢幕尺寸都居中對齊
-            className="text-sm md:text-base text-center py-3"
+            className="text-sm md:text-base text-center "
           >
             請參閱我們的
             <a

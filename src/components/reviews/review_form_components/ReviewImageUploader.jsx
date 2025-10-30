@@ -10,7 +10,7 @@ const ReviewImageUploader = ({
 }) => {
   return (
     <div>
-      <label className="block text-gray-700 text-sm font-bold mb-2">
+      <label className="block text-gray-700 text-base font-bold mb-2">
         上傳圖片 (最多 6 張，僅限 .jpg)
       </label>
       <div className="flex items-center space-x-4">
@@ -30,9 +30,9 @@ const ReviewImageUploader = ({
           已選擇 {uploadedImages.length} / 6 張
         </span>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 mt-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 ">
         {uploadedImages.map((image) => (
-          <div key={image.id} className="relative group">
+          <div key={image.id} className="relative group mt-4">
             <img
               src={image.url}
               alt="Uploaded preview"
