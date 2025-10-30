@@ -29,8 +29,6 @@ import ReviewRatingSection from "./review_form_components/ReviewRatingSection";
 import ReviewDishSection from "./review_form_components/ReviewDishSection";
 import ReviewImageUploader from "./review_form_components/ReviewImageUploader";
 import ReviewFormButtons from "./review_form_components/ReviewFormButtons";
-// 🚨 引入新的裁剪模態框元件
-import ImageCropModalForReview from "./review_form_components/ImageCropModalForReview";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft, faSpinner } from "@fortawesome/free-solid-svg-icons";
 
@@ -153,7 +151,6 @@ const ReviewForm = ({
       : "manual"
   ); // 'manual' 或 'automatic'
 
-  // 🚨 關鍵修改：從 Hook 中解構出新的裁剪相關狀態和清除函數
   const {
     uploadedImages,
     handleImageUpload,
@@ -161,9 +158,6 @@ const ReviewForm = ({
     handleRemoveImage,
     uploadImagesToFirebase,
     resetImages,
-    imageToCrop, // 待裁剪的檔案 (File)
-    handleCroppedImage, // 裁剪完成後的回調函數
-    clearImageToCrop, // 🚨 新增：用於取消裁剪的回調函數
   } = useImageUploader(currentUser, storage);
 
   // Daily Limit 檢查
@@ -730,18 +724,6 @@ const ReviewForm = ({
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-4xl relative">
-      {/* 🚨 關鍵修改 1: 條件渲染圖片裁剪模態框 */}
-      {imageToCrop && (
-        <ImageCropModalForReview
-          photoFile={imageToCrop}
-          // 🚨 修復點：onClose 應呼叫 Hook 導出的專門清除函數
-          onClose={clearImageToCrop}
-          // 裁剪完成後，將 Blob 傳回 Hook 處理
-          onImageCropped={handleCroppedImage}
-        />
-      )}
-      {/* 模態框結束 */}
-
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full text-center">
@@ -766,18 +748,18 @@ const ReviewForm = ({
         </div>
       )}
       <div className=" flex justify-start">
-        <button
-          onClick={handleBackButtonClick}
-          className=" text-gray-500 hover:text-gray-700 transition-colors flex items-center"
-          aria-label="返回"
-        >
-          <FontAwesomeIcon icon={faArrowLeft} className="mr-2" />
-          返回
-        </button>
+      <button
+        onClick={handleBackButtonClick}
+        className=" text-gray-500 hover:text-gray-700 transition-colors flex items-center"
+        aria-label="返回"
+      >
+        <FontAwesomeIcon icon={faArrowLeft} className="mr-2" />
+        返回
+      </button>
 
-        <h2 className="mx-auto md:text-2xl text-xl font-extrabold text-gray-900 md:mb-8 text-center">
-          撰寫食評
-        </h2>
+      <h2 className="mx-auto md:text-2xl text-xl font-extrabold text-gray-900 md:mb-8 text-center">
+        撰寫食評
+      </h2>
       </div>
       {showUpdatePrompt ? (
         <div className="text-center p-8">
@@ -847,7 +829,7 @@ const ReviewForm = ({
           />
           <ReviewImageUploader
             uploadedImages={uploadedImages}
-            handleImageUpload={handleImageUpload} // 🚨 此時此函數將觸發裁剪模態框
+            handleImageUpload={handleImageUpload}
             handleImageDescriptionChange={handleImageDescriptionChange}
             handleRemoveImage={handleRemoveImage}
           />

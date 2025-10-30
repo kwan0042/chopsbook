@@ -5,8 +5,10 @@ import Resizer from "react-image-file-resizer";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc } from "firebase/firestore"; // 如果你需要寫入 Firestore 評論數據
 
+// 🚨 移除不再需要的 API 終點
+// const UPLOAD_API_ENDPOINT = "/api/upload-review-image";
+
 // 輔助函式：使用 Resizer 在瀏覽器端將 File 轉換為 WebP Blob
-// **注意: 此處邏輯不再用於上傳前，而是用於舊邏輯回退或非裁剪圖片**
 const resizeAndConvertToWebP = (imageFile) => {
   return new Promise((resolve, reject) => {
     // 檢查 Resizer 是否存在，以防未引入
@@ -41,76 +43,27 @@ const useImageUploader = (currentUser, storage) => {
   const [uploadedImages, setUploadedImages] = useState([]);
   const [imageUploadStatus, setImageUploadStatus] = useState("idle"); // idle, uploading, success, error
 
-  // 🚨 新增：用於裁剪的狀態
-  const [imageToCrop, setImageToCrop] = useState(null); // 待裁剪的 File 物件
-  const [originalFileRef, setOriginalFileRef] = useState(null); // 原始 File 物件的參考，用於命名
-
   const handleImageUpload = useCallback(
     (e) => {
-      // 確保總數不超過 6 張
-      if (uploadedImages.length >= 6) {
-        e.target.value = null; // 重置 input
-        return;
-      }
-
       const files = Array.from(e.target.files);
+      // 擴展支持常見格式
+      const newImages = files
+        .filter(
+          (file) => file.type === "image/jpeg" || file.type === "image/png"
+        )
+        .slice(0, 6 - uploadedImages.length);
 
-      // 篩選出第一張合格的圖片
-      const newFile = files.filter(
-        (file) => file.type === "image/jpeg" || file.type === "image/png"
-      )[0];
+      const newImagePreviews = newImages.map((file) => ({
+        file,
+        description: "",
+        url: URL.createObjectURL(file), // 用於本地預覽
+        id: Date.now() + Math.random(),
+      }));
 
-      if (newFile) {
-        // 🚨 關鍵修改：將檔案存入待裁剪狀態，觸發模態框
-        setOriginalFileRef(newFile); // 保存原始檔案用於後續命名
-        setImageToCrop(newFile);
-      }
-
-      // 重置 input 值，允許用戶再次選擇相同檔案
-      e.target.value = null;
+      setUploadedImages((prev) => [...prev, ...newImagePreviews]);
     },
     [uploadedImages.length]
   );
-
-  // 🚨 新增：處理裁剪完成的 Blob
-  const handleCroppedImage = useCallback(
-    (croppedBlob) => {
-      // 🚨 修復點：確保 croppedBlob 存在且是一個 Blob 物件，否則不進行處理
-      if (!croppedBlob) {
-        console.warn("handleCroppedImage 被呼叫但未收到有效的 Blob。");
-        setImageToCrop(null); // 清除待裁剪狀態
-        setOriginalFileRef(null);
-        return;
-      }
-
-      // 檢查總數是否已滿
-      if (uploadedImages.length >= 6) return;
-
-      const fileId = Date.now() + Math.random();
-
-      // 🚨 修復點：URL.createObjectURL 接收 Blob 或 File
-      const newImagePreview = {
-        file: originalFileRef, // 原始檔案的參考
-        croppedBlob: croppedBlob, // 裁剪並壓縮後的 WebP Blob
-        description: "",
-        url: URL.createObjectURL(croppedBlob), // 用於本地預覽 (URL.createObjectURL(Blob))
-        id: fileId,
-      };
-
-      setUploadedImages((prev) => [...prev, newImagePreview]);
-
-      // 清除待裁剪狀態
-      setImageToCrop(null);
-      setOriginalFileRef(null);
-    },
-    [uploadedImages.length, originalFileRef]
-  );
-
-  // 🚨 新增：專門用於取消裁剪或處理失敗後清除狀態的函數
-  const clearImageToCrop = useCallback(() => {
-    setImageToCrop(null);
-    setOriginalFileRef(null);
-  }, []);
 
   const handleImageDescriptionChange = useCallback((id, description) => {
     setUploadedImages((prev) =>
@@ -118,17 +71,8 @@ const useImageUploader = (currentUser, storage) => {
     );
   }, []);
 
-  // 在移除圖片時，確保刪除本地預覽 URL
   const handleRemoveImage = useCallback((id) => {
-    setUploadedImages((prev) =>
-      prev.filter((img) => {
-        if (img.id === id) {
-          URL.revokeObjectURL(img.url); // 釋放本地 URL
-          return false;
-        }
-        return true;
-      })
-    );
+    setUploadedImages((prev) => prev.filter((img) => img.id !== id));
   }, []);
 
   /**
@@ -147,36 +91,25 @@ const useImageUploader = (currentUser, storage) => {
       try {
         const urls = await Promise.all(
           uploadedImages.map(async (image) => {
-            // ⭐ 步驟 1: 優先使用裁剪後的 Blob (croppedBlob)
-            let fileToUpload = image.croppedBlob || image.file;
-            let originalFile = image.file; // 用於獲取原始檔案名稱
-            let finalFileName = originalFile.name;
+            // ⭐ 步驟 1: 前端轉換為 WebP Blob
+            let fileToUpload = image.file;
+            let finalFileName = image.file.name;
             const userId = currentUser.uid;
 
-            // 如果沒有 croppedBlob（例如舊草稿格式），則執行 WebP 轉換
-            if (!image.croppedBlob) {
-              try {
-                const webpBlob = await resizeAndConvertToWebP(originalFile);
-                fileToUpload = webpBlob;
-              } catch (error) {
-                console.warn(
-                  `圖片 ${originalFile.name} 轉換為 WebP 失敗，將上傳原始檔案。錯誤:`,
-                  error
-                );
-                // 使用原始檔案
-                fileToUpload = originalFile;
-              }
-            }
+            try {
+              const webpBlob = await resizeAndConvertToWebP(image.file);
+              fileToUpload = webpBlob; // 更新為 WebP Blob
 
-            // 替換副檔名為 .webp (假設裁剪/轉換後的 Blob 是 webp)
-            if (
-              fileToUpload instanceof Blob &&
-              fileToUpload.type === "image/webp"
-            ) {
+              // 替換副檔名為 .webp
               finalFileName = finalFileName.replace(/\.[^/.]+$/, "") + ".webp";
-            } else {
-              // 如果是原始檔案，使用其原有副檔名
-              finalFileName = originalFile.name;
+            } catch (error) {
+              // 轉換失敗，退回到原始檔案
+              console.warn(
+                `圖片 ${image.file.name} 轉換為 WebP 失敗，將上傳原始檔案。錯誤:`,
+                error
+              );
+              fileToUpload = image.file;
+              finalFileName = image.file.name;
             }
 
             // ⭐ 步驟 2: 上傳到 Firebase Storage (取代原來的 API 呼叫)
@@ -190,7 +123,11 @@ const useImageUploader = (currentUser, storage) => {
             // 上傳 Blob
             const snapshot = await uploadBytes(imageRef, fileToUpload, {
               // 根據轉換結果設定 Content-Type
-              contentType: fileToUpload.type,
+              contentType:
+                fileToUpload.type ||
+                (fileToUpload instanceof Blob && fileToUpload.size > 0
+                  ? "image/webp"
+                  : image.file.type),
             });
 
             // 獲取下載 URL
@@ -219,13 +156,10 @@ const useImageUploader = (currentUser, storage) => {
     [uploadedImages, currentUser, storage] // 🚨 確保 storage 在依賴列表中
   );
 
-  // 在重置圖片時，確保刪除所有本地預覽 URL
   const resetImages = useCallback(() => {
-    uploadedImages.forEach((img) => URL.revokeObjectURL(img.url));
     setUploadedImages([]);
     setImageUploadStatus("idle");
-    clearImageToCrop(); // 清除待裁剪狀態
-  }, [uploadedImages, clearImageToCrop]);
+  }, []);
 
   return {
     uploadedImages,
@@ -235,11 +169,6 @@ const useImageUploader = (currentUser, storage) => {
     handleRemoveImage,
     uploadImagesToFirebase,
     resetImages,
-
-    // 🚨 導出新的狀態和處理函數
-    imageToCrop,
-    handleCroppedImage,
-    clearImageToCrop, // 導出清除函數
   };
 };
 
