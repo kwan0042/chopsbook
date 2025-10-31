@@ -70,14 +70,14 @@ const RestaurantForm = ({
 }) => {
   const { storage, setModalMessage, appId } = useContext(AuthContext);
 
-  // --- 圖片處理狀態 ---
-  // 核心狀態：儲存使用者選中的本地檔案物件
+  // --- 圖片處理狀態 (維持不變，但用途改變) ---
+  // 核心狀態：儲存使用者選中的本地檔案物件 (現在這個檔案是裁剪好的 WEBP Blob/File)
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef(null);
+  // 🔥 移除 fileInputRef，因為它已移至子組件內部
+  // const fileInputRef = useRef(null);
 
   // 核心狀態：儲存用於 <img src="..."> 的 URL (可能是 Blob URL 或 DB URL)
-  // 修正：初始狀態應該只依賴 formData，因為 Update 模式下的舊圖將在 useEffect 中被忽略
   const [previewUrl, setPreviewUrl] = useState(
     formData.facadePhotoUrls?.[0] || ""
   );
@@ -101,6 +101,9 @@ const RestaurantForm = ({
 
   const [errors, setErrors] = useState(flatInitialErrors);
   const [globalErrorMsg, setGlobalErrorMsg] = useState("");
+
+  // (略：handleNameEnChange, handleNoChineseNameChange 邏輯不變)
+
   const handleNameEnChange = (e) => {
     const newNameEn = e.target.value; // 1. 更新 restaurantName.en
 
@@ -158,19 +161,42 @@ const RestaurantForm = ({
   };
 
   // ===========================================
+  // 🔥 關鍵新增: 接收裁剪後的圖片檔案和預覽 URL
+  // ===========================================
+  const handlePhotoCroppedAndReady = useCallback(
+    (croppedFile, newPreviewUrl) => {
+      // 1. 儲存裁剪好的檔案物件 (用於提交時上傳)
+      setSelectedFile(croppedFile);
+
+      // 2. 儲存 Blob URL (用於顯示預覽)
+      setPreviewUrl(newPreviewUrl);
+
+      // 3. 選了新檔案，清空 formData 中的 URL，直到上傳成功為止 (確保預覽更新)
+      //    (這一行邏輯已在子組件中處理，但為確保父組件狀態一致性，在此也執行一次)
+      handleChange({ target: { name: "facadePhotoUrls", value: [] } });
+    },
+    [handleChange]
+  );
+
+  // ===========================================
   // 圖片預覽邏輯 (最終修正版 - 嚴格遵守 Update 模式不顯示舊圖)
   // ===========================================
   useEffect(() => {
     // 檢查是否有選中的本地檔案 (優先級最高：本地檔案 > DB URL)
     if (selectedFile) {
       // 1. 為本地檔案創建一個可供瀏覽器顯示的 URL (Blob URL)
-      const newPreviewUrl = URL.createObjectURL(selectedFile);
-      setPreviewUrl(newPreviewUrl);
+      // 🚨 注意: 這裡的 newPreviewUrl 應該已經在 handlePhotoCroppedAndReady 中設置，
+      //      這裡只需要確保 cleanup 邏輯正確執行。
 
-      // 2. Cleanup 函式
-      return () => {
-        URL.revokeObjectURL(newPreviewUrl);
-      };
+      // 由於 selectedFile 是一個 Blob/File，我們需要確保我們正在清理它產生的 Blob URL。
+      // 由於 Blob URL 已經在 handlePhotoCroppedAndReady 中設置到 previewUrl，
+      // 這裡只需要確保 cleanup 函式正確執行。
+      if (previewUrl && previewUrl.startsWith("blob:")) {
+        return () => {
+          URL.revokeObjectURL(previewUrl);
+        };
+      }
+      return;
     }
 
     // 如果 selectedFile 為 null (沒有本地檔案)
@@ -183,53 +209,26 @@ const RestaurantForm = ({
       // 情況 B: 既沒有本地檔案，formData 中也沒有 URL (用戶已清空或初次創建)
       setPreviewUrl("");
     }
-  }, [selectedFile, formData.facadePhotoUrls]);
+  }, [selectedFile, formData.facadePhotoUrls, previewUrl]);
 
   // ---------------------------------------------
-  // 圖片處理邏輯 (保持不變)
+  // 圖片處理邏輯 (只保留父組件所需的邏輯)
   // ---------------------------------------------
-  const openFilePicker = () => {
-    if (!isUploading && !isSubmittingForm) {
-      fileInputRef.current?.click();
-    }
-  };
 
-  // handleFileChange: 處理檔案選擇 (保持不變)
-  const handleFileChange = (event) => {
-    const file = event.target.files[0];
+  // 🔥 移除 openFilePicker, handleFileChange
+  // 因為它們已移至子組件內部，負責觸發文件選擇和 Pop-up 開啟。
 
-    if (file) {
-      setSelectedFile(file);
-      // 選了新檔案，清空 formData 中的 URL，直到上傳成功為止 (確保預覽更新)
-      handleChange({ target: { name: "facadePhotoUrls", value: [] } });
-    } else {
-      // 取消選擇或清除時
-      setSelectedFile(null);
-
-      // 確保取消選擇時，如果 formData 中有舊圖，它仍會被保留並顯示。
-      // 但由於我們在 useEffect 中只依賴 formData.facadePhotoUrls，
-      // 如果我們在這裡不修改它，它會恢復到上次的狀態。
-      // 為了和 "移除" 操作的邏輯統一，讓它變成 [] 是最安全的方式，
-      // 因為用戶在 UI 上已經看到清空的結果，提交時則依靠 formData.facadePhotoUrls 來判斷是否清空。
-      // 這裡維持原來的邏輯：選了新檔案就清空，取消選擇就清空本地狀態，讓 useEffect 根據 formData 決定是否顯示舊圖。
-      // 🚨 修正：用戶按取消後，如果之前有圖片，應該讓它顯示回舊圖。
-      // 這裡我們不操作 formData.facadePhotoUrls，讓 useEffect 處理。
-    }
-  };
-
-  // handleRemovePhoto: 處理移除相片 (保持不變)
-  const handleRemovePhoto = () => {
-    // 清除本地檔案狀態 (觸發 useEffect 清理 Blob URL)
+  // handleRemovePhoto: 處理移除相片 (僅操作狀態，不操作 Ref)
+  const handleRemovePhoto = useCallback(() => {
+    // 1. 清除本地檔案狀態 (觸發 useEffect 清理 Blob URL)
     setSelectedFile(null);
 
-    // 清除檔案輸入框的值
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    // 2. 清除預覽 URL
+    setPreviewUrl("");
 
-    // 清空 formData 中的 URL (🚨 這是告訴父組件：用戶明確要刪除圖片，即使在 Update 模式下也是如此)
+    // 3. 清空 formData 中的 URL (這是告訴父組件：用戶明確要刪除圖片)
     handleChange({ target: { name: "facadePhotoUrls", value: [] } });
-  };
+  }, [handleChange]);
   // ---------------------------------------------
 
   // --- 地址/菜系選擇邏輯 (保持不變) ---
@@ -404,7 +403,7 @@ const RestaurantForm = ({
 
     try {
       if (selectedFile) {
-        // 情況 A: 用戶選了新檔案，開始上傳
+        // 情況 A: 用戶選了**裁剪好的 WEBP 檔案**，開始上傳
         if (!storage || !appId) {
           setModalMessage("Firebase Storage 未初始化，無法上傳圖片。", "error");
           setIsSubmittingForm(false);
@@ -416,9 +415,10 @@ const RestaurantForm = ({
         const restaurantId =
           selectedRestaurantData?.id || `new-restaurant-${Date.now()}`;
 
+        // 🚨 檔案名稱使用 selectedFile 的名稱，它應該已經是 WEBP 結尾
         const imageRef = ref(
           storage,
-          `public/restaurants/${restaurantId}/facade/${Date.now()}`
+          `public/restaurants/${restaurantId}/facade/${selectedFile.name}`
         );
 
         const snapshot = await uploadBytes(imageRef, selectedFile);
@@ -428,10 +428,13 @@ const RestaurantForm = ({
         if (previewUrl && previewUrl.startsWith("blob:")) {
           URL.revokeObjectURL(previewUrl);
         }
-        setSelectedFile(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
+        setSelectedFile(null); // 清除已上傳的檔案
+
+        // 🔥 移除 fileInputRef 的操作，因為它已經被移除了
+        // if (fileInputRef.current) {
+        //   fileInputRef.current.value = "";
+        // }
+
         setIsUploading(false);
       } else {
         // 情況 B: 沒有選新檔案
@@ -462,13 +465,14 @@ const RestaurantForm = ({
 
   return (
     <form onSubmit={localHandleSubmit} className="space-y-8 p-6 bg-white ">
-      <input
+      {/* 🔥 移除隱藏的 file input，它已移至子組件內部 */}
+      {/* <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
         accept="image/*"
-      />
+      /> */}
 
       {isUpdateForm && selectedRestaurantData && (
         <p className="text-lg font-semibold text-gray-800 mb-6 border-b pb-4">
@@ -504,9 +508,10 @@ const RestaurantForm = ({
         handleCuisineCategoryChange={handleCuisineCategoryChange}
         handleSubCuisineChange={handleSubCuisineChange}
         subCategoryOptions={currentSubcategoryOptions} // 修正: 使用當前計算出的選項
-        openFilePicker={openFilePicker}
+        // 🔥 移除 openFilePicker，現在由子組件內部處理
+        // openFilePicker={openFilePicker}
         previewUrl={previewUrl}
-        handleRemovePhoto={handleRemovePhoto}
+        handleRemovePhoto={handleRemovePhoto} // 🎯 保留，但它現在只會清除 formData 和本地狀態
         isUploading={isUploading}
         isSubmittingForm={isSubmittingForm}
         restaurantTypeOptions={restaurantTypeOptions}
@@ -514,6 +519,8 @@ const RestaurantForm = ({
         provinceOptions={provinceOptions}
         citiesByProvince={citiesByProvince}
         CategoryOptions={categoryOptions}
+        // 🔥 關鍵新增: 接收裁剪後檔案的回調函數
+        onPhotoCroppedAndReady={handlePhotoCroppedAndReady}
       />
 
       {/* =======================================

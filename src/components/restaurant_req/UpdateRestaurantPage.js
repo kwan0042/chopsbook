@@ -15,7 +15,7 @@ import {
   where,
   limit, // 引入 limit
   startAfter, // 引入 startAfter
-  orderBy, // 🚨 新增：引入 orderBy
+  orderBy, // 引入 orderBy
 } from "firebase/firestore";
 import Modal from "../Modal";
 import LoadingSpinner from "../LoadingSpinner";
@@ -177,7 +177,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
     const isZh = isChinese(queryText);
 
     let baseQuery;
-    let orderByField; // 🚨 修正：新增排序欄位變數
+    let orderByField; // 🚨 新增：設定排序欄位變數
     let start;
     let end;
 
@@ -185,31 +185,31 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
     if (isZh) {
       start = queryText;
       end = getEndPrefix(queryText);
-      orderByField = "restaurantName.zh-TW"; // 🚨 修正：設定排序欄位
+      orderByField = "restaurantName.zh-TW"; // 設定排序欄位
 
       baseQuery = query(
         restaurantsRef,
         where(orderByField, ">=", start),
         where(orderByField, "<", end),
-        orderBy(orderByField) // 🚨 修正：明確加上 orderBy (升序)
+        orderBy(orderByField) // 明確加上 orderBy (升序)
       );
     } else {
       start = queryText.toLowerCase();
       end = getEndPrefix(start);
-      orderByField = "name_lowercase_en"; // 🚨 修正：設定排序欄位
+      orderByField = "name_lowercase_en"; // 設定排序欄位
 
       baseQuery = query(
         restaurantsRef,
         where(orderByField, ">=", start),
         where(orderByField, "<", end),
-        orderBy(orderByField) // 🚨 修正：明確加上 orderBy (升序)
+        orderBy(orderByField) // 明確加上 orderBy (升序)
       );
     }
 
     // 2. 應用 startAfter 和 limit
     let finalQuery;
 
-    // 🚨 修正：簡化 startAfter 邏輯，直接使用 lastVisible（它是 DocumentSnapshot）
+    // 簡化 startAfter 邏輯，直接使用 lastVisible（它是 DocumentSnapshot）
     const startAfterDoc =
       isLoadMore && lastVisible ? [startAfter(lastVisible)] : [];
 
@@ -232,15 +232,6 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       }));
 
       // 取得下一頁的錨點 (第 11 筆文件)
-      const nextLastVisible =
-        fetchedDocs.length > PAGE_SIZE
-          ? fetchedDocs[PAGE_SIZE - 1] // 🚨 修正索引：第 11 個文件是索引 10，但因為我們 slice(0, PAGE_SIZE)，所以這裡是 PAGE_SIZE (也就是 10)
-          : null; // 如果不足 11 筆，則沒有下一頁了
-
-      // 🚨 注意：fetchedDocs.length > PAGE_SIZE 時，第 11 個文件的索引是 PAGE_SIZE (即 10)。
-      // 原始代碼中是 fetchedDocs[PAGE_SIZE]，這是正確的。
-      // 如果您的 LIST 是從 0 開始，第 11 個是索引 10。
-
       const actualNextLastVisible =
         fetchedDocs.length > PAGE_SIZE
           ? fetchedDocs[PAGE_SIZE] // 這是第 11 個文件 (索引為 10)
@@ -250,7 +241,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
       setFilteredSuggestions((prev) =>
         isLoadMore ? [...prev, ...newRestaurants] : newRestaurants
       );
-      setLastVisible(actualNextLastVisible); // 🚨 修正：使用正確的 nextLastVisible 變數
+      setLastVisible(actualNextLastVisible); // 使用正確的 nextLastVisible 變數
     } catch (error) {
       console.error("搜尋餐廳失敗:", error);
     } finally {
@@ -261,7 +252,7 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
   // 處理初始搜尋或搜尋字串變化的 useEffect
   useEffect(() => {
     // 只有當 finalSearchQuery 改變，或者從無到有時，才執行新的搜尋
-    // 🚨 修正：只有在非載入更多時，才進行 fetchSuggestions(false)
+    // 只有在非載入更多時，才進行 fetchSuggestions(false)
     if (db && appId && finalSearchQuery && !lastVisible) {
       fetchSuggestions(false);
     } else if (!finalSearchQuery) {
@@ -520,15 +511,21 @@ const UpdateRestaurantPage = ({ onBackToHome }) => {
         const v1 = formValue ?? null;
         const v2 = originalValue ?? null;
 
+        // 🔥 關鍵修正：facadePhotoUrls 處理
         if (field === "facadePhotoUrls") {
-          const newUrls = Array.isArray(v1) ? v1 : [];
+          const newUrls = Array.isArray(v1) ? v1 : []; // v1 是子組件 RestaurantForm 上傳成功後返回的新 URL 陣列 (通常只有一個)
 
+          // 只有當用戶**有**上傳新的圖片時才觸發變更
           if (newUrls.length > 0) {
-            const mergedUrls = [...originalUrls, ...newUrls];
-            changes[field] = { value: mergedUrls, status: "pending" };
+            // changes 中只提交新圖片的 URL 陣列
+            // 管理員審核頁面應利用這個 newUrls[0] 來替換舊圖片
+            changes[field] = { value: newUrls, status: "pending" };
+            // console.log("提交門面相片變更，新 URL:", newUrls[0]); // 可以保留這行進行除錯
           }
+          // 如果 newUrls 為空 (用戶沒有上傳新圖片)，則不產生變更，讓舊的 URL 保持不變。
           return;
         }
+        // 🔥 結束關鍵修正
 
         if (Array.isArray(v1) && Array.isArray(v2)) {
           if (

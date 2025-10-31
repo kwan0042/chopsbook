@@ -90,7 +90,9 @@ const RestaurantFormAdmin = ({
     setPreviewUrl(dbUrl);
   }, [selectedFile, formData.facadePhotoUrls]);
 
-  // --------------------------------------------- // 圖片處理邏輯 (現在只負責調用父組件的 props) // ---------------------------------------------
+  // ---------------------------------------------
+  // 圖片處理邏輯 (現在只負責調用父組件的 props)
+  // ---------------------------------------------
 
   const openFilePicker = () => {
     if (!isUploading && !isSubmitting) {
@@ -121,7 +123,27 @@ const RestaurantFormAdmin = ({
     } // 清空 formData 中的 URL (通知父組件要刪除)
 
     handleChange({ target: { name: "facadePhotoUrls", value: [] } });
-  }; // --------------------------------------------- // --- 地址/菜系/營業時間處理邏輯 (保持不變) ---
+  };
+
+  // 🔥 新增：處理裁剪器完成的回調
+  const handlePhotoCroppedAndReady = useCallback(
+    (croppedFile, newPreviewUrl) => {
+      // 1. 調用父組件的 onFileChange prop 傳遞新的裁剪檔案
+      if (onFileChange) {
+        onFileChange(croppedFile);
+      }
+
+      // 2. 更新本地預覽 URL，觸發圖片顯示
+      setPreviewUrl(newPreviewUrl);
+
+      // 3. 清空 formData 中的 URL，因為我們現在有一個準備上傳的本地檔案
+      handleChange({ target: { name: "facadePhotoUrls", value: [] } });
+    },
+    [onFileChange, handleChange]
+  );
+
+  // ---------------------------------------------
+  // --- 地址/菜系/營業時間處理邏輯 (保持不變) ---
   const handleProvinceChange = (e) => {
     const newProvince = e.target.value;
     handleChange({ target: { name: "province", value: newProvince } });
@@ -137,14 +159,19 @@ const RestaurantFormAdmin = ({
   const handleSubCuisineChange = (e) => {
     const newSubType = e.target.value;
     handleChange({ target: { name: "subCategory", value: newSubType } });
-  }; // ✅ 關鍵新增：處理英文名稱變更，同時更新小寫名稱
+  };
+
+  // ✅ 關鍵新增：處理英文名稱變更，同時更新小寫名稱
 
   const handleNameEnChange = (e) => {
-    const newNameEn = e.target.value; // 1. 更新 restaurantName.en
+    const newNameEn = e.target.value;
+    // 1. 更新 restaurantName.en
 
     handleChange({
       target: { name: "restaurantName.en", value: newNameEn },
-    }); // 2. 更新 name_lowercase_en //  如果 newNameEn 存在，則轉為小寫；否則設為空字串
+    });
+    // 2. 更新 name_lowercase_en
+    //  如果 newNameEn 存在，則轉為小寫；否則設為空字串
 
     const newNameLowercaseEn = newNameEn ? newNameEn.toLowerCase() : "";
     handleChange({
@@ -177,7 +204,8 @@ const RestaurantFormAdmin = ({
       // 確保我們從當前的 formData 獲取 businessHours 的值
       const currentBusinessHours = Array.isArray(formData.businessHours)
         ? [...formData.businessHours]
-        : []; // 確保陣列有足夠的長度
+        : [];
+      // 確保陣列有足夠的長度
 
       while (currentBusinessHours.length <= index) {
         currentBusinessHours.push({
@@ -186,7 +214,8 @@ const RestaurantFormAdmin = ({
           startTime: "",
           endTime: "",
         });
-      } // 創建一個新的 businessHours 陣列，並更新指定的 index
+      }
+      // 創建一個新的 businessHours 陣列，並更新指定的 index
 
       const newBusinessHours = currentBusinessHours.map((item, i) => {
         if (i === index) {
@@ -194,14 +223,19 @@ const RestaurantFormAdmin = ({
           return { ...item, [field]: value };
         }
         return item;
-      }); // 僅調用一次 handleChange，傳入新的陣列 // 雖然 handleChange 來自外部，但我們假設它會用新的陣列引用來觸發重新渲染
+      });
+      // 僅調用一次 handleChange，傳入新的陣列
+      // 雖然 handleChange 來自外部，但我們假設它會用新的陣列引用來觸發重新渲染
 
       handleChange({
         target: { name: "businessHours", value: newBusinessHours },
       });
     },
     [formData.businessHours, handleChange]
-  ); // 依賴於 formData.businessHours 和 handleChange // --- 處理邏輯結束 ---
+  );
+  // 依賴於 formData.businessHours 和 handleChange
+  // --- 處理邏輯結束 ---
+
   /**
    * 處理提交 - 🚨 移除驗證邏輯，直接調用父組件的 handleSubmit
    */
@@ -260,25 +294,26 @@ const RestaurantFormAdmin = ({
         inputRefs={inputRefs}
         formData={formData}
         handleChange={handleChange}
-        errors={initialErrors} // ✅ 關鍵修改 6: 直接傳遞 initialErrors
-        handleCheckboxChange={handleCheckboxChange} // 傳遞給多選 (e.g. restaurantType)
+        errors={initialErrors}
+        handleCheckboxChange={handleCheckboxChange}
         handleProvinceChange={handleProvinceChange}
         handleCuisineCategoryChange={handleCuisineCategoryChange}
         handleSubCuisineChange={handleSubCuisineChange}
         handleNameEnChange={handleNameEnChange}
-        // 🎯 關鍵修改 7: 將處理 noChineseName 的函數替換為專門的 Toggle 函數
         handleNoChineseNameChange={handleNoChineseNameToggle}
         subCategoryOptions={currentSubcategoryOptions}
         openFilePicker={openFilePicker}
         previewUrl={previewUrl}
         handleRemovePhoto={localHandleRemovePhoto}
         isUploading={isUploading}
-        isSubmittingForm={isSubmitting} // 🚨 使用傳入的 isSubmitting
+        isSubmittingForm={isSubmitting}
         restaurantTypeOptions={restaurantTypeOptions}
         seatingCapacityOptions={seatingCapacityOptions}
         provinceOptions={provinceOptions}
         citiesByProvince={citiesByProvince}
         CategoryOptions={categoryOptions}
+        // 🔥 關鍵新增：將 handlePhotoCroppedAndReady 傳遞給子組件
+        onPhotoCroppedAndReady={handlePhotoCroppedAndReady}
       />{" "}
       {/* =======================================
      Section 2: 營業、服務與付款 

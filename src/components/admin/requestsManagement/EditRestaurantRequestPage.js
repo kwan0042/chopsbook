@@ -8,8 +8,10 @@ import {
   getDoc,
   updateDoc,
   writeBatch,
-  serverTimestamp
+  serverTimestamp,
 } from "firebase/firestore";
+// 🔥 修正：導入 Storage 相關功能
+import { ref, deleteObject } from "firebase/storage";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useRouter, useParams } from "next/navigation";
 import Modal from "@/components/Modal";
@@ -67,7 +69,8 @@ const restaurantSections = {
  * 專門處理 requestType === "update" 的請求。
  */
 const EditRestaurantRequestPage = ({ requestId }) => {
-  const { db, appId, setModalMessage, formatDateTime, currentUser } =
+  // 🔥 變更：從 AuthContext 導入 storage
+  const { db, appId, setModalMessage, formatDateTime, currentUser, storage } =
     useContext(AuthContext);
   const router = useRouter();
 
@@ -317,6 +320,33 @@ const EditRestaurantRequestPage = ({ requestId }) => {
         requestId
       );
 
+      // 🔥 門面相片批准專屬邏輯：刪除舊 Storage 圖片
+      if (field === "facadePhotoUrls" && originalRestaurantData && storage) {
+        const oldPhotoUrls = originalRestaurantData.facadePhotoUrls;
+        // 假設只允許一張門面照，取第一個 URL
+        const urlToDelete = oldPhotoUrls?.[0];
+
+        if (urlToDelete) {
+          console.log(
+            "批准 facadePhotoUrls: 嘗試刪除舊 Storage 圖片:",
+            urlToDelete
+          );
+          try {
+            // 使用 SDK 內建的 ref(storage, url) 解析下載 URL
+            const oldImageRef = ref(storage, urlToDelete);
+            await deleteObject(oldImageRef);
+            console.log("舊 Storage 圖片刪除成功。");
+          } catch (deleteError) {
+            // 刪除失敗不阻止批准狀態寫入，但發出警告
+            console.error(
+              "刪除舊 Storage 圖片時發生錯誤 (可能檔案已不存在或權限問題):",
+              deleteError.message
+            );
+          }
+        }
+      }
+      // 🔥 結束門面相片批准專屬邏輯
+
       const approvedData = {
         status: "approved",
         approvedBy: currentUser.uid,
@@ -366,28 +396,59 @@ const EditRestaurantRequestPage = ({ requestId }) => {
         requestId
       );
 
-      // 🚨 寫入否決狀態
-      await updateDoc(requestDocRef, {
+      const updates = {
         [`changes.${field}.status`]: "rejected",
         [`changes.${field}.approvedBy`]: null, // 清除批准人資訊 (如果存在)
         [`changes.${field}.approvedAt`]: null, // 清除批准時間 (如果存在)
-      });
+      };
+
+      // 🔥 門面相片否決專屬邏輯：刪除新 Storage 圖片並將值設為 []
+      if (field === "facadePhotoUrls" && storage) {
+        const photoUrls = requestData.changes.facadePhotoUrls?.value;
+        // 假設只允許一張門面照，取第一個 URL
+        const urlToDelete = photoUrls?.[0];
+
+        if (urlToDelete) {
+          console.log(
+            "否決 facadePhotoUrls: 嘗試刪除新 Storage 圖片:",
+            urlToDelete
+          );
+          try {
+            // 使用 SDK 內建的 ref(storage, url) 解析下載 URL
+            const imageRef = ref(storage, urlToDelete);
+            await deleteObject(imageRef);
+            console.log("新 Storage 圖片刪除成功。");
+          } catch (deleteError) {
+            // 刪除失敗不阻止否決狀態寫入，但發出警告
+            console.error(
+              "刪除新 Storage 圖片時發生錯誤 (可能檔案已不存在或權限問題):",
+              deleteError.message
+            );
+          }
+        }
+        // 🚨 根據需求，否決後將值設為 []，這樣在儲存時 facadePhotoUrls 會被清空 (保留原餐廳的圖片)
+        updates[`changes.${field}.value`] = [];
+      }
+      // 🔥 結束門面相片否決專屬邏輯
+
+      // 🚨 寫入否決狀態 (包含可能的 value 變更)
+      await updateDoc(requestDocRef, updates);
 
       // *** 關鍵變動：手動更新 requestData 狀態，因為沒有 onSnapshot ***
-      setRequestData((prevData) => ({
-        ...prevData,
-        changes: {
-          ...prevData.changes,
-          [field]: {
-            ...prevData.changes[field],
+      setRequestData((prevData) => {
+        const newChanges = { ...prevData.changes };
+        if (newChanges[field]) {
+          newChanges[field] = {
+            ...newChanges[field],
             status: "rejected",
             approvedBy: null,
             approvedAt: null,
-            // 必須保留 value 欄位
-            value: prevData.changes[field].value,
-          },
-        },
-      }));
+            // 如果是 facadePhotoUrls，value 將會是 []，否則保留原值
+            value: field === "facadePhotoUrls" ? [] : newChanges[field].value,
+          };
+        }
+        return { ...prevData, changes: newChanges };
+      });
       // *** 結束關鍵變動 ***
 
       // 🚨 新增日誌：單一否決成功

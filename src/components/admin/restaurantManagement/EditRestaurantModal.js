@@ -18,7 +18,8 @@ import { AuthContext } from "@/lib/auth-context"; // <-- 確保路徑正確
 
 // 🎯 導入 Firebase 相關功能
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+// 🔥 關鍵修改：導入 deleteObject 函式
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"; 
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 // -------------------------------------------------------------
@@ -48,11 +49,6 @@ const EditRestaurantModal = ({
   const isModified = useMemo(() => {
     if (!formData || !initialData) return false;
 
-    // 簡單的 JSON 字符串比較 (淺層檢查，但對於 Admin 表單通常足夠)
-    // 這裡需要排除 updatedAt, createdAt, id 等字段，以獲得更準確的比較，
-    // 但如果您的 initialData 和 formData 結構相同且包含這些不影響提交的字段，
-    // 則簡單比較會更嚴格 (任何時間戳變動都會觸發修改)
-
     // 排除 updatedAt, createdAt, id, submittedBy 進行比較
     const cleanFormData = { ...formData };
     delete cleanFormData.updatedAt;
@@ -79,7 +75,6 @@ const EditRestaurantModal = ({
     ({ target: { name, value, type, checked }, isSpecial = false }) => {
       // 🚨 關鍵修改 3: 移除錯誤狀態清除邏輯
       // 保持錯誤顯示，直到用戶再次提交或關閉 Modal
-      // if (errors) { setErrors({}); }
 
       if (isSpecial) {
         setFormData((prev) => ({ ...prev, [name]: value }));
@@ -178,6 +173,9 @@ const EditRestaurantModal = ({
     // 獲取現有的 URL 列表 (可能為空)
     let finalPhotoUrls = finalFormData.facadePhotoUrls || [];
 
+    // 🔥 新增：在開始上傳前，獲取舊的圖片 URL 以便成功上傳後刪除
+    const oldPhotoUrl = initialData.facadePhotoUrls?.[0]; // 假設只允許一張門面照
+
     try {
       // ----------------------------------------------------
       // Step 1: 構建 Firestore Document Reference
@@ -248,6 +246,31 @@ const EditRestaurantModal = ({
 
         // 🎯 由於是編輯，我們通常替換門面照片 (假設只允許一張)
         finalPhotoUrls = [newPhotoUrl];
+        
+        // ----------------------------------------------------
+        // 🔥 Step 2c: 刪除舊的圖片檔案 (如果存在)
+        // ----------------------------------------------------
+        if (oldPhotoUrl && storage) {
+          try {
+            // 嘗試從 URL 提取 Storage 路徑
+            // URL 格式: https://firebasestorage.googleapis.com/v0/b/<bucket>/o/<path>?alt=media...
+            const pathPrefix = `https://firebasestorage.googleapis.com/v0/b/${storage.app.options.storageBucket}/o/`;
+            if (oldPhotoUrl.startsWith(pathPrefix)) {
+              let storagePath = oldPhotoUrl.substring(pathPrefix.length);
+              storagePath = storagePath.split('?')[0]; // 移除查詢參數
+              storagePath = decodeURIComponent(storagePath); // 解碼 (e.g. %2F -> /)
+
+              const oldImageRef = ref(storage, storagePath);
+              await deleteObject(oldImageRef);
+              console.log("舊圖片已成功從 Storage 刪除:", storagePath);
+            } else {
+              console.warn("無法解析舊圖片 URL 的儲存路徑，跳過刪除:", oldPhotoUrl);
+            }
+          } catch (deleteError) {
+            // 記錄錯誤，但繼續執行，因為新圖已上傳，不應阻擋 Firestore 更新
+            console.error("刪除舊圖片時發生錯誤 (可能檔案不存在或權限問題):", deleteError.message);
+          }
+        }
 
         // 清理本地狀態
         setIsUploading(false);
