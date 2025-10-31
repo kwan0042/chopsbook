@@ -15,7 +15,7 @@ export default function PersonalReviewsPage() {
   const router = useRouter();
 
   const handleBackToPersonal = useCallback(() => {
-    router.push("/");
+    router.back();
   }, [router]);
 
   // 檢查認證狀態並重定向

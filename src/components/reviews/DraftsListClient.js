@@ -15,7 +15,7 @@ import {
 import LoadingSpinner from "../LoadingSpinner";
 
 const DraftsListClient = ({ drafts: initialDrafts }) => {
-  const { currentUser, db, appId } = useContext(AuthContext);
+  const { currentUser, db, appId, formatDateTime } = useContext(AuthContext);
   const [drafts, setDrafts] = useState(initialDrafts);
   const [deletingId, setDeletingId] = useState(null);
 
@@ -69,34 +69,43 @@ const DraftsListClient = ({ drafts: initialDrafts }) => {
         {drafts.map((draft) => (
           <div
             key={draft.id}
-            className="group relative p-4 flex justify-between items-center bg-gray-50 border border-gray-200 rounded-lg shadow-sm hover:bg-gray-100 hover:shadow-md transition-all duration-200"
+            className="group relative p-4 md:flex justify-between items-center bg-gray-50 border border-gray-200 rounded-lg shadow-sm hover:bg-gray-100 hover:shadow-md transition-all duration-200"
           >
             {/* 左側：草稿資訊 */}
             <div className="flex-1 min-w-0 pr-4">
               <h3 className="text-lg font-semibold text-gray-800 truncate mb-1">
                 {draft.reviewTitle || "無標題食評"}
               </h3>
-              <div className="flex flex-col sm:flex-row sm:space-x-4 text-sm text-gray-600">
-                <p className="flex items-center truncate">
-                  <FontAwesomeIcon
-                    icon={faUtensils}
-                    className="mr-2 text-indigo-400"
-                  />
-                  <span className="font-medium text-gray-700">餐廳：</span>
-                  {draft.restaurantName || "未知餐廳"}
-                </p>
+              <p className="flex items-center truncate mb-1">
+                <FontAwesomeIcon
+                  icon={faUtensils}
+                  className="mr-2 text-indigo-400"
+                />
+                <span className="font-medium text-gray-700">餐廳：</span>
+                {draft.restaurantName?.["zh-TW"] ||
+                  draft.restaurantName?.en ||
+                  draft.id}
+              </p>
+              <div className="flex flex-col sm:flex-row sm:space-x-4 text-sm text-gray-600 mt-1 md:mt-0">
                 <p className="flex items-center text-xs text-gray-500 mt-1 sm:mt-0">
                   <FontAwesomeIcon
                     icon={faClock}
                     className="mr-2 text-gray-400"
                   />
-                  儲存時間：{new Date(draft.createdAt).toLocaleString()}
+                  儲存時間：{formatDateTime(draft.createdAt)}
+                </p>
+                <p className="flex items-center text-xs text-gray-500 mt-1 md:mt-0">
+                  <FontAwesomeIcon
+                    icon={faClock}
+                    className="mr-2 text-gray-400"
+                  />
+                  儲存時間：{formatDateTime(draft.expiresAt)}
                 </p>
               </div>
             </div>
 
             {/* 右側：操作按鈕 */}
-            <div className="flex space-x-2 flex-shrink-0 z-10">
+            <div className="flex space-x-2 flex-shrink-0 z-10 mt-4 sm:mt-0">
               <Link
                 href={`/user/${currentUser.uid}/review-draft/${draft.id}`}
                 className="flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors shadow-sm"

@@ -12,7 +12,7 @@ const ReviewRatingSection = ({
   errors,
 }) => {
   return (
-    <>
+    <div>
       <div>
         <label
           htmlFor="overallRating"
@@ -44,7 +44,7 @@ const ReviewRatingSection = ({
         )}
       </div>
       {showDetailedRatings && (
-        <div className="bg-gray-50 md:p-4 rounded-lg space-y-4">
+        <div className="bg-gray-50 p-2 md:p-4 rounded-lg space-y-4">
           <div className="flex items-center space-x-3">
             <h4 className="text-base font-bold text-gray-800">細項評分</h4>{" "}
             <span className="text-xs w-fit text-gray-800">
@@ -72,7 +72,7 @@ const ReviewRatingSection = ({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

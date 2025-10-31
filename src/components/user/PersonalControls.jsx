@@ -9,7 +9,7 @@ import { faPencilAlt, faCog, faHeart } from "@fortawesome/free-solid-svg-icons";
  */
 const PersonalControls = ({ userId }) => {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6 mb-4">
+    <div className="bg-white rounded-xl shadow-sm p-6 mb-4 hidden md:block">
       <h2 className="text-lg font-bold text-gray-800 mb-4">我的控制台</h2>
       <ul className="space-y-4 text-lg">
         <li>

@@ -46,7 +46,7 @@ const ReviewFormFields = ({
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="col-span-2">
+        <div className="md:col-span-2">
           <label
             htmlFor="selectedRestaurant"
             className="block text-gray-700 text-base font-bold mb-2"
@@ -246,7 +246,7 @@ const ReviewFormFields = ({
         >
           服務類型 <span className="text-red-500">*</span>
         </label>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 md:grid-cols-3 gap-4">
           {[
             {
               value: "dineIn",

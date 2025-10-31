@@ -22,10 +22,21 @@ export const formatDateTime = (date) => {
   if (!date) return "N/A";
   try {
     let d;
-    // 嘗試解析 Firestore Timestamp 對象
-    if (typeof date === "object" && date.seconds && date.nanoseconds) {
-      d = new Date(date.seconds * 1000 + date.nanoseconds / 1000000);
+    // 嘗試解析 Firestore Timestamp 對象 (標準或序列化後的格式)
+    if (typeof date === "object") {
+      // 1. 檢查標準屬性 (原生 Firestore Timestamp)
+      if (date.seconds && date.nanoseconds) {
+        d = new Date(date.seconds * 1000 + date.nanoseconds / 1000000);
+      } 
+      // 2. 檢查序列化後的屬性 (帶底線的 POJO) <-- 已添加
+      else if (date._seconds && date._nanoseconds) {
+        d = new Date(date._seconds * 1000 + date._nanoseconds / 1000000);
+      } else {
+        // 3. 回退到標準 Date 構造函數 (處理原生 Timestamp 實例的 valueOf 或其他物件/字串)
+        d = new Date(date);
+      }
     } else {
+      // 處理日期字串
       d = new Date(date);
     }
 
@@ -59,10 +70,21 @@ export const formatDate = (date) => {
   if (!date) return "N/A";
   try {
     let d;
-    // 嘗試解析 Firestore Timestamp 對象
-    if (typeof date === "object" && date.seconds && date.nanoseconds) {
-      d = new Date(date.seconds * 1000 + date.nanoseconds / 1000000);
+    // 嘗試解析 Firestore Timestamp 對象 (標準或序列化後的格式)
+    if (typeof date === "object") {
+      // 1. 檢查標準屬性 (原生 Firestore Timestamp)
+      if (date.seconds && date.nanoseconds) {
+        d = new Date(date.seconds * 1000 + date.nanoseconds / 1000000);
+      } 
+      // 2. 檢查序列化後的屬性 (帶底線的 POJO) <-- 已添加
+      else if (date._seconds && date._nanoseconds) {
+        d = new Date(date._seconds * 1000 + date._nanoseconds / 1000000);
+      } else {
+        // 3. 回退到標準 Date 構造函數
+        d = new Date(date);
+      }
     } else {
+      // 處理日期字串
       d = new Date(date);
     }
 

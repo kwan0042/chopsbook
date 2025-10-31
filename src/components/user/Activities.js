@@ -475,7 +475,7 @@ const Activities = ({ title, items, loading, noDataMessage, type }) => {
   const favoritesLayout = type === "favorites"; // 新增：用於收藏列表
 
   return (
-    <section className="bg-white p-6 rounded-lg shadow-sm min-w-0">
+    <section className="bg-white p-4  md:p-6 rounded-lg shadow-sm min-w-0">
       <h2 className="text-lg font-bold text-gray-800 mb-4">{title}</h2>
       {items.length > 0 ? (
         <div

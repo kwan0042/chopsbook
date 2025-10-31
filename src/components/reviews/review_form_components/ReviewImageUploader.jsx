@@ -41,9 +41,14 @@ const ReviewImageUploader = ({
             <button
               type="button"
               onClick={() => handleRemoveImage(image.id)}
-              className="absolute top-1 right-1 p-1 text-gray-500 hover:text-gray-700 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-2 right-2 z-10 
+                         flex items-center justify-center 
+                         w-6 h-6 rounded-full bg-black/50 
+                         text-white hover:bg-black/75 
+                          group-hover:opacity-100 
+                         transition-opacity"
             >
-              <FontAwesomeIcon icon={faXmark} />
+              <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
             </button>
             <input
               type="text"

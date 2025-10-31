@@ -559,6 +559,7 @@ const ReviewForm = ({
 
       const newDraftId = await saveReviewDraft(draftData, draftId);
       router.replace(`/user/${currentUser.uid}/review-draft`);
+      return;
     } catch (error) {
       console.error("儲存草稿失敗:", error);
     } finally {
@@ -699,7 +700,7 @@ const ReviewForm = ({
   const handleConfirmSave = async () => {
     setShowConfirmModal(false);
     await handleSaveDraft();
-    onBack();
+    
   };
 
   const handleCancelSave = () => {
@@ -723,12 +724,12 @@ const ReviewForm = ({
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-4xl relative">
+    <div className="bg-white rounded-xl shadow-lg p-4 md:p-8 w-full max-w-4xl relative">
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full text-center">
             <p className="text-lg font-semibold mb-4 text-gray-800">
-              你有未儲存的草稿，是否要儲存？
+              你有未儲存的草稿，是否要儲存？ <br />(圖片將不會儲存)
             </p>
             <div className="flex justify-center space-x-4">
               <button
@@ -747,19 +748,20 @@ const ReviewForm = ({
           </div>
         </div>
       )}
-      <div className=" flex justify-start">
-      <button
-        onClick={handleBackButtonClick}
-        className=" text-gray-500 hover:text-gray-700 transition-colors flex items-center"
-        aria-label="返回"
-      >
-        <FontAwesomeIcon icon={faArrowLeft} className="mr-2" />
-        返回
-      </button>
+      <div className=" flex justify-start mb-4 md:mb-8">
+        <button
+          onClick={handleBackButtonClick}
+          className=" text-gray-500 hover:text-gray-700 transition-colors flex md:w-[10%] w-[20%] items-center"
+          aria-label="返回"
+        >
+          <FontAwesomeIcon icon={faArrowLeft} className="mr-2" />
+          返回
+        </button>
 
-      <h2 className="mx-auto md:text-2xl text-xl font-extrabold text-gray-900 md:mb-8 text-center">
-        撰寫食評
-      </h2>
+        <h2 className="mx-auto md:text-2xl text-xl font-extrabold text-gray-900   text-center w-[60%] md:w-[80%]">
+          撰寫食評
+        </h2>
+        <div className="w-[20%] md:w-[10%]"></div>
       </div>
       {showUpdatePrompt ? (
         <div className="text-center p-8">

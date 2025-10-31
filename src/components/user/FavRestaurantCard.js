@@ -16,6 +16,7 @@ import {
   IconRosetteNumber3,
   IconRosetteNumber4,
   IconRosetteNumber5,
+  IconMinus, // <-- 新增導入 IconMinus
 } from "@tabler/icons-react";
 
 /**
@@ -68,24 +69,34 @@ const FavRestaurantCard = ({ restaurant, onRemove, index, isMyProfile }) => {
   };
 
   const renderRankBadge = (rank) => {
+    // 排名從 1 到 5
     const rankIcons = [
-      IconRosetteNumber1,
-      IconRosetteNumber2,
-      IconRosetteNumber3,
-      IconRosetteNumber4,
-      IconRosetteNumber5,
+      IconRosetteNumber1, // 0
+      IconRosetteNumber2, // 1
+      IconRosetteNumber3, // 2
+      IconRosetteNumber4, // 3
+      IconRosetteNumber5, // 4
+      IconMinus, // 5 及以上使用 IconMinus
     ];
-    const IconComponent = rankIcons[rank];
+
+    // 如果 rank >= 5，則使用 IconMinus (index 5)
+    const iconIndex = rank < 5 ? rank : 5;
+    const IconComponent = rankIcons[iconIndex];
+
     let backgroundColor = "";
 
     if (rank === 0) {
       backgroundColor = "bg-yellow-500";
     } else if (rank === 1) {
-      backgroundColor = "bg-slate-400";
+      backgroundColor = "bg-slate-500";
     } else if (rank === 2) {
       backgroundColor = "bg-amber-600";
-    } else {
+    } else if (rank < 5) {
+      // rank 3 和 4
       backgroundColor = "bg-blue-500";
+    } else {
+      // rank 5 及以上 (使用 IconMinus)
+      backgroundColor = "bg-gray-200"; // <-- 灰色背景
     }
 
     if (IconComponent) {
@@ -114,7 +125,8 @@ const FavRestaurantCard = ({ restaurant, onRemove, index, isMyProfile }) => {
     return restaurant.category || "N/A";
   };
 
-  const showRankBadge = index < 5;
+  // 調整邏輯：只要有 index (從 0 開始)，就顯示 Rank Badge
+  const showRankBadge = typeof index === "number" && index >= 0;
 
   return (
     <div className="relative w-full my-2 group">
@@ -122,10 +134,10 @@ const FavRestaurantCard = ({ restaurant, onRemove, index, isMyProfile }) => {
         <div className="bg-white shadow-lg overflow-hidden transform transition duration-300 ease-in-out cursor-pointer h-fit flex flex-row items-stretch rounded-xl border border-gray-200 hover:shadow-md">
           {showRankBadge && renderRankBadge(index)}
 
-          <div className="p-3 flex-grow">
+          <div className="p-2 md:p-3 flex-grow">
             <div className="flex-grow text-left py-1">
-              <div className="flex items-center mb-1">
-                <h3 className="font-bold text-gray-900 leading-tight text-wrap text-base mr-2">
+              <div className="mb-1">
+                <h3 className="font-bold text-gray-900 leading-tight text-wrap text-base mb-2">
                   {restaurant.restaurantName?.["zh-TW"] ||
                     restaurant.restaurantName?.en ||
                     `未知餐廳`}
@@ -142,10 +154,6 @@ const FavRestaurantCard = ({ restaurant, onRemove, index, isMyProfile }) => {
             <p className="text-gray-700 mb-1 text-wrap text-sm">
               {restaurant.city || "N/A"} | {getCuisineDisplayName(restaurant)} |
               人均: ${restaurant.avgSpending || "N/A"}
-            </p>
-
-            <p className="text-gray-700 mb-1 text-wrap text-sm">
-              電話: {restaurant.phone || "N/A"}
             </p>
           </div>
         </div>

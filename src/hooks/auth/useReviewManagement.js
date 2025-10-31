@@ -175,9 +175,10 @@ export const useReviewManagement = (
           ...draftData,
           userId: currentUser.uid,
           createdAt: serverTimestamp(),
+          // 🚨 修正: 移除 .toISOString()，確保寫入的是 JavaScript Date 物件 (Timestamp)，以便 TTL 政策生效
           expiresAt: new Date(
-            Date.now() + 3 * 24 * 60 * 60 * 1000
-          ).toISOString(), // Expires in 3 days
+            Date.now() + 3 * 24 * 60 * 60 * 1000 // 計算 3 天後的毫秒數
+          ), // Expires in 3 days
         };
 
         let draftId;

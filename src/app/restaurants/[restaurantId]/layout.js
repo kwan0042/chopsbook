@@ -460,6 +460,13 @@ export default function RestaurantDetailLayout({ children }) {
                 width: "100%", // full screen width on mobile
               },
             }}
+            BackdropProps={{
+              sx: {
+                  
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)', 
+                  
+              }
+          }}
           >
             <Box
               role="presentation"
@@ -695,7 +702,7 @@ export default function RestaurantDetailLayout({ children }) {
                   地圖
                 </Link>
               </div>
-              <div className="p-6">
+              <div className="p-4 md:p-6">
                 <div className="flex flex-col md:flex-row mt-4 gap-4">
                   <div className="flex-1">{children}</div>
 

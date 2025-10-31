@@ -88,17 +88,23 @@ const DraftsPage = ({ params }) => {
   }
 
   return (
-    <div className="flex flex-col items-center p-8 bg-white rounded-xl shadow-lg w-full relative">
-      <Link
-        href="/user/dashboard"
-        className="absolute top-4 left-4 text-gray-500 hover:text-gray-700 transition-colors flex items-center"
-      >
-        <FontAwesomeIcon icon={faArrowLeft} className="mr-2" />
-        返回個人頁面
-      </Link>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6 mt-8">
-        我的食評草稿
-      </h2>
+    <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-lg w-full relative">
+      <div className="flex w-full">
+        <Link
+          href={`/user/${userId}`}
+          className="md:w-[20%] text-gray-500 hover:text-gray-700 transition-colors flex items-center"
+        >
+          <FontAwesomeIcon icon={faArrowLeft} className="mr-2" />
+          返回個人頁面
+        </Link>
+        <h2
+          className="w-[80%] text-2xl font-bold text-gray-900 my-6 text-center
+      "
+        >
+          我的食評草稿
+        </h2>
+        <div className="md:w-[20%]"></div>
+      </div>
       {drafts.length === 0 ? (
         <p className="text-gray-600 text-center mt-4">
           你目前沒有任何草稿。

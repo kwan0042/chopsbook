@@ -31,7 +31,7 @@ const StarRating = ({ value, onValueChange }) => {
   return (
     <>
       <div
-        className="flex items-center px-2"
+        className="flex items-center md:px-2"
         onMouseLeave={handleMouseLeave}
       >
         {Array.from({ length: 5 }, (_, index) => {
@@ -47,7 +47,7 @@ const StarRating = ({ value, onValueChange }) => {
           return (
             <div
               key={index}
-              className="px-1 md:w-6 md:h-6 relative flex items-center justify-center cursor-pointer"
+              className="px-1 md:w-12 md:h-12 relative flex items-center justify-center cursor-pointer"
               // 滑鼠進入：設定懸停值為當前星星的評分 (1, 2, 3, 4, 或 5)
               onMouseEnter={() => setHoverValue(starValue)}
               // 點擊：呼叫包含取消邏輯的新處理函數

@@ -80,7 +80,7 @@ export default function UserReviewsPage() {
   }
 
   return (
-    <div className=" p-4 sm:p-6 lg:p-8">
+    <div className="">
       <h2 className="text-2xl font-bold mb-6 text-gray-800">所有食評</h2>
       {publishedReviews.length === 0 && reviewsCount === 0 ? (
         <div className="text-center text-gray-600 p-8 border-2 border-dashed border-gray-300 rounded-lg">
