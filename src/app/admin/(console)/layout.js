@@ -161,6 +161,20 @@ export default function AdminLayout({ children }) {
               </Link>
             </li>
             <li>
+              <Link href="/admin/admin_promotions">
+                <button
+                  // 🎯 按鈕修正：加入 whitespace-nowrap 確保文字橫向顯示且不換行
+                  className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 whitespace-nowrap ${
+                    pathname.startsWith("/admin/admin_restaurants")
+                      ? "bg-indigo-600 text-white shadow-md"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  推廣管理
+                </button>
+              </Link>
+            </li>
+            <li>
               <Link href="/admin/admin_requests">
                 <button
                   // 🎯 按鈕修正：加入 whitespace-nowrap 確保文字橫向顯示且不換行

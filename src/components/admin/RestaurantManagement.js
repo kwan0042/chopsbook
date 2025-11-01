@@ -624,7 +624,7 @@ const RestaurantManagement = () => {
                         disabled={
                           loading || showAddModal || !!editTargetId // 禁用所有編輯按鈕
                         }
-                        className={`py-1 px-1 md:px-3 rounded text-white font-semibold transition duration-150 ${
+                        className={`py-2 px-3 md:px-3 rounded text-white font-semibold transition duration-150 ${
                           isBeingEdited
                             ? "bg-blue-400 cursor-not-allowed"
                             : "bg-blue-600 hover:bg-blue-700"
@@ -641,7 +641,7 @@ const RestaurantManagement = () => {
                         onClick={() => handleDelete(item.id, restaurantName)}
                         disabled={loading || showAddModal || !!editTargetId}
                         className="
-                          ml-2 py-1 px-1 md:px-3 rounded bg-red-600 hover:bg-red-700 text-white font-semibold transition duration-150 disabled:opacity-50
+                          ml-2 py-2 px-3 md:px-3 rounded bg-red-600 hover:bg-red-700 text-white font-semibold transition duration-150 disabled:opacity-50
                         "
                       >
                         {/* 🎯 核心修改 9a：桌面版顯示文字，手機版隱藏 */}
